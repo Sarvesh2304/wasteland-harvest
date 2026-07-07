@@ -1,0 +1,134 @@
+# Wasteland Harvest
+
+A post-apocalyptic farming & survival RPG in the pixel-art style of Stardew Valley. The player
+rebuilds a settlement — farming, building, NPC relationships — while running combat expeditions
+into ruined cities for loot, story, and danger. Unlike Blood Fields: Empires (a sibling project,
+see "Shared Assets" below), this game uses Stardew's **actual** top-down projection: a plain
+axis-aligned grid, not a rotated isometric diamond.
+
+Full original design source: `Wasteland Harvest 3-Year Dev Roadmap.html` (kept in this repo for
+reference/history). **`ROADMAP.md` in this repo is the authoritative, living task list** — the
+HTML file is frozen; `ROADMAP.md` is what gets checked off.
+
+## Why no calendar
+
+The original roadmap was paced for a 3-year first-time solo developer (see the HTML's phase
+months). That pacing is intentionally discarded here — this project is built primarily by a
+Fable 5 agent, so phases are gated by **milestones**, not months. Work through `ROADMAP.md`
+phases in order (each has real dependencies on the last); a phase is "done" when its milestone
+line is objectively true (tests pass, systems work end-to-end, content exists), not when a date
+arrives.
+
+## Team model: who does what
+
+Same model as Blood Fields: Empires, carried over because it worked well there:
+- **Fable 5** (via the `Agent` tool with `model: "fable"`) is the primary hands-on builder:
+  GDScript, scene construction, art-direction calls, content writing (dialogue, lore notes,
+  quest text), PixelLab art-generation calls.
+- **Sonnet** (orchestrating session) reviews Fable 5's output independently before trusting it
+  (re-run tests yourself, re-check diffs — don't just relay Fable's own summary), runs
+  tests/builds, verifies milestones, handles git operations, and gates anything risky.
+- **Gate before acting, every session, no standing approval:** opening/driving the Godot **GUI
+  editor** itself, `git push`, and creating/modifying anything in `~/Projects/shared-assets`
+  (a second project, Blood Fields: Empires, already depends on it) all require explicit
+  confirmation from Sarvesh first, even if a similar action was approved earlier. Editing files
+  in this repo by hand (including `.tscn`/`.godot` project files as text) does not require
+  confirmation, and is preferred over launching the Godot GUI when it accomplishes the same
+  thing.
+- **Standing exception:** running Godot **headlessly** (`godot --headless ...`, e.g. to execute
+  a GDScript test suite or `--check-only` validate a scene) has standing approval for the rest
+  of this build — no need to ask each time. This does not extend to the GUI editor.
+- **PixelLab job concurrency:** learned from Blood Fields: Empires — PixelLab caps concurrent
+  generation jobs at 8 total, and one 8-direction `animate_character` call consumes all 8 at
+  once, so animation jobs for different NPCs/creatures cannot run in parallel with each other.
+  Plan serial-with-immediate-requeue. Also: don't trust a background agent's own "I'll wait for
+  the timer" self-report as evidence of progress — background self-wake sleeps have failed to
+  actually resume an agent more than once; check PixelLab status directly
+  (`list_characters`/`get_character` etc.) instead.
+
+## Engine & Technical Spec
+
+- **Godot 4.7** (installed at `~/Downloads/Godot.app` on this machine — same install used for
+  Blood Fields: Empires).
+- **Top-down 2D** (plain axis-aligned TileMap, NOT isometric/rotated) — Stardew's actual
+  projection: camera looks straight down, only characters/props get a bit of forced-perspective
+  height, floor tiles are flat squares. This was an explicit lesson from Blood Fields: Empires,
+  where a rotated-diamond isometric grid caused a real, hard-to-fix bug (piece sprites visually
+  overlapping neighboring tiles, breaking click hit-testing) — a plain top-down grid avoids that
+  class of problem by construction. GDScript (not C#).
+- **Tile size: TBD, decide in Phase 1** (the source roadmap explicitly lists this as an early
+  choice: 16×16 vs 32×32 px — don't presuppose it here, decide it as the first real task and
+  record the decision + reasoning in `ROADMAP.md` when made).
+- **Click/interact hit-testing:** even in a top-down (non-diamond) grid, don't let interaction
+  resolve on raw tile-geometry alone if a sprite (player, NPC, prop) can visually extend beyond
+  its own tile — resolve against actual visible sprite bounds first, matching the fix applied to
+  Blood Fields: Empires after a real bug there. Cheaper to build this in from the start than to
+  retrofit it.
+- Git from day one; commit every working session.
+
+## Art Pipeline — PixelLab-first
+
+Generate tiles, character/NPC sprites, and UI assets primarily via the **PixelLab MCP tools**
+available in this environment (`create_character`, `animate_character`, `create_topdown_tileset`,
+`create_ui_asset`, `create_font`, etc. — note `create_topdown_tileset` rather than
+`create_isometric_tile`, since this project's grid is top-down, not isometric), rather than
+hand-drawing in Aseprite from scratch. Aseprite is still the tool of choice for manual touch-ups
+and anything PixelLab output needs correcting.
+
+Palette: post-apocalyptic dusty ambers and faded greens (per the source roadmap) — refine into
+concrete hex values during Phase 1's art-style pass, alongside the tile-size decision.
+
+## Chess Engine
+
+N/A — this project has no chess engine. (Removing this section is intentional; it's a holdover
+reminder from the Blood Fields: Empires template this file was adapted from, listed here so it's
+obvious the omission is deliberate, not an oversight.)
+
+## Core Systems (see `ROADMAP.md` for the full phase-by-phase breakdown)
+
+- Farming loop: till → plant → water → grow → harvest → sell, with post-apoc themed crops
+  (Mutant Potato, Dustwheat, Ironroot, Sunbloom).
+- Day/night cycle, seasons (4, 28 in-game days each), weather.
+- NPC system: personality tags, daily schedules, affinity/relationship tracking, gift
+  preferences, branching dialogue.
+- Settlement building: placeable structures, fencing/perimeter, settler recruitment and
+  building assignment.
+- Expedition system: ruined-city zones, combat (melee + ranged), loot tables, roguelike death
+  penalty (lose expedition loot, respawn at settlement).
+- Economy: town store, player-run trading post, caravan traders, supply & demand pricing.
+- Story: main narrative arc + per-NPC personal questlines.
+- Co-op: 2–4 player expeditions (later phase, see `ROADMAP.md` Year 3).
+
+**Testing:** same convention as Blood Fields: Empires — custom lightweight GDScript test runner,
+no addons (not GUT). Runner must extend `SceneTree`/`MainLoop` so it's invocable headlessly, e.g.
+`godot --headless --path . --script res://tests/run_tests.gd`. Standing approval for headless
+Godot CLI use (see "Team model" above) specifically so this can be run for verification without
+asking each time.
+
+## Shared Assets (`~/Projects/shared-assets`, sibling repo)
+
+Already scaffolded and pushed to GitHub (https://github.com/Sarvesh2304/shared-assets) as part of
+Blood Fields: Empires — this project is the second consumer it was built for. Contains: `fonts/`,
+`gore-tile-styles/` (may be relevant here too, given zombie/combat content — check before
+assuming it's chess-specific), `particle-presets/`, `panel-textures/`. Anything faction/genre-
+agnostic and reusable across both games belongs there, not duplicated into `art/` here. Touching
+this repo requires confirmation first (see "Team model" above) since Blood Fields: Empires
+already depends on it.
+
+## Platform & Release
+
+PC first (Windows/Mac/Linux via Godot export), **Steam and itch.io** both (more ambitious than
+Blood Fields: Empires's itch.io-only target — per the source roadmap's explicit Steam page,
+trailer, and press-outreach plan). Co-op multiplayer (2–4 players) is in scope for Year 3, unlike
+Blood Fields: Empires. Console ports require separate certification — explicitly out of scope
+until 6+ months post-PC-launch, per the source roadmap.
+
+## Repo Conventions
+
+- Commit every working session, descriptive messages.
+- `ROADMAP.md` phase checkboxes get updated in the same commit as the work that completes them.
+- No secrets/credentials ever committed.
+- Before committing, check `project.godot` and any JSON data files for incidental
+  whitespace/float-precision reformatting from Godot's `--import` step or the editor being left
+  open — this happened repeatedly in Blood Fields: Empires and is pure noise, not real changes.
+  Exclude it from commits.

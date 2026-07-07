@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WASTELAND HARVEST — 3-Year Dev Roadmap</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700;900&display=swap');
+
+  :root {
+    --bg: #0f0f0a;
+    --surface: #161610;
+    --surface2: #1e1e14;
+    --amber: #c8963e;
+    --amber-dim: #7a5a20;
+    --green: #4a7c3f;
+    --green-bright: #7ab870;
+    --red: #8b3a2a;
+    --red-bright: #c45a40;
+    --dust: #8a7f6a;
+    --text: #ccc9b8;
+    --muted: #6b6658;
+    --border: #2a2a1e;
+    --y1: #c8963e;
+    --y2: #4a7c3f;
+    --y3: #6b4a8a;
+    --y3-bright: #a87ad0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--amber-dim);
+    padding: 40px 32px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(200,150,62,0.015) 3px,
+      rgba(200,150,62,0.015) 4px
+    );
+    pointer-events: none;
+  }
+  .header-eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  header h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  header h1 span { color: var(--amber); }
+  .header-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--dust);
+    max-width: 620px;
+    margin-top: 14px;
+    line-height: 1.7;
+  }
+  .header-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--dust);
+    border-radius: 2px;
+  }
+
+  /* NAV */
+  .year-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .year-nav a {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 14px 24px;
+    color: var(--muted);
+    border-right: 1px solid var(--border);
+    transition: color 0.2s, background 0.2s;
+  }
+  .year-nav a:hover { color: var(--text); background: var(--surface2); }
+  .year-nav a.y1:hover { color: var(--y1); }
+  .year-nav a.y2:hover { color: var(--green-bright); }
+  .year-nav a.y3:hover { color: var(--y3-bright); }
+
+  /* MAIN CONTENT */
+  main { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
+
+  /* YEAR SECTION */
+  .year-section { margin-bottom: 72px; }
+  .year-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+    position: relative;
+  }
+  .year-header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 80px;
+    height: 2px;
+  }
+  .y1-section .year-header::after { background: var(--y1); }
+  .y2-section .year-header::after { background: var(--green-bright); }
+  .y3-section .year-header::after { background: var(--y3-bright); }
+
+  .year-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1;
+    opacity: 0.12;
+    letter-spacing: -0.02em;
+    position: absolute;
+    right: 0;
+    bottom: 8px;
+  }
+  .y1-section .year-label { color: var(--y1); }
+  .y2-section .year-label { color: var(--green-bright); }
+  .y3-section .year-label { color: var(--y3-bright); }
+
+  .year-title-block h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1;
+  }
+  .y1-section h2 { color: var(--y1); }
+  .y2-section h2 { color: var(--green-bright); }
+  .y3-section h2 { color: var(--y3-bright); }
+
+  .year-title-block .year-months {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+  }
+  .year-goal {
+    font-size: 13px;
+    color: var(--dust);
+    font-style: italic;
+    margin-top: 6px;
+  }
+
+  /* PHASE BLOCKS */
+  .phase {
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .phase-months {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+  .phase-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text);
+  }
+  .phase-focus {
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .phase-body { padding: 20px; }
+
+  /* TASK ITEMS */
+  .task-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .task-list li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .task-list li::before {
+    content: '▸';
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .task-list li strong {
+    color: #e0dcc8;
+    font-weight: 600;
+  }
+  .task-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* MILESTONE CALLOUTS */
+  .milestone {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-left: 3px solid var(--amber-dim);
+    background: rgba(200,150,62,0.05);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--amber);
+    letter-spacing: 0.05em;
+  }
+  .milestone::before {
+    content: '◆ MILESTONE: ';
+    font-weight: bold;
+    opacity: 0.7;
+  }
+
+  /* GRID 2-COL */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  .mini-phase {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 14px 16px;
+  }
+  .mini-phase h4 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dust);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+
+  /* ENGINE CALLOUT */
+  .engine-box {
+    background: var(--surface2);
+    border: 1px solid var(--amber-dim);
+    border-radius: 3px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .engine-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .engine-box h3 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--amber);
+    margin-bottom: 6px;
+  }
+  .engine-box p { font-size: 13px; color: var(--dust); line-height: 1.6; }
+  .engine-box a { color: var(--amber); }
+
+  /* SUMMARY TABLE */
+  .summary-section { margin-top: 60px; }
+  .summary-section h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dust);
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  tr:hover td { background: var(--surface2); }
+  .sys-tag {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin: 2px 2px 2px 0;
+  }
+  .sys-core { background: rgba(200,150,62,0.15); color: var(--amber); border: 1px solid var(--amber-dim); }
+  .sys-content { background: rgba(74,124,63,0.15); color: var(--green-bright); border: 1px solid var(--green); }
+  .sys-story { background: rgba(107,74,138,0.15); color: var(--y3-bright); border: 1px solid var(--y3); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-eyebrow">// CLASSIFIED BUILD DOCUMENT — PROJECT CODENAME</div>
+  <h1>WASTELAND <span>HARVEST</span></h1>
+  <div class="header-sub">
+    A post-apocalyptic farming &amp; survival RPG inspired by Stardew Valley.<br>
+    Full 3-year development roadmap — from first line of code to launch-ready build.
+  </div>
+  <div class="header-tags">
+    <span class="tag">Godot 4</span>
+    <span class="tag">Pixel Art</span>
+    <span class="tag">Top-Down RPG</span>
+    <span class="tag">Post-Apocalyptic</span>
+    <span class="tag">Farming Sim</span>
+    <span class="tag">Expedition Combat</span>
+    <span class="tag">NPC Systems</span>
+    <span class="tag">Auto-Save</span>
+    <span class="tag">Co-Op Expeditions</span>
+  </div>
+</header>
+
+<!-- STICKY NAV -->
+<nav class="year-nav">
+  <a href="#y1" class="y1">Year 1 — Foundation</a>
+  <a href="#y2" class="y2">Year 2 — Content</a>
+  <a href="#y3" class="y3">Year 3 — Expansion & Launch</a>
+  <a href="#summary">System Map</a>
+</nav>
+
+<main>
+
+  <!-- ENGINE RECOMMENDATION -->
+  <div class="engine-box">
+    <div class="engine-icon">⚙</div>
+    <div>
+      <h3>Recommended Engine: Godot 4</h3>
+      <p>Free, open-source, and purpose-built for 2D pixel-art games. GDScript is Python-like and easy to learn.
+      Has built-in tilemaps, scene trees, lighting, and animation tools — ideal for a Stardew-style top-down RPG.
+      Start at <a href="#">godotengine.org</a>. Use Git (GitHub/GitLab) for version control from day one.</p>
+    </div>
+  </div>
+
+  <!-- ===================== YEAR 1 ===================== -->
+  <section class="year-section y1-section" id="y1">
+    <div class="year-header">
+      <div class="year-title-block">
+        <h2>Year 1 — Foundation &amp; Prototype</h2>
+        <div class="year-months">MONTHS 01 – 12</div>
+        <div class="year-goal">Goal: A playable vertical slice — one map, one farming loop, one NPC, auto-save working.</div>
+      </div>
+      <div class="year-label">01</div>
+    </div>
+
+    <!-- M1-2 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 01–02</div>
+        <div class="phase-title">Setup, Design &amp; World Building</div>
+        <div class="phase-focus">GDD + Engine</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Write your Game Design Document (GDD)</strong> — core loop, world lore (what caused the apocalypse?), player goals, win/lose conditions, tone and art direction.</li>
+          <li><strong>Define your map layout</strong> — sketch 3 starting settlement types (forest edge, riverside, open plains), town layout (mayor's house, store, water body), and ruined city concept.</li>
+          <li><strong>Set up Godot 4</strong> — install engine, create project structure, set up Git version control with GitHub. Commit every session.</li>
+          <li><strong>Establish your pixel art style</strong> — choose tile size (16×16 or 32×32 px), define colour palette (post-apoc dusty ambers, faded greens), and create your first test tiles.</li>
+          <li><strong>Install Aseprite</strong> (pixel art tool) and begin drawing basic tiles: soil, grass, ruin rubble, wood planks.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M3-4 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 03–04</div>
+        <div class="phase-title">Core Engine — Player, World &amp; Day/Night Cycle</div>
+        <div class="phase-focus">Engine Core</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Player character</strong> — 4-directional movement, walking animation (idle, walk, tool-use). Use Godot's CharacterBody2D.</li>
+          <li><strong>Tile-based world</strong> — implement Godot's TileMap node. Build a small test map (farmland + surrounding area). Add collision layers.</li>
+          <li><strong>Camera system</strong> — smooth follow camera that clamps to map boundaries. Add screen shake for future combat.</li>
+          <li><strong>Day/Night cycle</strong> — a global DayManager node tracks time (e.g., 1 in-game minute = 1 real second). Sky colour shifts from dawn → noon → dusk → night using a CanvasModulate node. Day counter displayed in HUD.</li>
+          <li><strong>Basic HUD</strong> — day number, in-game clock, energy bar. Post-apoc UI aesthetic (scavenged metal, cracked glass).</li>
+        </ul>
+        <div class="milestone">Day/night cycle fully functional. Player can walk around a test map and time passes visually.</div>
+      </div>
+    </div>
+
+    <!-- M5-6 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 05–06</div>
+        <div class="phase-title">Farming Core &amp; Inventory System</div>
+        <div class="phase-focus">Gameplay Loop</div>
+      </div>
+      <div class="phase-body">
+        <div class="two-col">
+          <div class="mini-phase">
+            <h4>Farming Mechanics</h4>
+            <ul class="task-list">
+              <li><strong>Till soil</strong> with a hoe (converts normal ground tile to farmable tile)</li>
+              <li><strong>Plant seeds</strong> (click to place seed item on tilled tile)</li>
+              <li><strong>Water crops</strong> daily or they die. Visual indicator if watered.</li>
+              <li><strong>Growth stages</strong> — 4–6 visual stages per crop. Crops auto-progress each morning. Post-apoc themed crops: Mutant Potato, Dustwheat, Ironroot, Sunbloom.</li>
+              <li><strong>Harvest</strong> — interact with mature crop to collect produce.</li>
+            </ul>
+          </div>
+          <div class="mini-phase">
+            <h4>Inventory &amp; Tools</h4>
+            <ul class="task-list">
+              <li><strong>Inventory grid</strong> — slot-based with item stacking. Hotbar for quick access.</li>
+              <li><strong>Tool system</strong> — Hoe, Watering Can, Axe, Pickaxe, Bag. Each has durability (upgradeable later).</li>
+              <li><strong>Energy system</strong> — each action costs energy. Pass out if energy hits zero (lose the rest of the day).</li>
+              <li><strong>Item data</strong> — define your first 20 items (seeds, crops, wood, stone, scrap metal, food).</li>
+            </ul>
+          </div>
+        </div>
+        <div class="milestone">Full farming loop functional: till → plant → water → grow → harvest → inventory.</div>
+      </div>
+    </div>
+
+    <!-- M7-8 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 07–08</div>
+        <div class="phase-title">Settlement Maps, Building &amp; Auto-Save</div>
+        <div class="phase-focus">World + Save System</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Settlement selection screen</strong> — at game start, player chooses from 3 starting maps. Each has a different starting layout, terrain, and small lore blurb. Maps differ in starting resources (one has water access, one has more ruin materials, one has better soil).</li>
+          <li><strong>Full farmland map</strong> — hand-crafted tile map for the player's home area. Includes: farm plots, derelict home structure, storage chest, a small perimeter fence gap (for player to close later).</li>
+          <li><strong>Town map rough draft</strong> — connected map with: mayor's fortified house, one trading store, 3–4 settler shacks, water body (river or lake) with dock, bulletin board.</li>
+          <li><strong>Basic building placement</strong> — player places a structure blueprint, spends resources, waits 1 in-game day. Implement as a simple grid-snap system.</li>
+          <li><strong>Auto-save at end of day</strong> — when the player goes to sleep (interact with bed), game saves all state: crops, inventory, day, world modifications. Show a brief "WORLD SAVED" notification. Use Godot's FileAccess + JSON serialisation.</li>
+        </ul>
+        <div class="milestone">Auto-save works. Player can quit and reload mid-playthrough with all state restored.</div>
+      </div>
+    </div>
+
+    <!-- M9-10 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 09–10</div>
+        <div class="phase-title">Basic NPCs, Town Economy &amp; Dialogue</div>
+        <div class="phase-focus">NPCs + Economy</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>NPC base class</strong> — NPCs have a name, sprite, position, and dialogue data. They wander within a defined zone. Use Godot's NavigationAgent2D for pathfinding.</li>
+          <li><strong>Dialogue system</strong> — press interact near an NPC to open a dialogue box. Text prints character by character. Basic branching (choose a response). Store dialogue in JSON files for easy editing.</li>
+          <li><strong>First NPCs</strong>: Mayor Harlan (quest-giver, gives objectives), Marta (store owner), Scout Kael (tells you about the ruined city).</li>
+          <li><strong>Town store</strong> — Marta sells seeds, basic tools, food. UI shows item name, description, price. Player buys with Scrap Coins (your currency).</li>
+          <li><strong>Shipping box</strong> — player places harvested crops in a shipping crate before sleeping. Next morning, Scrap Coins are added to wallet. Tracks sale history.</li>
+        </ul>
+        <div class="milestone">Player can farm, sell crops, earn currency, and buy seeds. Economy loop is closed.</div>
+      </div>
+    </div>
+
+    <!-- M11-12 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 11–12</div>
+        <div class="phase-title">First Playable Build &amp; Stabilisation</div>
+        <div class="phase-focus">Integration + QA</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Integrate all Year 1 systems</strong> — ensure farming, inventory, economy, NPCs, day/night, auto-save all work together without conflicts.</li>
+          <li><strong>Bug fixing sprint</strong> — play through 5 in-game days end to end. Fix crashes, edge cases, broken tile interactions.</li>
+          <li><strong>Internal playtesting</strong> — get 3–5 people to play it. Note what's confusing, what breaks, what feels fun. Prioritise fixes for Year 2.</li>
+          <li><strong>Art pass 1</strong> — replace placeholder tiles with proper pixel art. At least: ground tiles, farmland, player character, 3 NPCs, basic buildings.</li>
+          <li><strong>First demo build</strong> — export a Windows build. You now have a shareable prototype.</li>
+        </ul>
+        <div class="milestone">… END OF YEAR 1: Vertical slice demo complete. Full farming loop, one town, 3 NPCs, auto-save, day/night cycle working.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===================== YEAR 2 ===================== -->
+  <section class="year-section y2-section" id="y2">
+    <div class="year-header">
+      <div class="year-title-block">
+        <h2>Year 2 — Systems &amp; Content Build-Out</h2>
+        <div class="year-months">MONTHS 13 – 24</div>
+        <div class="year-goal">Goal: All major game systems implemented. Expedition combat, full NPC personalities, building/settlement, seasons.</div>
+      </div>
+      <div class="year-label">02</div>
+    </div>
+
+    <!-- M13-14 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 13–14</div>
+        <div class="phase-title">Advanced NPC System — Personalities, Schedules &amp; Relationships</div>
+        <div class="phase-focus">NPC Depth</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>NPC personality system</strong> — each NPC gets a personality tag that shapes their dialogue and behaviour: Paranoid Survivor, Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger, Pragmatic Trader.</li>
+          <li><strong>Daily schedules</strong> — each NPC follows a schedule: wakes up, does tasks (tending garden, working in store, walking to water), eats, sleeps. Location changes by time of day. Feels like a living town.</li>
+          <li><strong>Relationship/affinity system</strong> — each NPC has a 0–10 affinity with the player. Increases by: talking daily, gifting preferred items, completing quests. Decreases by: gifting disliked items, ignoring them for many days. Affinity gates new dialogue and story events.</li>
+          <li><strong>Gift preference database</strong> — each NPC has liked, loved, neutral, and hated items. "Scout Kael loves scavenged ammo. Marta loves seeds. Mayor Harlan loves Ironroot stew."</li>
+          <li><strong>Context-sensitive dialogue</strong> — NPCs comment on the weather, time of day, the player's affinity level, recent world events. Stored in expandable JSON trees.</li>
+        </ul>
+        <div class="milestone">Town feels alive. NPCs move around, have schedules, react to you based on your relationship with them.</div>
+      </div>
+    </div>
+
+    <!-- M15-16 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 15–16</div>
+        <div class="phase-title">Building, Settlement Expansion &amp; Fencing System</div>
+        <div class="phase-focus">Construction</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Building type library</strong> — implement 12+ buildable structures: Shelter Cabin, Storage Barn, Workshop, Clinic, Trading Post, Watchtower, Greenhouse, Compost Pit, Rain Collector, Solar Panel, Antenna Tower, Community Kitchen.</li>
+          <li><strong>Building grid system</strong> — snap-to-grid placement with visual preview (green = valid, red = blocked). Resource cost displayed before placing. Construction time (1–3 days depending on building size).</li>
+          <li><strong>Fencing &amp; perimeter system</strong> — player can place fence segments, wooden walls, reinforced gates around the entire settlement boundary. Different materials: wood fence, chain-link, concrete wall. Each has different durability (relevant for future raid events).</li>
+          <li><strong>Settler system</strong> — every few in-game weeks, a new Survivor NPC appears at the settlement edge asking to join. Player can accept or reject. Accepted settlers move in, add to the town population, and unlock new dialogue/economy options.</li>
+          <li><strong>NPC–building assignment</strong> — assign a settler to a building (e.g., assign Medic Petra to the Clinic). That building then produces a passive benefit (healing, goods) or becomes a functioning in-game shop.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M17-18 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 17–18</div>
+        <div class="phase-title">Expedition System — Ruined City &amp; Combat</div>
+        <div class="phase-focus">Combat + Exploration</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Ruined city map(s)</strong> — build 2–3 distinct ruined city zones: Downtown Ruins (tall rubble, shops), Industrial Quarter (factories, vehicles), Residential Blocks (houses, gardens). Hand-crafted tile maps with hidden areas and loot spawns.</li>
+          <li><strong>Solo expedition mode</strong> — player packs a backpack (limited expedition inventory), travels to a city zone. Return happens automatically at a set time (or sooner if the player chooses). Stamina counts down during expeditions.</li>
+          <li><strong>Zombie &amp; monster AI</strong> — enemies patrol set routes. On detecting the player (line-of-sight cone), they chase. Combat states: Idle → Alerted → Chasing → Attacking. Use Godot's NavigationAgent2D for chase pathfinding.</li>
+          <li><strong>Combat system</strong> — basic melee (swing range, knockback, hit flash) and ranged (thrown objects, scavenged crossbow). Player has HP. Death during expedition = lose expedition loot, respawn at settlement with 10% HP. Roguelike penalty encourages preparation.</li>
+          <li><strong>Loot system</strong> — destructible crates, abandoned cars, and ruined buildings contain randomised loot from a weighted table: scrap, food, seeds, medicine, tools, rare blueprint scrolls, ammo. Blueprint scrolls unlock new buildings/recipes.</li>
+          <li><strong>Settlement is a safe zone</strong> — zombies cannot enter the settlement boundary. Player always has a guaranteed safe home base.</li>
+        </ul>
+        <div class="milestone">Expeditions feel risky and rewarding. Player must prepare before going, and brings back supplies that improve the town.</div>
+      </div>
+    </div>
+
+    <!-- M19-20 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 19–20</div>
+        <div class="phase-title">Business System, Crafting &amp; Advanced Economy</div>
+        <div class="phase-focus">Economy Depth</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Crafting system</strong> — Workshop lets player craft items: Scrap Tools, Preserved Food, Medicine, Ammunition, Building Materials. Recipes are unlocked via Blueprint Scrolls found on expeditions.</li>
+          <li><strong>Player-run businesses</strong> — once you build a Trading Post, players can set their own item sell prices and stock items from their inventory. Passing Caravan NPCs (new NPC type) visit weekly and buy from your post.</li>
+          <li><strong>Settler economy</strong> — settlers assigned to businesses generate passive income/goods daily. E.g., a settler assigned to the Greenhouse produces 2 random crops per day.</li>
+          <li><strong>Caravan traders</strong> — weekly visiting NPCs with a rotating stock of rare goods. Player can sell to caravans or buy from them. Caravans react to town affinity (higher affinity = better prices, rarer stock).</li>
+          <li><strong>Supply &amp; demand</strong> — item prices in Marta's store fluctuate based on what was recently sold. Selling 20 Dustwheat makes Dustwheat worth less. Adds strategic depth to farming choices.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M21-22 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 21–22</div>
+        <div class="phase-title">Seasons, Weather &amp; World Events</div>
+        <div class="phase-focus">World Systems</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>4-season cycle</strong> (28 in-game days each): Spring Rains, Scorched Summer, Amber Autumn, Grey Winter. Each season changes which crops grow, what's on sale, and the lighting palette.</li>
+          <li><strong>Seasonal crops</strong> — 4–6 unique crops per season. Winter has no outdoor farming (player must use Greenhouse). Encourages planning ahead and stockpiling.</li>
+          <li><strong>Weather system</strong> — daily weather rolls: clear, cloudy, rain (waters crops automatically), heavy storm (stay indoors), rare radstorm (don't go outside). Weather shown as a forecast icon in HUD.</li>
+          <li><strong>World events</strong> — scripted events that trigger on certain days: Bandit Scout spotted near perimeter (fencing matters here), Trader Caravan arrives with rare stock, Survivor arrives seeking shelter, Disease outbreak in town (Clinic needed), Mysterious Signal on the radio (story hook).</li>
+          <li><strong>Town festivals</strong> — seasonal community events (Harvest Day, Winter Gathering) that boost all NPC affinity and have mini-game activities (cooking contest, best crop competition).</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M23-24 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 23–24</div>
+        <div class="phase-title">Full Map Polish, Fishing &amp; Beta Testing</div>
+        <div class="phase-focus">Beta + QA</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>3 fully built starting maps</strong> — complete all 3 settlement starting options with full tile art, unique lore notes, and distinct early-game advantages.</li>
+          <li><strong>Water body + fishing</strong> — river/lake with animated water tiles. Cast a line (minigame: wait for bite, tap at right moment). Fish become a food and trade commodity. Some rare fish trigger NPC dialogue.</li>
+          <li><strong>Full town map</strong> — mayor's fortified house, Marta's store, Clinic, Watchtower, Community Board (shows town objectives), 6–10 settler homes, dock on water body, market stalls.</li>
+          <li><strong>Beta testing</strong> — release a closed beta to 10–20 testers. Collect feedback on balance, clarity, fun. Fix critical issues before Year 3.</li>
+          <li><strong>Performance audit</strong> — ensure game runs at 60fps on modest hardware. Optimise tile rendering, NPC pathfinding, save/load times.</li>
+        </ul>
+        <div class="milestone">… END OF YEAR 2: All core systems built. Full game loop from farming → expeditions → building → economy → seasons. Beta tested.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===================== YEAR 3 ===================== -->
+  <section class="year-section y3-section" id="y3">
+    <div class="year-header">
+      <div class="year-title-block">
+        <h2>Year 3 — Story, Expansion &amp; Launch</h2>
+        <div class="year-months">MONTHS 25 – 36</div>
+        <div class="year-goal">Goal: Full story, expanded world, co-op expeditions, full audio/visual polish, and public launch.</div>
+      </div>
+      <div class="year-label">03</div>
+    </div>
+
+    <!-- M25-26 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 25–26</div>
+        <div class="phase-title">Story, Narrative &amp; Quest System</div>
+        <div class="phase-focus">Story</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Main story arc</strong> — write a full narrative: the player arrived at this settlement for a reason. Over the course of in-game years, they uncover what caused the apocalypse (experiments? war? disease?), and face a decision: rebuild civilisation, or push further into the wasteland. No single ending — player choices matter.</li>
+          <li><strong>NPC personal questlines</strong> — each of the 8–10 main NPCs has a 3–5 quest chain that reveals their backstory and resolves a personal struggle. Mayor Harlan is hiding something about the pre-war town. Scout Kael is searching for a missing sibling in the ruins. Marta is hoarding medicine for a reason.</li>
+          <li><strong>Quest journal</strong> — clean UI showing active/completed quests with objectives, NPC portrait, and a lore snippet. Quests tracked per NPC and per main story chapter.</li>
+          <li><strong>Story moments &amp; cutscenes</strong> — key story beats trigger short pixel-art animated sequences (2–5 second scenes with panning tiles and text overlays). Used sparingly for high-impact moments.</li>
+          <li><strong>Lore layer</strong> — scatter handwritten notes, radio broadcasts, and worn posters throughout the world. These drip-feed the backstory without forcing it on the player.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M27-28 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 27–28</div>
+        <div class="phase-title">Expanded World — Nearby Cities &amp; New Zones</div>
+        <div class="phase-focus">World Expansion</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>World map screen</strong> — a stylised hand-drawn map showing your settlement, 3 ruined city zones, 2 new major city areas (locked until mid-game), and points of interest. Fast-travel unlocked by finding Radio Tower components.</li>
+          <li><strong>2 new major city zones</strong> — "The Vault District" (pre-war government buildings, high danger, high reward) and "The Boneyard Markets" (an NPC-run trading hub in the ruins, semi-safe, introduces new merchant NPCs).</li>
+          <li><strong>Underground/bunker areas</strong> — hidden entrances in existing maps lead to bunker levels. Darker, claustrophobic tile aesthetic, more difficult enemies, unique loot (pre-war technology, research notes).</li>
+          <li><strong>New monster variety</strong> — add 5 new enemy types: Mutant Hound, Armoured Zombie, Feral Scavenger (human NPC turned hostile), Acid Spitter, and a rare Boss Behemoth that guards a major loot cache.</li>
+          <li><strong>Rare / legendary items</strong> — 15 unique named items found only in endgame zones. E.g., "Harlan's Old Rifle," "Pre-War Medical Scanner," "The Settler's Almanac."</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M29-30 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 29–30</div>
+        <div class="phase-title">Team Expeditions &amp; Co-Op System</div>
+        <div class="phase-focus">Multiplayer</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Co-op expedition framework</strong> — 2–4 players can join an expedition together via online lobby (Godot's built-in networking or Steam multiplayer). The host's world is shared; guests join for the expedition only.</li>
+          <li><strong>Party formation UI</strong> — before leaving, party members can see each other's loadouts, agree on a destination zone, and set a return timer.</li>
+          <li><strong>Co-op combat scaling</strong> — enemy count and HP scale with party size. Larger parties get harder expeditions but proportionally more loot.</li>
+          <li><strong>Shared loot distribution</strong> — at expedition end, a loot split screen shows total haul. Each player picks items in a round-robin draft order. Prevents disputes.</li>
+          <li><strong>NPC companion expeditions</strong> — if co-op isn't possible solo, player can take 1–2 settler NPCs on expeditions instead. NPCs fight at reduced effectiveness but provide company and carry extra loot.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M31-32 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 31–32</div>
+        <div class="phase-title">Audio, Visual Polish &amp; Accessibility</div>
+        <div class="phase-focus">Polish</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Full pixel art pass</strong> — redraw all tiles, characters, items, and UI elements with consistent style. Animate: water, fire, crops swaying, NPC blinking, tool swings.</li>
+          <li><strong>Sound design</strong> — ambient soundscapes per zone: wind across ruined concrete, distant shuffling in the city, crickets at night on the farm, rain on a tin roof. Each action has a distinct sound (hoe tilling, watering can pour, wood chopping).</li>
+          <li><strong>Original soundtrack</strong> — compose or commission 10–15 tracks. Style: chiptune meets post-apoc ambient. Farm area: calm acoustic chip. City zones: tense, arrhythmic. Town: warm community chip. Boss encounter: driving percussion.</li>
+          <li><strong>UI/UX redesign pass</strong> — full UI theme: worn paper textures, scavenged metal frames, hand-drawn icons. Consistent font. Satisfying click/hover sounds on UI elements.</li>
+          <li><strong>Accessibility options</strong> — adjustable text size, colourblind mode, reduced motion toggle, subtitles for all NPC dialogue, remappable controls.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M33-34 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 33–34</div>
+        <div class="phase-title">Balance, Content Completion &amp; Achievements</div>
+        <div class="phase-focus">Content Lock</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Economy balancing</strong> — price every item, tune the earning curve so the first year feels tight but by year 3 in-game the player feels established. Run 5 full playthroughs specifically checking the economy.</li>
+          <li><strong>Complete item database</strong> — target 120+ unique items: seeds, crops, processed foods, building materials, weapons, medicine, lore items, furniture, decorative objects.</li>
+          <li><strong>All NPC dialogue finalised</strong> — every main NPC has 30+ unique dialogue lines, 3–5 quest stages complete, seasonal comments, and affinity-dependent responses.</li>
+          <li><strong>Achievement system</strong> — 40 achievements covering: farming milestones ("Grew 500 crops"), social milestones ("Max affinity with 5 NPCs"), exploration ("Cleared all city zones"), survival ("Survived 3 full years"), and hidden achievements for story moments.</li>
+          <li><strong>Options menu</strong> — save slots (3), volume controls, resolution options, fullscreen toggle, control rebinding.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- M35-36 -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-months">MONTHS 35–36</div>
+        <div class="phase-title">QA, Launch Preparation &amp; Release</div>
+        <div class="phase-focus">Launch</div>
+      </div>
+      <div class="phase-body">
+        <ul class="task-list">
+          <li><strong>Full QA bug sweep</strong> — systematic testing of every system interaction. Focus on: save/load edge cases, NPC schedule conflicts, expedition loot exploits, building placement bugs, multiplayer desyncs.</li>
+          <li><strong>Performance optimisation</strong> — target stable 60fps on a 5-year-old mid-range PC. Profile CPU/GPU usage. Optimise NPC pathfinding (limit update frequency), tile rendering, and particle effects.</li>
+          <li><strong>Platform export</strong> — primary target: Windows PC (Steam &amp; itch.io). Stretch goals: macOS, Linux. Console ports (if relevant) require separate certification processes — plan for 6 months after PC launch.</li>
+          <li><strong>Store page &amp; marketing</strong> — Steam page with screenshots, a 90-second gameplay trailer, and a clear store description. Post devlogs on itch.io, Reddit (r/indiegaming, r/gamedev), and a community Discord.</li>
+          <li><strong>Press &amp; content creator outreach</strong> — send keys to 20–30 gaming content creators and indie game journalists 2 weeks before launch. Stardew Valley fans are your primary audience.</li>
+          <li><strong>Launch day</strong> — monitor crash reports, respond to reviews, hotfix critical bugs within 24 hours. Prepare a Day 1 patch based on beta feedback.</li>
+        </ul>
+        <div class="milestone">… END OF YEAR 3: Full game shipped. Post-apoc farming RPG live on Steam/itch.io with all systems, story, co-op expeditions, and polish complete.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===================== SUMMARY TABLE ===================== -->
+  <section class="summary-section" id="summary">
+    <h2>// System Delivery Map</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>System</th>
+          <th>Year 1</th>
+          <th>Year 2</th>
+          <th>Year 3</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="sys-tag sys-core">Core</span> Player Movement &amp; Camera</td>
+          <td>✦ Built</td><td>Refined</td><td>Final polish</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-core">Core</span> Day/Night Cycle</td>
+          <td>✦ Built</td><td>Seasonal palette</td><td>Final polish</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-core">Core</span> Auto-Save System</td>
+          <td>✦ Built</td><td>Extended state</td><td>3 save slots</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-core">Core</span> Farming Loop</td>
+          <td>✦ Built</td><td>Seasons, Greenhouse</td><td>Balanced</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-core">Core</span> Inventory &amp; Tools</td>
+          <td>✦ Built</td><td>Crafting added</td><td>Complete</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> Settlement Map Selection</td>
+          <td>Framework</td><td>3 maps complete</td><td>Final art</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> Building &amp; Fencing</td>
+          <td>Basic</td><td>✦ Full system</td><td>Balanced</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> NPC System</td>
+          <td>Basic NPCs</td><td>✦ Schedules, affinity</td><td>Storylines complete</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> Town &amp; Economy</td>
+          <td>Basic store</td><td>✦ Full economy</td><td>Balanced</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> Expedition System</td>
+          <td>—</td><td>✦ Built + combat</td><td>New zones</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> Seasons &amp; Weather</td>
+          <td>—</td><td>✦ Built</td><td>Balanced</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-content">Content</span> Fishing</td>
+          <td>—</td><td>✦ Built</td><td>Final polish</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-story">Story</span> Main Narrative &amp; Quests</td>
+          <td>—</td><td>—</td><td>✦ Built</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-story">Story</span> NPC Personal Questlines</td>
+          <td>—</td><td>Seeds planted</td><td>✦ Complete</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-story">Story</span> Expanded World / Cities</td>
+          <td>—</td><td>—</td><td>✦ Built</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-story">Story</span> Co-Op Expeditions</td>
+          <td>—</td><td>—</td><td>✦ Built</td>
+        </tr>
+        <tr>
+          <td><span class="sys-tag sys-story">Story</span> Full Audio + Soundtrack</td>
+          <td>Placeholder</td><td>Partial</td><td>✦ Complete</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  WASTELAND HARVEST // 3-YEAR BUILD PLAN // GODOT 4 // PIXEL ART RPG<br>
+  <span style="opacity:0.4">// remember: shipped imperfect beats perfect unfinished //</span>
+</footer>
+
+</body>
+</html>
