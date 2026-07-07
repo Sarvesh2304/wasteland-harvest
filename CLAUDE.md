@@ -61,9 +61,10 @@ Same model as Blood Fields: Empires, carried over because it worked well there:
   where a rotated-diamond isometric grid caused a real, hard-to-fix bug (piece sprites visually
   overlapping neighboring tiles, breaking click hit-testing) — a plain top-down grid avoids that
   class of problem by construction. GDScript (not C#).
-- **Tile size: TBD, decide in Phase 1** (the source roadmap explicitly lists this as an early
-  choice: 16×16 vs 32×32 px — don't presuppose it here, decide it as the first real task and
-  record the decision + reasoning in `ROADMAP.md` when made).
+- **Tile size: 16×16 px (decided in Phase 1)** — matches Stardew Valley's actual base tile size,
+  chosen specifically to keep the ~120-item art pipeline tractable. `project.godot`'s viewport
+  (320×192, an exact 20×12 tiles) and Nearest-neighbor texture filtering are both set
+  accordingly. See `GDD.md` §9 for the full concrete palette that was locked alongside this.
 - **Click/interact hit-testing:** even in a top-down (non-diamond) grid, don't let interaction
   resolve on raw tile-geometry alone if a sprite (player, NPC, prop) can visually extend beyond
   its own tile — resolve against actual visible sprite bounds first, matching the fix applied to
@@ -80,8 +81,10 @@ available in this environment (`create_character`, `animate_character`, `create_
 hand-drawing in Aseprite from scratch. Aseprite is still the tool of choice for manual touch-ups
 and anything PixelLab output needs correcting.
 
-Palette: post-apocalyptic dusty ambers and faded greens (per the source roadmap) — refine into
-concrete hex values during Phase 1's art-style pass, alongside the tile-size decision.
+Palette: post-apocalyptic dusty ambers and faded greens, now locked to concrete hex values with
+seasonal modulation — see `GDD.md` §9 (settlement anchor + per-season sets + separate,
+unmodulated ruins palette). First PixelLab test tiles generated at 16×16 using this palette live
+under `art/tiles/` (see `art/tiles/README.md` for provenance).
 
 ## Chess Engine
 

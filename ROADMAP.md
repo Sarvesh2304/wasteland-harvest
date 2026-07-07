@@ -20,16 +20,33 @@ Goal: a playable vertical slice — one map, one farming loop, one NPC, auto-sav
       forward); two scope additions beyond this file's original checklist text are folded in
       below (raider faction reputation in Phase 9/10, other settlements in Phase 14) per
       `GDD.md` §11.
-- [ ] Map layout sketches — 3 starting settlement types (forest edge, riverside, open plains),
-      town layout (mayor's house, store, water body), ruined city concept
-- [ ] Godot 4 project set up — engine installed, project structure created, Git + GitHub
-- [ ] **Pixel art style decided** — tile size (16×16 or 32×32 px — decide here, don't presuppose;
-      record the choice and why in this checklist item once made), colour palette (post-apoc
-      dusty ambers, faded greens), first test tiles
-- [ ] Aseprite installed, basic tiles drawn: soil, grass, ruin rubble, wood planks
+- [x] Map layout sketches — 3 starting settlement types (forest edge, riverside, open plains),
+      town layout (mayor's house, store, water body), ruined city concept. See `MAPS.md` —
+      also records a structural decision that the three starts share one town-core template
+      (re-dressed by surrounding terrain) rather than three fully distinct towns, for Phase 4
+      to build from without re-litigating.
+- [x] Godot 4 project set up — engine installed (`~/Downloads/Godot.app`, 4.7), project
+      structure created (`art/`, `audio/`, `data/`, `scenes/`, `scripts/`, `tests/`,
+      `tilemaps/`, `tools/`, mirroring blood-fields-empires's conventions minus its
+      isometric-specific `IsoGrid` autoload), Git + GitHub already in place. Headless test
+      runner (`tests/run_tests.gd`) verified working: `godot --headless --path . --script
+      res://tests/run_tests.gd` → `Ran 1 tests, 1 passed, 0 failed.`
+- [x] **Pixel art style decided** — tile size is **16×16px**, matching Stardew Valley's actual
+      base tile size (chosen to keep the ~120-item art pipeline tractable); `project.godot`'s
+      viewport (320×192, exactly 20×12 tiles) and Nearest-neighbor texture filtering are set
+      accordingly. Colour palette locked to concrete hex values with seasonal modulation — see
+      `GDD.md` §9. First test tiles generated (see next item).
+- [x] ~~Aseprite installed~~, basic tiles drawn: soil, grass, ruin rubble, wood planks —
+      **Aseprite explicitly skipped for now** (Sarvesh's call: rely on the PixelLab-first
+      pipeline already described in `CLAUDE.md`; install Aseprite later only if PixelLab output
+      needs manual touch-up). The same four tile types were instead generated via PixelLab's
+      `create_topdown_tileset` at the locked 16×16 size and settlement palette — see
+      `art/tiles/README.md` for the two Wang tilesets (`settlement/grass_soil_tileset.png`,
+      `ruins/rubble_planks_tileset.png`) and their provenance.
 
-**Milestone:** GDD exists, tile size and palette are decided and recorded, Godot project +
-first test tiles exist, repo is on GitHub.
+**Milestone: Phase 1 complete.** GDD exists (`GDD.md`), map sketches exist (`MAPS.md`), tile
+size and palette are decided and recorded, Godot project + first test tiles exist, repo is on
+GitHub.
 
 ### Phase 2 — Core Engine: Player, World & Day/Night Cycle
 - [ ] Player character — 4-directional movement, walking animation (idle, walk, tool-use),

@@ -1,0 +1,42 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Wasteland Harvest"
+config/description="A post-apocalyptic farming & settlement RPG in the pixel-art style of Stardew Valley. Till irradiated-but-recovering soil, build up a scavenger settlement, and run combat expeditions into a ruined city for loot, story, and danger."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+; Base viewport is 320x192 = exactly 20x12 tiles at the locked 16x16px tile size (Phase 1
+; decision, see GDD.md sec 9 / ROADMAP.md Phase 1). Chosen over Blood Fields: Empires's 320x180
+; reference (20x11.25 tiles) specifically because 180 isn't an integer multiple of 16 -- for a
+; plain top-down grid (not isometric) we want the viewport itself to tile evenly with zero
+; partial-tile bleed at the screen edge. window_width/height_override is a clean 4x integer scale
+; (1280x768) so pixel-art scaling stays crisp with no fractional-pixel sampling.
+window/size/viewport_width=320
+window/size/viewport_height=192
+window/size/window_width_override=1280
+window/size/window_height_override=768
+window/subwindows/embed_subwindows=false
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
+
+[rendering]
+
+; Nearest-neighbor filtering is essential for crisp, non-blurry pixel art at any scale factor.
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.141, 0.102, 0.063, 1)
+2d/snap/snap_2d_transforms_to_pixel=true

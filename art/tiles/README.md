@@ -1,0 +1,40 @@
+# Tile Art — Phase 1 Test Set
+
+First PixelLab-generated test tiles (Phase 1 "first test tiles" checklist item; also substitutes
+for the now-skipped Aseprite checklist item, which named the same four tile types: soil, grass,
+ruin rubble, wood planks). Generated with `create_topdown_tileset` per `CLAUDE.md`'s art
+pipeline (top-down Wang tilesets, not `create_isometric_tile` — this project's grid is plain
+top-down), at the locked 16x16px tile size, using the settlement anchor palette from `GDD.md`
+§9.
+
+Each `create_topdown_tileset` call generates one 16-tile Wang sheet blending two terrain types
+(16 tiles of 16x16px each, sheet image 64x64px), which is why two calls cover all four requested
+tile types:
+
+## `settlement/grass_soil_tileset.png` + `.json`
+
+Faded field green grass (`#8a9a56` grass with `#c9974b` dusty amber dry patches) blending into
+tilled farm soil (`#7a5a3c` with `#241a10` furrow shadow) — covers **grass** and **soil**
+(untilled/tilled ground) from the Phase 1 checklist in one connected sheet, so the grass-to-farm
+transition tiles farmland naturally against surrounding meadow.
+
+## `ruins/rubble_planks_tileset.png` + `.json`
+
+Concrete ruin rubble (`#6f6f68` / `#4a4a44` with `#7d452a` rust and `#5c5347` ash debris)
+blending into worn wooden plank flooring (`#a37b50` boards with `#6e5033` dark seams) — covers
+**ruin rubble** and **wood planks** in one connected sheet (useful later for salvaged-wood floor
+patches inside ruined structures).
+
+## Metadata
+
+The `.json` files alongside each PNG are PixelLab's tile metadata (per-tile terrain-corner
+data) for wiring these up as a Godot `TileSet` resource with terrain/autotile bits in a later
+phase — not needed for Phase 1, kept for when `scenes/`/`tilemaps/` actually consume these.
+
+## Provenance
+
+Both tilesets were generated via `mcp__pixellab__create_topdown_tileset` (`view: high top-down`,
+`detail: medium detail`, `shading: basic shading`, `outline: lineless`, `tile_size: 16x16`):
+
+- Settlement sheet: tileset id `abb766dd-ebda-4f0e-a587-39aa21cf613c`
+- Ruins sheet: tileset id `598d94d3-affa-4937-92fa-08e3da44589a`

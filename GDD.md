@@ -380,6 +380,124 @@ halves of the game are tonally legible at a glance. UI carries the scavenged-met
 worn-paper theme already specified in ROADMAP.md Phases 2 and 16. Seasonal palettes (Phase 11)
 modulate the warm base rather than replacing it.
 
+### Concrete palette (locked — Phase 1 art-style pass)
+
+The hex values below are the locked outcome of Phase 1's art-style pass, decided alongside the
+**16×16 px tile size** (Stardew Valley's actual base tile size, confirmed with Sarvesh). Three
+layers: a settlement anchor palette that never changes, a small seasonal modulation set layered
+over it, and a separate ruins palette for expedition content.
+
+#### Settlement anchor palette (year-round "home" tones)
+
+These are the colors that make the settlement read as *home* in every season. Structures, tools,
+lamplight, and UI are built from this set and are deliberately **not** seasonally modulated —
+whatever the season does to the fields, the town's wood, metal, and window-glow stay constant,
+so walking back through the gate always looks like the same warm place.
+
+| Role | Hex | Used for |
+|---|---|---|
+| Dusty amber (identity color) | `#c9974b` | The game's signature tone — dry grass, thatch, dust, sun-warmed surfaces |
+| Lamplight gold | `#e8c268` | Window glow, lanterns, UI highlights, festival lights |
+| Worn cream | `#e9dcb2` | Worn-paper UI, plaster walls, daylight highlights |
+| Faded field green | `#8a9a56` | Living crops and grass — the "faded green" of the source palette |
+| Deep leaf green | `#5a7042` | Tree canopies, shadowed foliage, mature crops |
+| Worn wood (light) | `#a37b50` | Planks, fences, dock boards |
+| Worn wood (dark) | `#6e5033` | Beams, door frames, shadowed wood |
+| Tilled soil | `#7a5a3c` | Farm plots, dirt paths |
+| Scavenged metal | `#8c8478` | Corrugated roofs, tools, patched walls |
+| Warm outline / deep shadow | `#241a10` | Sprite outlines and darkest shadow — warm near-black, never pure `#000000` |
+
+#### Seasonal modulation of the settlement palette
+
+Stardew Valley re-tints its world season to season, and Wasteland Harvest carries that mechanic
+over directly (per Sarvesh): each season swaps the *organic* layer — grass, foliage, crops, soil
+moisture — to a small seasonal set, plus a subtle global tint, while the anchor palette above
+holds still. Implementation intent for later phases: seasonal ground/foliage tile variants plus
+a light `CanvasModulate` grade, not four full re-draws of the world.
+
+**Spring Rains** — the wet season washes the dust off the wasteland; for a few weeks the world
+is cooler, damper, and greener than the game's amber identity, which makes the return of that
+amber in summer land harder. Fresh cool greens, rain-grey skies, and a few soft blossom tones
+on the mutant fruit trees.
+
+| Role | Hex |
+|---|---|
+| Fresh rain-fed green | `#6fa05a` |
+| Damp moss green | `#4e7d57` |
+| Wet soil (dark, rich) | `#5f4630` |
+| Rain-sky blue-grey | `#7d94a3` |
+| Mutant blossom pink | `#d9a8b0` |
+
+**Scorched Summer** — the palette's hottest and most sun-bleached point, and deliberately the
+*opposite* of Stardew's lush green summer: the season is named "Scorched," and this is a
+half-century-poisoned sky over dry land. Summer is when the game leans hardest into its core
+dusty-amber identity — greens dry to straw, earth bakes pale, and the light itself goes hazy
+and over-bright.
+
+| Role | Hex |
+|---|---|
+| Bleached amber | `#d9b06a` |
+| Heat-haze cream | `#ecd9a0` |
+| Sun-scorched straw green | `#a89a55` |
+| Baked earth | `#9c6f42` |
+| Washed haze sky | `#cfc3a2` |
+
+**Amber Autumn** — the anchor palette at full song; the season is literally named for the
+game's identity color, and this is its peak expression. Deepest saturation of the year:
+harvest golds, rust-leaf oranges, and ember browns. If a single screenshot has to sell the
+game, it's taken in Amber Autumn.
+
+| Role | Hex |
+|---|---|
+| Peak amber | `#cf8f3a` |
+| Harvest gold | `#e5b354` |
+| Rust-leaf orange | `#b06133` |
+| Ember red-brown | `#8f4a2e` |
+| Last fading green | `#7d7a3f` |
+
+**Grey Winter** — named "Grey," and it delivers: the organic layer desaturates toward cool
+ash-greys and cold blue tones, a quiet visual echo of nuclear winter that stays on the right
+side of the cozy contract because the anchor palette's lamplight gold (`#e8c268`) is *not*
+modulated — warm windows against grey snow is the season's whole look, and it's the strongest
+"home versus wasteland" contrast of the year.
+
+| Role | Hex |
+|---|---|
+| Snow-ash white | `#c9cccb` |
+| Cold blue-grey | `#8a97a3` |
+| Frozen ground | `#5d5a52` |
+| Dead-branch brown | `#6b5d4d` |
+| Winter-sky slate | `#4a5560` |
+
+#### Ruins (expedition) palette
+
+Desaturated concrete, rust, and ash, with the sickly rad-glow green reserved as a pure accent —
+it should be rare enough on screen that it always means *hazard* (irradiated pockets, mutant
+growths, glowing loot). Where gore appears (ruins/bunkers/combat only, per the tone rules
+above), it uses the shared-assets blood rule (`#9b1818` / `#c43020` / `#e84030`) rather than
+new colors.
+
+| Role | Hex | Used for |
+|---|---|---|
+| Concrete grey (light) | `#6f6f68` | Broken streets, building faces |
+| Concrete grey (dark) | `#4a4a44` | Interiors, shadow sides, rubble cores |
+| Ash brown | `#5c5347` | Burnt timber, dead ground, debris |
+| Rust (dull) | `#7d452a` | Corroded vehicles, rebar, pipes |
+| Rust (bright) | `#a65c30` | Fresh rust streaks, warning-paint remnants |
+| Faded signage cream | `#b5a98c` | Pre-war posters, road markings, bone |
+| Rad-glow green (accent) | `#86e83e` | Radiation pockets, mutant growth, hot loot — accent only |
+| Rad-glow deep | `#3fa832` | Rad-glow falloff, irradiated water |
+| Cold outline / shadow | `#181a16` | Ruins sprite outlines — a *cold* near-black, vs. the settlement's warm `#241a10` |
+
+**Ruins get no seasonal palette modulation — decided, not deferred.** The ruins are dead ground:
+nothing grows there to green in spring or turn in autumn, and a city that ignores the seasons
+while the settlement moves through them is itself worldbuilding — it reinforces at a glance that
+one place is alive and the other stopped. It also keeps art scope sane (no four-season variants
+of every ruin tile). Two cheap, purely atmospheric exceptions are allowed via global tint and
+weather overlays only (no per-season tile art): a thin snow-dust overlay in Grey Winter, and a
+darker wet-sheen grade during Spring Rains — the sky still happens to the ruins, even if nothing
+answers it.
+
 ## 10. Win / Lose Conditions
 
 **There is no win condition, and that is a design decision, not an omission.** Wasteland
