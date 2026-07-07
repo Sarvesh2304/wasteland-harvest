@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/test_map.gd" id="1_script"]
+[ext_resource type="TileSet" path="res://tilemaps/wasteland_tileset.tres" id="2_tileset"]
+
+[node name="TestMap" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Ground" type="TileMapLayer" parent="."]
+position = Vector2(-8, -8)
+tile_set = ExtResource("2_tileset")
+
+[node name="Decor" type="TileMapLayer" parent="."]
+tile_set = ExtResource("2_tileset")
+
+[node name="Obstacles" type="TileMapLayer" parent="."]
+tile_set = ExtResource("2_tileset")

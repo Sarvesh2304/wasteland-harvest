@@ -28,8 +28,11 @@ patches inside ruined structures).
 ## Metadata
 
 The `.json` files alongside each PNG are PixelLab's tile metadata (per-tile terrain-corner
-data) for wiring these up as a Godot `TileSet` resource with terrain/autotile bits in a later
-phase — not needed for Phase 1, kept for when `scenes/`/`tilemaps/` actually consume these.
+data). As of Phase 2 they are consumed: `scripts/wang_tileset.gd` encodes the corner→atlas
+lookup derived from them (both sheets share the same tileset15 layout), the map painter in
+`scripts/test_map.gd` uses it, `tilemaps/wasteland_tileset.tres` wraps both PNGs as atlas
+sources (rubble tiles carry world-layer collision), and `tests/test_wang_tileset.gd`
+cross-validates the lookup table against these JSON files so table and art can't drift.
 
 ## Provenance
 

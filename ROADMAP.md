@@ -49,20 +49,35 @@ size and palette are decided and recorded, Godot project + first test tiles exis
 GitHub.
 
 ### Phase 2 — Core Engine: Player, World & Day/Night Cycle
-- [ ] Player character — 4-directional movement, walking animation (idle, walk, tool-use),
-      Godot's `CharacterBody2D`
-- [ ] Tile-based world — `TileMap` node, small test map (farmland + surrounding area), collision
-      layers
-- [ ] Camera system — smooth follow camera clamped to map boundaries, screen-shake hook for
-      future combat
-- [ ] Day/Night cycle — global `DayManager` node tracks time (e.g. 1 in-game minute = 1 real
-      second), sky colour shifts dawn → noon → dusk → night via `CanvasModulate`, day counter in
-      HUD
-- [ ] Basic HUD — day number, in-game clock, energy bar, post-apoc UI aesthetic (scavenged
-      metal, cracked glass)
+- [x] Player character — 4-directional movement, walking animation (idle, walk, tool-use),
+      Godot's `CharacterBody2D`. PixelLab-generated sprite (`art/characters/player/`, one
+      representative appearance — the full preset+slider character-creation system is later
+      birth-sequence UI work, not a Phase 2 blocker). `scripts/player.gd`.
+- [x] Tile-based world — `TileMapLayer` (Godot 4.3+'s supported replacement for the deprecated
+      `TileMap` node), small test map (farmland + surrounding grass/rubble/plank terrain) built
+      from the two Phase 1 tilesets, collision layers (`world` vs `player`, rubble solid,
+      grass/soil/planks walkable). `scripts/test_map.gd`, `tilemaps/wasteland_tileset.tres`.
+- [x] Camera system — smooth follow camera (exponential smoothing) clamped to map boundaries,
+      `shake(intensity, duration)` hook ready for Phase 9 combat to call. `scripts/game_camera.gd`.
+- [x] Day/Night cycle — global `DayManager` autoload, 1 in-game minute per real second, day
+      counter rolls at midnight, sky colour shifts dawn → noon → dusk → night via
+      `CanvasModulate`. `scripts/day_manager.gd`, `scripts/day_night_modulate.gd`.
+- [x] Basic HUD — day number + clock + energy bar over a PixelLab scavenged-metal/cracked-glass
+      plaque (`art/ui/`). `scripts/hud.gd`.
 
-**Milestone:** Day/night cycle fully functional. Player can walk around a test map and time
-passes visually.
+**Milestone: Phase 2 complete.** Verified independently (re-run, not just taken on the building
+agent's word): 32/32 headless unit tests pass, plus a scripted runtime smoke test
+(`tools/runtime_smoke.gd`) that boots the real `main.tscn` and drives simulated input — player
+spawns correctly, walks in all 4 directions with correct animation, is physically blocked by
+rubble/map-border collision, camera follows and clamps at the true map edge, tool-use locks
+movement and spends energy, and the sky color shifts across a full simulated day. Code review of
+`player.gd`/`day_manager.gd`/`game_camera.gd`/`main.gd` confirms sound logic (pure static
+functions for testability, sensible collision layering, frame-rate-independent camera math).
+Generated art (player sprite, HUD plaque/energy frame) spot-checked visually and matches the
+locked palette and cozy-scavenger art direction. **Not yet verified: live rendered gameplay** —
+this repo's team-model gate on driving the Godot GUI/runtime blocked an automated screenshot
+check this session; a quick look in-editor is worth doing when convenient, though nothing in the
+headless verification suggests a problem.
 
 ### Phase 3 — Farming Core & Inventory System
 - [ ] Till soil with a hoe (normal ground tile → farmable tile)
