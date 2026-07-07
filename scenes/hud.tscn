@@ -8,10 +8,10 @@
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
 bg_color = Color(0.909804, 0.760784, 0.407843, 0.88)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
+corner_radius_top_left = 1
+corner_radius_top_right = 1
+corner_radius_bottom_right = 1
+corner_radius_bottom_left = 1
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_script")
@@ -80,17 +80,15 @@ vertical_alignment = 1
 
 [node name="EnergyBar" type="Control" parent="Root"]
 layout_mode = 1
-anchors_preset = 3
+anchors_preset = 1
 anchor_left = 1.0
-anchor_top = 1.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -128.0
-offset_top = -22.0
-offset_right = -8.0
-offset_bottom = -8.0
+offset_left = -17.0
+offset_top = 56.0
+offset_right = -4.0
+offset_bottom = 120.0
 grow_horizontal = 0
-grow_vertical = 0
+grow_vertical = 1
 mouse_filter = 2
 
 [node name="Frame" type="TextureRect" parent="Root/EnergyBar"]
@@ -109,10 +107,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 3.0
-offset_right = -8.0
-offset_bottom = -3.0
+offset_left = 4.0
+offset_top = 10.0
+offset_right = -4.0
+offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -120,4 +118,5 @@ theme_override_styles/background = SubResource("StyleBoxEmpty_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_fill")
 max_value = 100.0
 value = 100.0
+fill_mode = 3
 show_percentage = false

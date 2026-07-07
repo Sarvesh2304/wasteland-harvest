@@ -15,11 +15,18 @@ different scale is ever needed.
   actual panel content is 204x96), content-cropped then downscaled 2x to 102x48. The day
   and clock labels render inside its cracked-glass window; the garbled nameplate text at
   the bottom is baked-in generated detail, left as-is.
-- `energy_bar_frame.png` — energy gauge housing (bottom-right). Asset id
-  `ffb5ea67-b102-43c5-972d-b70aef887e10` ("wasteland_energy_bar_frame", 512x192 with a
-  custom bar-shaped piece), content-cropped to 480x56 then downscaled 4x to 120x14. The
-  fill inside it is a plain ProgressBar drawn in lamplight gold `#e8c268` at slight
-  transparency, so the generated glass cracks still show through.
+- `energy_bar_frame.png` — energy gauge housing, **vertical**, Stardew-style (below the
+  plaque, top-right). Asset id `54de2e24-e137-4580-ae81-6a700e28245f`
+  ("wasteland_energy_bar_frame_vertical", 224x640 canvas with a tall rounded-rect piece
+  and a baked "ENERGY MAX" nameplate), content-cropped to 104x512 then downscaled 8x to
+  13x64. Replaces an earlier horizontal 120x14 version (Phase 2's initial pass) — Sarvesh
+  asked for a vertical, Stardew-proportioned bar instead, and a fresh vertical generation
+  was used rather than rotating the old horizontal asset, since the old one's baked
+  nameplate text and aspect ratio were designed for horizontal reading and wouldn't have
+  survived a 90° rotation cleanly. The fill inside it is a plain ProgressBar drawn in
+  lamplight gold `#e8c268` at slight transparency (`fill_mode = FILL_BOTTOM_TO_TOP`, so
+  it depletes from the top down like Stardew's), so the generated glass cracks still show
+  through.
 
 Text on the HUD uses Godot's default font at small size for Phase 2 — a proper pixel font
 (PixelLab `create_font` or a shared-assets font) is deferred to Phase 16's UI/UX pass.
