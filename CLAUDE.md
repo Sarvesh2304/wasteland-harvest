@@ -7,8 +7,13 @@ see "Shared Assets" below), this game uses Stardew's **actual** top-down project
 axis-aligned grid, not a rotated isometric diamond.
 
 Full original design source: `Wasteland Harvest 3-Year Dev Roadmap.html` (kept in this repo for
-reference/history). **`ROADMAP.md` in this repo is the authoritative, living task list** — the
-HTML file is frozen; `ROADMAP.md` is what gets checked off.
+reference/history). **`GDD.md` is the authoritative statement of what the game *is*** — world,
+lore, tone, loops, systems — written from a design Q&A with Sarvesh; consult it before making
+any content or systems-design judgment call not already spelled out in `ROADMAP.md`.
+**`ROADMAP.md` in this repo is the authoritative, living task list** — the HTML file is frozen;
+`ROADMAP.md` is what gets checked off. Where `GDD.md` expands scope beyond `ROADMAP.md`'s
+current checklist text, that's flagged in `GDD.md`'s final section rather than silently
+assumed — reconcile those flags into `ROADMAP.md` as you touch the relevant phases.
 
 ## Why no calendar
 

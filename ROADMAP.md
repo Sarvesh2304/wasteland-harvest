@@ -15,8 +15,11 @@ synthesized here from that phase's own goal — treat those the same as any othe
 Goal: a playable vertical slice — one map, one farming loop, one NPC, auto-save working.
 
 ### Phase 1 — Setup, Design & World Building
-- [ ] Game Design Document (GDD) — core loop, world lore (what caused the apocalypse?), player
-      goals, win/lose conditions, tone and art direction
+- [x] Game Design Document (GDD) — core loop, world lore (what caused the apocalypse?), player
+      goals, win/lose conditions, tone and art direction. See `GDD.md` (authoritative going
+      forward); two scope additions beyond this file's original checklist text are folded in
+      below (raider faction reputation in Phase 9/10, other settlements in Phase 14) per
+      `GDD.md` §11.
 - [ ] Map layout sketches — 3 starting settlement types (forest edge, riverside, open plains),
       town layout (mayor's house, store, water body), ruined city concept
 - [ ] Godot 4 project set up — engine installed, project structure created, Git + GitHub
@@ -83,9 +86,11 @@ restored.
 - [ ] First NPCs: Mayor Harlan (quest-giver), Marta (store owner), Scout Kael (tells you about
       the ruined city)
 - [ ] Town store — Marta sells seeds/basic tools/food; UI shows name/description/price; currency
-      is Scrap Coins
-- [ ] Shipping box — place harvested crops before sleeping; Scrap Coins added next morning;
-      tracks sale history
+      is Credits (per `GDD.md` §7; not "Scrap Coins" as earlier drafted — Credits is settled
+      humanity's established currency, with barter as a parallel economy for raiders/remote
+      traders who don't accept it)
+- [ ] Shipping box — place harvested crops before sleeping; Credits added next morning; tracks
+      sale history
 
 **Milestone:** Player can farm, sell crops, earn currency, and buy seeds. Economy loop is closed.
 
@@ -151,9 +156,23 @@ real base-building loop.
 - [ ] Loot system — destructible crates/cars/buildings, weighted loot table (scrap, food, seeds,
       medicine, tools, blueprint scrolls, ammo); blueprint scrolls unlock buildings/recipes
 - [ ] Settlement confirmed as a safe zone — zombies cannot enter the settlement boundary
+- [ ] **Raider/scavenger faction (added per `GDD.md` §6/§11)** — a human faction occupying part
+      of the ruined city, distinct from zombie/monster AI: patrols, ambush events, and turf that
+      reacts to the reputation system below rather than always attacking on sight
+- [ ] **Faction reputation system (added per `GDD.md` §6/§11)** — tracked player standing
+      (Hostile → Wary → Tolerated → Trusted) driven by actions (combat, fair trading, completed
+      jobs, story/quest choices) not dialogue checkboxes; gates faction aggression, trader
+      access, and safe passage through their turf. Deliberately quarantined from the
+      settlement's safe-zone guarantee — a city/world system only.
+- [ ] **Radiation exposure mechanic (elaborates Phase 11's radstorm event per `GDD.md` §5)** —
+      persistent tracked meter alongside HP/stamina during expeditions; irradiated zones/loot,
+      degraded stamina/HP ceiling as exposure climbs, countered by hazmat gear (scrap → proper
+      suits) and purifier meds (craftable, see Phase 10); gives the radstorm weather event real
+      teeth and soft-gates deeper/hotter zones without literal locked doors
 
 **Milestone:** Expeditions feel risky and rewarding. Player must prepare before going, and brings
-back supplies that improve the town.
+back supplies that improve the town. Raider faction reacts believably to the player's tracked
+reputation.
 
 ### Phase 10 — Business System, Crafting & Advanced Economy
 - [ ] Crafting system — Workshop crafts Scrap Tools, Preserved Food, Medicine, Ammunition,
@@ -165,6 +184,10 @@ back supplies that improve the town.
       to town affinity
 - [ ] Supply & demand — store prices fluctuate based on recent sales (e.g. overselling Dustwheat
       devalues it)
+- [ ] **Faction barter trading (added per `GDD.md` §6/§7/§11)** — raider faction and other
+      barter-only partners (remote traders, independent scavengers) don't accept Credits; goods-
+      for-goods trading with idiosyncratic valuations (e.g. the faction overvalues ammo
+      components/meds) unlocked progressively as reputation rises from Wary to Trusted
 
 **Milestone:** The town has a self-sustaining economy beyond the basic store — crafting,
 businesses, and dynamic pricing all function.
@@ -221,6 +244,11 @@ questline complete end to end as proof of the pattern.
 - [ ] World map screen — stylised hand-drawn map, settlement + 3 ruined-city zones + 2 new
       major city areas (locked until mid-game) + points of interest; fast-travel unlocked via
       Radio Tower components
+- [ ] **Other small settlements (added per `GDD.md` §7/§11)** — a few other small human
+      settlements beyond the home town and the ruined city, reachable via established trade
+      routes and player vehicles; small trading-post destinations with their own merchants and
+      quest hooks, not full towns to maintain — the home settlement stays the game's one deep
+      social hub
 - [ ] 2 new major city zones — "The Vault District" (high danger/reward) and "The Boneyard
       Markets" (semi-safe trading hub, new merchant NPCs)
 - [ ] Underground/bunker areas — hidden entrances, darker claustrophobic aesthetic, harder
