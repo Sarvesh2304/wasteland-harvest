@@ -43,6 +43,14 @@ Same model as Blood Fields: Empires, carried over because it worked well there:
 - **Standing exception:** running Godot **headlessly** (`godot --headless ...`, e.g. to execute
   a GDScript test suite or `--check-only` validate a scene) has standing approval for the rest
   of this build — no need to ask each time. This does not extend to the GUI editor.
+- **Standing exception:** launching the **compiled game itself** in windowed mode (e.g. `godot
+  --path .`, with no `-e`/`--editor` flag, which runs `run/main_scene` directly rather than
+  opening the editor) has standing approval for the rest of this build, specifically to
+  visually verify gameplay/rendering and take screenshots — granted explicitly by Sarvesh
+  2026-07-08 after the auto-mode classifier blocked an attempt on the (correct, at the time)
+  reading that the editor gate covered it too. This is still distinct from and does **not**
+  extend to opening the Godot **editor** GUI (`godot -e`/`--editor`), which still requires
+  per-session confirmation as above.
 - **PixelLab job concurrency:** learned from Blood Fields: Empires — PixelLab caps concurrent
   generation jobs at 8 total, and one 8-direction `animate_character` call consumes all 8 at
   once, so animation jobs for different NPCs/creatures cannot run in parallel with each other.
