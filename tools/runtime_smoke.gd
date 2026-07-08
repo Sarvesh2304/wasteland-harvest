@@ -142,7 +142,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks >= 60:
 				_check(not player.using_tool, "till swing finished")
 				_check(test_map.is_tilled_at(FARM_TEST_CELL), "hoe tilled the target cell")
-				_check(player.energy == 96.0, "till cost 4 energy (100 -> 96)")
+				_check(player.energy == 99.0, "till cost 1 energy (100 -> 99)")
 				_check(int(player.inventory.get_slot(0).get("durability", -1)) == 49,
 					"hoe durability decremented by 1")
 				player.inventory.select_hotbar(5)  # seed_mutant_potato (see _give_starting_loadout)
@@ -157,7 +157,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(plot.get("crop_id", "") == "mutant_potato", "seed planted mutant potato")
 				_check(int(plot.get("stage", -1)) == 0, "freshly planted crop starts at stage 0")
 				_check(player.inventory.count_of("seed_mutant_potato") == 4, "one seed consumed")
-				_check(player.energy == 95.0, "planting cost 1 energy (96 -> 95)")
+				_check(player.energy == 98.5, "planting cost 0.5 energy (99 -> 98.5)")
 				player.inventory.select_hotbar(1)  # watering_can
 				player.use_tool()  # water
 				_enter_stage(8)
@@ -165,7 +165,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks >= 60:
 				_check(not player.using_tool, "water swing finished")
 				_check(farm.is_watered(FARM_TEST_CELL), "watering can watered the crop")
-				_check(player.energy == 93.0, "watering cost 2 energy (95 -> 93)")
+				_check(player.energy == 97.5, "watering cost 1 energy (98.5 -> 97.5)")
 				_check(int(player.inventory.get_slot(1).get("durability", -1)) == 49,
 					"watering can durability decremented by 1")
 				# Drive the remaining watered-day cycles directly through Farm/DayManager

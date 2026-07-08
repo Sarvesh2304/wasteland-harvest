@@ -16,6 +16,12 @@ extends CharacterBody2D
 ## A broken tool (durability hit 0) is treated as "nothing selected" for effect purposes — it
 ## stays in the inventory (no repair system exists yet) but stops doing anything until a later
 ## phase adds one; see scripts/inventory.gd's damage_selected_tool().
+##
+## Holding "use_tool" down repeats the swing automatically (Stardew convention — a held tool
+## button keeps tilling/watering/chopping as fast as the animation allows, not just once per
+## press): _physics_process polls Input.is_action_pressed() every physics frame rather than
+## reacting only to the press *event*, and re-fires use_tool() the instant the previous swing's
+## using_tool lock clears, for as long as the button stays held.
 
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -28,12 +34,20 @@ const CELL_SIZE := 16.0
 
 ## Per-action energy costs (ROADMAP Phase 3: "actions cost energy", replacing Phase 2's flat
 ## TOOL_USE_ENERGY_COST stub with real per-action pricing).
-const ENERGY_TILL := 4.0
-const ENERGY_WATER := 2.0
-const ENERGY_PLANT := 1.0
-const ENERGY_HARVEST := 1.0
-const ENERGY_CHOP := 5.0
-const ENERGY_MINE := 5.0
+##
+## Tuned against Stardew Valley's actual pacing rather than picked arbitrarily: base Stardew
+## tool use costs ~2 energy out of a 270 starting max (~0.7% of the bar per swing), letting a
+## player till/water dozens of tiles per day. The original Phase 3 pass used 4/2/1/1/5/5 against
+## our 100 max energy (a 4% hit per till alone) which drained many times faster than Stardew's
+## feel -- reported and fixed same-day. These values keep the same *relative* costs between
+## actions (till/water heaviest, plant/harvest lightest, chop/mine heaviest of all) while
+## matching Stardew's ~1% per basic action against our smaller 100-point bar.
+const ENERGY_TILL := 1.0
+const ENERGY_WATER := 1.0
+const ENERGY_PLANT := 0.5
+const ENERGY_HARVEST := 0.5
+const ENERGY_CHOP := 1.5
+const ENERGY_MINE := 1.5
 
 const FACINGS := ["south", "north", "east", "west"]
 const FACING_VECTORS := {
@@ -66,6 +80,13 @@ func _physics_process(_delta: float) -> void:
 	if using_tool:
 		velocity = Vector2.ZERO
 		return
+	if Input.is_action_pressed("use_tool"):
+		# Held-button repeat (see class doc): re-triggers every physics frame the button is
+		# down and the previous swing has finished, since use_tool() re-locks using_tool
+		# immediately and this branch is unreachable again until that lock clears.
+		velocity = Vector2.ZERO
+		use_tool()
+		return
 	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = input * SPEED
 	move_and_slide()
@@ -74,8 +95,6 @@ func _physics_process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("use_tool") and not using_tool:
-		use_tool()
 	for i in Inventory.HOTBAR_SIZE:
 		if event.is_action_pressed("hotbar_slot_%d" % (i + 1)):
 			inventory.select_hotbar(i)
