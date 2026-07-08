@@ -1,0 +1,14 @@
+[gd_resource type="Theme" load_steps=2 format=3 uid="uid://cy8wv3n0fq2ma"]
+
+; Project-wide UI theme (wired in as [gui] theme/custom in project.godot).
+; default_font is the PixelLab pixel font (see fonts/ and this directory's README.md);
+; default_font_size = 8 is the font's NATIVE glyph size: 1 font px = 1 viewport px = 4
+; screen px under the 320x192 -> 1280x768 integer viewport stretch, so glyphs stay crisp.
+; Larger text must use exact integer multiples only (16 for titles/names) — any other size
+; breaks the pixel grid and turns into mush. Colors stay per-node (palette per GDD.md §9).
+
+[ext_resource type="FontFile" uid="uid://dk34jalvi2lhy" path="res://art/ui/fonts/wasteland_harvest_ui.ttf" id="1_font"]
+
+[resource]
+default_font = ExtResource("1_font")
+default_font_size = 8

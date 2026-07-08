@@ -103,10 +103,11 @@ func _make_slot_widget(parent: Control) -> Dictionary:
 	frame.add_child(icon)
 
 	var label := Label.new()
-	label.position = Vector2(0, SLOT_SIZE - 7)
-	label.size = Vector2(SLOT_SIZE - 1, 7)
+	# Count/durability text inherits the project theme's pixel font at its native 8px base size
+	# (art/ui/ui_theme.tres) — no per-node size override, so it stays crisp at the 4x stretch.
+	label.position = Vector2(0, SLOT_SIZE - 8)
+	label.size = Vector2(SLOT_SIZE - 1, 8)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.add_theme_font_size_override("font_size", 6)
 	label.add_theme_color_override("font_color", Color("#ffedb1"))
 	label.add_theme_color_override("font_outline_color", Color("#281a0b"))
 	label.add_theme_constant_override("outline_size", 2)

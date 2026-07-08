@@ -1,22 +1,22 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://bqfvm6xpakye2"]
 
-[ext_resource type="Script" path="res://scripts/hud.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://art/ui/hud_plaque.png" id="2_plaque"]
-[ext_resource type="Texture2D" path="res://art/ui/energy_bar_frame.png" id="3_barframe"]
+[ext_resource type="Script" uid="uid://b12pixu32q355" path="res://scripts/hud.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://dv417hi35hixd" path="res://art/ui/hud_plaque.png" id="2_plaque"]
+[ext_resource type="Texture2D" uid="uid://ba3levq4ypbix" path="res://art/ui/energy_bar_frame.png" id="3_barframe"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
-bg_color = Color(1.0, 0.788235, 0.282353, 0.88)
+bg_color = Color(1, 0.788235, 0.282353, 0.88)
 corner_radius_top_left = 1
 corner_radius_top_right = 1
 corner_radius_bottom_right = 1
 corner_radius_bottom_left = 1
 
-[node name="HUD" type="CanvasLayer"]
+[node name="HUD" type="CanvasLayer" unique_id=3298241]
 script = ExtResource("1_script")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=380531181]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -25,7 +25,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ClockPanel" type="TextureRect" parent="Root"]
+[node name="ClockPanel" type="TextureRect" parent="Root" unique_id=846710134]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -35,10 +35,10 @@ offset_top = 4.0
 offset_right = -4.0
 offset_bottom = 52.0
 grow_horizontal = 0
-texture = ExtResource("2_plaque")
 mouse_filter = 2
+texture = ExtResource("2_plaque")
 
-[node name="DayLabel" type="Label" parent="Root/ClockPanel"]
+[node name="DayLabel" type="Label" parent="Root/ClockPanel" unique_id=1473986878]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -50,15 +50,14 @@ offset_right = -24.0
 offset_bottom = -30.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(1.0, 0.929412, 0.694118, 1)
+theme_override_colors/font_color = Color(1, 0.929412, 0.694118, 1)
 theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
 text = "Day 1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ClockLabel" type="Label" parent="Root/ClockPanel"]
+[node name="ClockLabel" type="Label" parent="Root/ClockPanel" unique_id=288122361]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -70,15 +69,14 @@ offset_right = -24.0
 offset_bottom = -19.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(1.0, 0.929412, 0.694118, 1)
+theme_override_colors/font_color = Color(1, 0.929412, 0.694118, 1)
 theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
 text = "6:00 AM"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="EnergyBar" type="Control" parent="Root"]
+[node name="EnergyBar" type="Control" parent="Root" unique_id=326996762]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
@@ -88,20 +86,19 @@ offset_top = 56.0
 offset_right = -4.0
 offset_bottom = 120.0
 grow_horizontal = 0
-grow_vertical = 1
 mouse_filter = 2
 
-[node name="Frame" type="TextureRect" parent="Root/EnergyBar"]
+[node name="Frame" type="TextureRect" parent="Root/EnergyBar" unique_id=252243193]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = ExtResource("3_barframe")
 mouse_filter = 2
+texture = ExtResource("3_barframe")
 
-[node name="EnergyFill" type="ProgressBar" parent="Root/EnergyBar"]
+[node name="EnergyFill" type="ProgressBar" parent="Root/EnergyBar" unique_id=1446479601]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -116,12 +113,11 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxEmpty_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_fill")
-max_value = 100.0
 value = 100.0
 fill_mode = 3
 show_percentage = false
 
-[node name="InventoryGrid" type="GridContainer" parent="Root"]
+[node name="InventoryGrid" type="GridContainer" parent="Root" unique_id=2102484229]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -141,7 +137,7 @@ theme_override_constants/h_separation = 2
 theme_override_constants/v_separation = 2
 columns = 9
 
-[node name="ChestGrid" type="GridContainer" parent="Root"]
+[node name="ChestGrid" type="GridContainer" parent="Root" unique_id=1963006323]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -161,10 +157,10 @@ theme_override_constants/h_separation = 2
 theme_override_constants/v_separation = 2
 columns = 9
 
-[node name="Hotbar" type="HBoxContainer" parent="Root"]
+[node name="Hotbar" type="HBoxContainer" parent="Root" unique_id=1149239638]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5

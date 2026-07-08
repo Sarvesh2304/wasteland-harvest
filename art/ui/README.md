@@ -28,8 +28,35 @@ different scale is ever needed.
   it depletes from the top down like Stardew's), so the generated glass cracks still show
   through.
 
-Text on the HUD uses Godot's default font at small size for Phase 2 — a proper pixel font
-(PixelLab `create_font` or a shared-assets font) is deferred to Phase 16's UI/UX pass.
+## Pixel font (`fonts/`, added after Phase 4)
+
+Godot's default vector font was illegible at 6-11px inside the 320x192 viewport (anti-aliased
+glyph edges turn to mush under the 4x nearest-neighbor stretch), so the deferred pixel font was
+pulled forward from Phase 16. `fonts/wasteland_harvest_ui.ttf` is a PixelLab `create_font`
+generation (job id `8c4a9988-a6fa-4127-ba1a-afe9a91dc32d`, Bold weight, seed 7, 8px native
+glyphs, monospaced 4x6-px letterforms). Two earlier candidates were rejected: job
+`70b1fe89-...` (8px Regular — mangled letterforms) and `0bc89f23-...` (16px Regular — clean
+but native 16px is too large for body text in the 320x192 viewport). Bold at 8px was the
+readability winner, and its plain blocky forms still read warm/cozy in the worn-cream
+palette colors rather than grim.
+
+**PixelLab's font reference layout contains no digits** (verified across independent
+generations: same 65-char set, 0-9 absent). Since the HUD renders "Day 1", "6:00 AM", and
+stack counts, glyphs for `0-9 / ↑ ↓ —` and `…` were hand-authored on the same 4x6 grid /
+128-units-per-pixel / same stroke weight and merged into the TTF, plus cmap aliases mapping
+`– ' ' " "` onto existing glyphs so lore text never hits the blurry system-fallback font —
+see `tools/font_add_glyphs.py` (the glyph designs are embedded in it as ASCII art).
+Regenerating the font from PixelLab alone will silently lose all of these; re-run that
+script on any fresh TTF. (The internal family name was also cleaned from the generation
+name "... UI v2" to "Wasteland Harvest UI" via fontTools' name table, IDs 1/3/4/6/16.)
+
+It's wired in as the project-wide default via `ui_theme.tres` (this directory), set as
+`[gui] theme/custom` in `project.godot`, with import settings forcing crisp rendering
+(no antialiasing, no hinting, subpixel positioning disabled). **Font-size convention:** the
+theme's default is the font's native **8px** (1 font pixel = 1 viewport pixel = 4 screen
+pixels); larger text uses exact integer multiples only — **16px** for titles/names (e.g. the
+settlement name on the select screen). Never use non-multiple sizes (6/7/11 etc.) — bitmap
+glyphs only scale cleanly at integer multiples of their design size.
 
 ## Revision note (Phase 3): palette boosted
 
