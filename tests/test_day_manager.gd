@@ -103,3 +103,18 @@ func test_time_pause_blocks_advancement() -> void:
 	dm._process(5.0)
 	assert_eq(dm.clock_text(), "6:00 AM", "paused clock does not advance via _process")
 	dm.free()
+
+
+func test_skip_to_next_morning() -> void:
+	# Phase 3's pass-out transition (player.gd._pass_out): jumps straight to 6:00 AM the next
+	# day, mid-afternoon or not, and fires day_started so crop growth ticks exactly like a
+	## natural midnight rollover would.
+	var dm = _make_dm()
+	dm.advance_minutes(8 * 60)  # 2:00 PM
+	var days_started: Array[int] = []
+	dm.day_started.connect(func(d: int) -> void: days_started.append(d))
+	dm.skip_to_next_morning()
+	assert_eq(dm.day, 2, "day counter advances by exactly one")
+	assert_eq(dm.clock_text(), "6:00 AM", "wakes at 6:00 AM regardless of when blackout happened")
+	assert_eq(days_started, [2], "day_started fires so growth/other daily systems still tick")
+	dm.free()

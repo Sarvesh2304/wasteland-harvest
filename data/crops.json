@@ -1,0 +1,32 @@
+{
+  "_comment": "Phase 3 crop database (ROADMAP.md Phase 3's 4 post-apoc crops). Loaded by scripts/crop_db.gd. growth_stages is the count of visual stages (checklist range 4-6, varied across crops here to demonstrate the range rather than using one number everywhere); a plot's stage index is 0-based and stage (growth_stages-1) is 'mature' / harvestable, per the growth rule in scripts/farm_grid.gd (advance_plot). sprite_dir holds stage_0.png..stage_{n-1}.png, PixelLab-generated (see art/crops/README.md for provenance). yield_item/yield_quantity is what harvesting grants.",
+
+  "mutant_potato": {
+    "name": "Mutant Potato",
+    "growth_stages": 5,
+    "sprite_dir": "res://art/crops/mutant_potato/",
+    "yield_item": "mutant_potato",
+    "yield_quantity": 1
+  },
+  "dustwheat": {
+    "name": "Dustwheat",
+    "growth_stages": 4,
+    "sprite_dir": "res://art/crops/dustwheat/",
+    "yield_item": "dustwheat_grain",
+    "yield_quantity": 1
+  },
+  "ironroot": {
+    "name": "Ironroot",
+    "growth_stages": 5,
+    "sprite_dir": "res://art/crops/ironroot/",
+    "yield_item": "ironroot",
+    "yield_quantity": 1
+  },
+  "sunbloom": {
+    "name": "Sunbloom",
+    "growth_stages": 6,
+    "sprite_dir": "res://art/crops/sunbloom/",
+    "yield_item": "sunbloom",
+    "yield_quantity": 1
+  }
+}

@@ -4,7 +4,7 @@ extends "res://tests/test_case.gd"
 
 const TestMapLayout := preload("res://scripts/test_map_layout.gd")
 
-const LEGAL_CHARS := [".", "f", "p", "#", "@"]
+const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O"]
 
 
 func test_grid_is_rectangular() -> void:
@@ -68,3 +68,27 @@ func test_world_space_math() -> void:
 	assert_eq(TestMapLayout.cell_center(Vector2i(0, 0)), Vector2(8, 8), "cell centers at half-tile")
 	var spawn_pos := TestMapLayout.cell_center(TestMapLayout.spawn_cell())
 	assert_true(TestMapLayout.map_rect().has_point(spawn_pos), "spawn position inside map bounds")
+
+
+func test_resource_nodes_exist_and_are_walkable_ground() -> void:
+	# Phase 3's minimal tree/ore resource nodes (see the legend comment in test_map_layout.gd):
+	# grass underneath, not on rubble/planks/farmland, and not solid (props carry their own
+	# collision body — the terrain cell itself stays walkable-looking grass).
+	var nodes := TestMapLayout.resource_node_cells()
+	var kinds := {}
+	for entry in nodes:
+		kinds[entry["kind"]] = kinds.get(entry["kind"], 0) + 1
+		var cell: Vector2i = entry["cell"]
+		assert_false(TestMapLayout.is_solid(cell.x, cell.y), "resource node not on rubble")
+		assert_false(TestMapLayout.is_soil(cell.x, cell.y), "resource node not on farmland")
+	assert_true(kinds.get("tree", 0) > 0, "at least one tree node")
+	assert_true(kinds.get("ore", 0) > 0, "at least one ore node")
+
+
+func test_tillable_excludes_resource_nodes_and_special_terrain() -> void:
+	for entry in TestMapLayout.resource_node_cells():
+		var cell: Vector2i = entry["cell"]
+		assert_false(TestMapLayout.is_tillable(cell.x, cell.y), "resource node cell isn't tillable")
+	assert_true(TestMapLayout.is_tillable(1, 1), "open grass is tillable")
+	var spawn := TestMapLayout.spawn_cell()
+	assert_true(TestMapLayout.is_tillable(spawn.x, spawn.y), "spawn cell (grass) is tillable")

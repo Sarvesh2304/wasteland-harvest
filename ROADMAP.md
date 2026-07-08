@@ -80,19 +80,45 @@ check this session; a quick look in-editor is worth doing when convenient, thoug
 headless verification suggests a problem.
 
 ### Phase 3 — Farming Core & Inventory System
-- [ ] Till soil with a hoe (normal ground tile → farmable tile)
-- [ ] Plant seeds (place seed item on tilled tile)
-- [ ] Water crops daily or they die; visual indicator if watered
-- [ ] Growth stages — 4–6 visual stages per crop, auto-progress each morning; post-apoc crops:
-      Mutant Potato, Dustwheat, Ironroot, Sunbloom
-- [ ] Harvest — interact with mature crop to collect produce
-- [ ] Inventory grid — slot-based with item stacking, hotbar for quick access
-- [ ] Tool system — Hoe, Watering Can, Axe, Pickaxe, Bag, each with durability (upgradeable
-      later)
-- [ ] Energy system — actions cost energy; passing out at zero energy loses the rest of the day
-- [ ] First 20 items defined (seeds, crops, wood, stone, scrap metal, food)
+- [x] Till soil with a hoe (normal ground tile → farmable tile). Tilling targets one logical
+      grid cell; the existing dual-grid Wang ground painter automatically re-blends the visual
+      tiles touching it — reasoning in `scripts/farm_grid.gd`'s header (resolves the open
+      question flagged at the end of Phase 2).
+- [x] Plant seeds (place seed item on tilled tile). `scripts/farm.gd`.
+- [x] Water crops daily or they die; visual indicator if watered (cool-blue sprite tint).
+      Judgment call, documented in `farm_grid.gd`: missing a single day's watering kills an
+      unwatered, not-yet-mature crop outright (no grace period) — stricter than Stardew, taken
+      literally from the checklist wording. Mature crops need no further water.
+- [x] Growth stages — 4–6 visual stages per crop (Dustwheat 4, Mutant Potato/Ironroot 5,
+      Sunbloom 6), auto-progress each morning via `DayManager.day_started`. Real PixelLab art
+      for all 4 crops' full growth chains (`art/crops/`, see its README for provenance).
+- [x] Harvest — interact with mature crop to collect produce; harvesting isn't tool-gated
+      (Stardew convention), plot returns to bare tilled soil after.
+- [x] Inventory grid — slot-based (27 slots, 3×9) with stacking, hotbar (row 1, number-key
+      select) for quick access. `scripts/inventory.gd`, HUD grid/hotbar in `scenes/hud.tscn`.
+- [x] Tool system — Hoe, Watering Can, Axe, Pickaxe, Bag, each with durability that decrements
+      on use (a broken tool is inert until a later phase adds repair). `scripts/player.gd`'s
+      `_interact()` dispatch.
+- [x] Energy system — real per-action costs (till 4, water 2, plant 1, harvest 1, chop/mine 5,
+      replacing Phase 2's flat placeholder); passing out at zero energy triggers
+      `DayManager.skip_to_next_morning()` + full refill (a "black out, wake at 6 AM" stand-in
+      until a real bed/sleep interaction exists in Phase 4).
+- [x] First 20 items defined (`data/items.json`): 4 seeds, 4 crop-produce, 5 resources (incl.
+      bottle caps, cloth scrap), 2 food, 5 tools. `data/crops.json` for the 4 crops' growth/
+      yield data. Real PixelLab icons for 7 items (4 crop produce + wood/stone/scrap); the
+      remaining 13 use in-engine flat-color placeholders, deferred to Phase 6 art polish.
 
-**Milestone:** Full farming loop functional: till → plant → water → grow → harvest → inventory.
+**Milestone: Phase 3 complete.** Verified independently: re-ran the full test suite after this
+session's own headless `--import` pass for the new crop/item art (66/66 unit tests pass, both
+before and after import), read through the core new scripts (`farm_grid.gd`, `farm.gd`,
+`player.gd`, `inventory.gd` — clean pure/stateful separation matching Phase 2's established
+style, sound logic, well-reasoned judgment calls documented inline), and spot-checked generated
+crop/item art visually. Full farming loop confirmed via an extended headless runtime smoke test
+(`tools/runtime_smoke.gd`): till → plant (consumes seed) → water (tint + durability) → forced
+day advances to maturity → harvest → item lands in inventory → plot stays tilled and
+replantable; a separate pass-out check (energy forced to 0 → day skips → energy refills) also
+passes. Game launched live for Sarvesh to check visually (still no automated screenshot
+capability — see Phase 2's milestone note on the Screen Recording permission gap).
 
 ### Phase 4 — Settlement Maps, Building & Auto-Save
 - [ ] Settlement selection screen — choose from 3 starting maps at game start, each with

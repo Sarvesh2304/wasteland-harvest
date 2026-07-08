@@ -1,21 +1,31 @@
 extends SceneTree
-## Headless runtime smoke test for Phase 2 (separate from tests/run_tests.gd, which is for
-## pure-logic unit tests): boots the real main.tscn and drives the actual game loop —
-## physics movement, wall collision, camera clamping, HUD binding, day/night tint, and the
-## tool-use lock — using simulated input. No display needed; physics and node processing
-## both run headless.
+## Headless runtime smoke test (separate from tests/run_tests.gd, which is for pure-logic unit
+## tests): boots the real main.tscn and drives the actual game loop — physics movement, wall
+## collision, camera clamping, HUD binding, day/night tint, tool-use lock (Phase 2) — plus
+## Phase 3's full farming loop end to end: till → plant → water → force a day advance → confirm
+## growth → harvest → confirm the item lands in inventory, and a pass-out-at-zero-energy check.
+## Simulated input/direct calls only; no display needed.
 ##
 ## Run: godot --headless --path . --script res://tools/runtime_smoke.gd
+
+const CropDB := preload("res://scripts/crop_db.gd")
 
 var main: Node
 var player: CharacterBody2D
 var camera: Camera2D
 var day_night: CanvasModulate
 var day_manager: Node
+var test_map: Node
+var farm: Node
 var spawn := Vector2.ZERO
 var stage := 0
 var stage_started_at := 0
 var failures: Array[String] = []
+
+## Farming-loop test plot: a plain grass cell well clear of the pre-baked farm block, rubble,
+## and the tree/ore resource nodes (see scripts/test_map_layout.gd's ROWS).
+const FARM_TEST_CELL := Vector2i(10, 17)
+const FARM_TEST_STAND_CELL := Vector2i(10, 16)
 
 
 func _initialize() -> void:
@@ -51,16 +61,22 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 10:
 				return false
 			# Scene wired: player on spawn, map painted, HUD bound.
-			var map := main.get_node("TestMap")
+			test_map = main.get_node("TestMap")
+			farm = test_map.get_node("Farm")
 			spawn = player.global_position
-			_check(spawn == map.get_spawn_position(),
-				"player starts on the spawn cell (at %s, expected %s)" % [spawn, map.get_spawn_position()])
-			_check(map.get_node("Ground").get_used_cells().size() == 33 * 21,
+			_check(spawn == test_map.get_spawn_position(),
+				"player starts on the spawn cell (at %s, expected %s)" % [spawn, test_map.get_spawn_position()])
+			_check(test_map.get_node("Ground").get_used_cells().size() == 33 * 21,
 				"dual-grid ground fully painted")
-			_check(map.get_node("Obstacles").get_used_cells().size() > 90,
+			_check(test_map.get_node("Obstacles").get_used_cells().size() > 90,
 				"rubble obstacles painted")
 			_check(main.get_node("HUD").get_node("%DayLabel").text == "Day 1", "HUD day label bound")
 			_check(main.get_node("HUD").get_node("%EnergyFill").value == 100.0, "energy bar full")
+			_check(player.farm == farm and player.test_map == test_map, "player bound to farm/map")
+			_check(player.inventory.get_slot(0).get("item_id", "") == "hoe",
+				"starting loadout: hoe in hotbar slot 1")
+			_check(player.inventory.count_of("seed_mutant_potato") == 5,
+				"starting loadout: 5 mutant potato seeds")
 			# Force midnight and let a frame tick the CanvasModulate.
 			day_manager.minutes_into_day = 0.0
 			_enter_stage(1)
@@ -95,9 +111,13 @@ func _physics_process(_delta: float) -> bool:
 			if ticks >= 10:  # idle settled
 				_check(player.get_node("Sprite").animation == &"idle_east",
 					"idle keeps last facing after input stops")
+				# Swing with the hoe selected, facing into border rubble: not tillable, so this
+				# must be a no-op (animation plays, nothing happens, no energy spent) — proves
+				# failed interactions don't silently cost the player anything.
+				var energy_before: float = player.energy
 				player.use_tool()
 				_check(player.using_tool, "tool use locks movement")
-				_check(player.energy == 98.0, "tool use spent stub energy")
+				_check(player.energy == energy_before, "swinging at non-tillable rubble costs no energy")
 				_check(player.get_node("Sprite").animation == &"tool_east", "tool_east playing")
 				_enter_stage(5)
 		5:
@@ -107,6 +127,85 @@ func _physics_process(_delta: float) -> bool:
 					"in-game time kept passing (%.2f)" % day_manager.minutes_into_day)
 				_check(main.get_node("HUD").get_node("%ClockLabel").text.ends_with("PM"),
 					"HUD clock shows afternoon after noon reset")
+				# -- Phase 3 farming loop starts here --
+				# Teleport to a clean grass cell (movement itself is already proven above) and
+				# face south so the tile directly ahead is FARM_TEST_CELL.
+				player.global_position = test_map.cell_to_world_center(FARM_TEST_STAND_CELL)
+				player.velocity = Vector2.ZERO
+				player.facing = "south"
+				player.inventory.select_hotbar(0)  # hoe
+				_check(not farm.can_harvest(FARM_TEST_CELL), "test cell starts as plain grass")
+				player.use_tool()  # till
+				_check(player.using_tool, "till swing locks movement")
+				_enter_stage(6)
+		6:
+			if ticks >= 60:
+				_check(not player.using_tool, "till swing finished")
+				_check(test_map.is_tilled_at(FARM_TEST_CELL), "hoe tilled the target cell")
+				_check(player.energy == 96.0, "till cost 4 energy (100 -> 96)")
+				_check(int(player.inventory.get_slot(0).get("durability", -1)) == 49,
+					"hoe durability decremented by 1")
+				player.inventory.select_hotbar(5)  # seed_mutant_potato (see _give_starting_loadout)
+				_check(player.inventory.get_slot(5).get("item_id", "") == "seed_mutant_potato",
+					"seeds are in hotbar slot 6")
+				player.use_tool()  # plant
+				_enter_stage(7)
+		7:
+			if ticks >= 60:
+				_check(not player.using_tool, "plant swing finished")
+				var plot: Dictionary = farm.get_plot(FARM_TEST_CELL)
+				_check(plot.get("crop_id", "") == "mutant_potato", "seed planted mutant potato")
+				_check(int(plot.get("stage", -1)) == 0, "freshly planted crop starts at stage 0")
+				_check(player.inventory.count_of("seed_mutant_potato") == 4, "one seed consumed")
+				_check(player.energy == 95.0, "planting cost 1 energy (96 -> 95)")
+				player.inventory.select_hotbar(1)  # watering_can
+				player.use_tool()  # water
+				_enter_stage(8)
+		8:
+			if ticks >= 60:
+				_check(not player.using_tool, "water swing finished")
+				_check(farm.is_watered(FARM_TEST_CELL), "watering can watered the crop")
+				_check(player.energy == 93.0, "watering cost 2 energy (95 -> 93)")
+				_check(int(player.inventory.get_slot(1).get("durability", -1)) == 49,
+					"watering can durability decremented by 1")
+				# Drive the remaining watered-day cycles directly through Farm/DayManager
+				# (already proved the player -> Farm wiring above for till/plant/water; a smoke
+				# test doesn't need to re-animate the same swing to prove it again 3 more times).
+				var growth_stages := CropDB.growth_stages("mutant_potato")
+				var days_advanced := 0
+				while not farm.can_harvest(FARM_TEST_CELL) and days_advanced < growth_stages + 2:
+					if farm.can_water(FARM_TEST_CELL):
+						farm.water(FARM_TEST_CELL)
+					day_manager.skip_to_next_morning()
+					days_advanced += 1
+				_check(farm.can_harvest(FARM_TEST_CELL),
+					"crop reached its final stage after %d watered day advances (growth_stages=%d)" \
+						% [days_advanced, growth_stages])
+				_enter_stage(9)
+		9:
+			if ticks >= 10:
+				var potatoes_before: int = player.inventory.count_of("mutant_potato")
+				_check(potatoes_before == 0, "no mutant potato in inventory before harvest")
+				player.inventory.select_hotbar(0)  # harvest ignores selection, but pick something valid
+				player.use_tool()  # harvest
+				_enter_stage(10)
+		10:
+			if ticks >= 60:
+				_check(not player.using_tool, "harvest swing finished")
+				_check(player.inventory.count_of("mutant_potato") == 1,
+					"harvested mutant potato landed in inventory")
+				_check(farm.get_plot(FARM_TEST_CELL).is_empty(),
+					"plot cleared back to bare soil after harvest")
+				_check(test_map.is_tilled_at(FARM_TEST_CELL),
+					"cell stays tilled (replantable) after harvest, doesn't revert to grass")
+				# -- Pass-out-at-zero-energy check --
+				var day_before: int = day_manager.day
+				player.set_energy(3.0)
+				player.set_energy(-50.0)  # crosses from positive to <=0 -> should pass out
+				_check(day_manager.day == day_before + 1,
+					"energy hitting zero triggered a day skip (day %d -> %d)" % [day_before, day_manager.day])
+				_check(day_manager.clock_text() == "6:00 AM", "woke up at 6:00 AM")
+				_check(player.energy == player.max_energy, "waking up restores full energy")
 				_finish()
 		_:
 			pass
