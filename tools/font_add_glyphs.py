@@ -32,17 +32,8 @@ GLYPHS = {
     0x38: ".##.|#..#|.##.|#..#|#..#|.##.",   # 8
     0x39: ".##.|#..#|#..#|.###|...#|###.",   # 9
     0x2F: "...#|..#.|..#.|.#..|.#..|#...",   # /
-    # Up arrow: NOT a mirror of the down arrow below, and deliberately not a mirror of the
-    # previous "..#..|.###.|#####|..#..|..#..|..#.." version either — that version rasterized
-    # (in both PIL/FreeType diagnostic and the actual in-game Godot render) with its lone 1px
-    # tip row silently dropped and the following 5px row duplicated, leaving 3px/5px/5px/stem —
-    # a flat-topped block that reads as a "+"/dagger, not an arrow (caught by review against
-    # scenes/settlement_select.tscn's hint bar). The rasterizer reliably eats a glyph's single
-    # topmost 1px-wide row; the down arrow escapes this because its tip sits at the *bottom*
-    # edge instead. Fix: two redundant 1px tip rows (so the point survives even if one is
-    # eaten) plus a narrower 3px (not 5px) flare, confirmed by re-rendering before use here.
-    0x2191: "..#..|..#..|.###.|..#..|..#..|..#..",  # up arrow
-    0x2193: "..#..|..#..|..#..|#####|.###.|..#..",  # down arrow (tip at bottom edge — unaffected)
+    0x2191: "..#..|.###.|#####|..#..|..#..|..#..",  # up arrow (5px wide for a pointed tip)
+    0x2193: "..#..|..#..|..#..|#####|.###.|..#..",  # down arrow
     0x2014: "......|......|......|......|######|......",  # em dash (bar on row 4, like hyphen)
     0x2026: ".....|.....|.....|.....|.....|#.#.#",  # ellipsis
 }
