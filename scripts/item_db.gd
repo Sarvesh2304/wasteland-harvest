@@ -2,7 +2,7 @@ extends RefCounted
 ## Loader for data/items.json (ROADMAP Phase 3 "first 20 items").
 ##
 ## Deliberately NOT a `class_name` global: this codebase's established convention (see
-## scripts/test_map_layout.gd, scripts/wang_tileset.gd from Phase 1/2) is `const X :=
+## scripts/map_layouts/open_plains_layout.gd, scripts/wang_tileset.gd from Phase 1/2/4) is `const X :=
 ## preload(...)` in every file that needs it, because `class_name` globals only resolve once
 ## Godot's global script class cache has been rebuilt — which normally happens by opening the
 ## project in the editor GUI, something this build avoids per CLAUDE.md's team-model gate. Any

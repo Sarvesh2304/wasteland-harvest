@@ -12,13 +12,14 @@ config_version=5
 
 config/name="Wasteland Harvest"
 config/description="A post-apocalyptic farming & settlement RPG in the pixel-art style of Stardew Valley. Till irradiated-but-recovering soil, build up a scavenger settlement, and run combat expeditions into a ruined city for loot, story, and danger."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/settlement_select.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
 
 DayManager="*res://scripts/day_manager.gd"
+GameState="*res://scripts/game_state.gd"
 
 [display]
 

@@ -121,20 +121,50 @@ passes. Game launched live for Sarvesh to check visually (still no automated scr
 capability — see Phase 2's milestone note on the Screen Recording permission gap).
 
 ### Phase 4 — Settlement Maps, Building & Auto-Save
-- [ ] Settlement selection screen — choose from 3 starting maps at game start, each with
-      different layout/terrain/lore blurb and differing starting resources (water access vs.
-      ruin materials vs. better soil)
-- [ ] Full farmland map — player's home area: farm plots, derelict home structure, storage
-      chest, a small perimeter fence gap (closed later)
-- [ ] Town map rough draft — mayor's fortified house, one trading store, 3–4 settler shacks,
-      water body (river or lake) with dock, bulletin board
-- [ ] Basic building placement — place a structure blueprint, spend resources, wait 1 in-game
-      day; simple grid-snap system
-- [ ] Auto-save at end of day — interacting with a bed saves all state (crops, inventory, day,
-      world modifications), brief "WORLD SAVED" notification, `FileAccess` + JSON serialisation
 
-**Milestone:** Auto-save works. Player can quit and reload mid-playthrough with all state
-restored.
+Built in 3 committed stages (Sarvesh's preference, so a session interruption never loses more
+than one stage's work) rather than one batch — see individual commits for exactly what landed
+when.
+
+- [x] Settlement selection screen — choose from 3 starting maps at game start, each with
+      different layout/terrain/lore blurb and differing starting resources (water access vs.
+      ruin materials vs. better soil). **Stage 1.** New `scenes/settlement_select.tscn` (now
+      `run/main_scene`) shows each start's name/lore/resource-lean from `MAPS.md` §1; confirming
+      sets the new `GameState` autoload's `chosen_settlement_id` and transitions to
+      `scenes/main.tscn`.
+- [x] Full farmland map — player's home area: farm plots, derelict home structure, storage
+      chest, a small perimeter fence gap (closed later). **Stage 1.** All 3 starts
+      (`scripts/map_layouts/{open_plains,forest_edge,riverside}_layout.gd`, 36×32 cells each)
+      have a real farmhouse + chest (a genuine second `Inventory` instance, opened via the
+      existing tool-use interaction) and match their `MAPS.md` terrain sketches (Open Plains'
+      one large plot; Forest Edge's irregular patches + treeline/rubble; Riverside's narrow
+      bank-side ribbon with the river replacing the west fence).
+- [x] Town map rough draft — mayor's fortified house, one trading store, 3–4 settler shacks,
+      water body (river or lake) with dock, bulletin board. **Stage 1.** One shared town-core
+      layout per `MAPS.md` §2 (plaza, mayor's house north / store south, 4 shacks, water+dock,
+      one main gate), reproduced identically across all 3 starts' layout files. All buildings
+      are real collidable placeholder volumes (`scripts/structures.gd`) — flat-color per kind
+      from the locked palette, no interiors/NPCs yet (Phase 5).
+- [ ] Basic building placement — place a structure blueprint, spend resources, wait 1 in-game
+      day; simple grid-snap system. **Stage 2, not yet started.**
+- [ ] Auto-save at end of day — interacting with a bed saves all state (crops, inventory, day,
+      world modifications), brief "WORLD SAVED" notification, `FileAccess` + JSON serialisation.
+      **Stage 3, not yet started.**
+
+**Stage 1 verified independently:** re-ran the full suite myself (87/87 unit tests), read
+through the new core scripts (`game_state.gd`, `settlement_db.gd`, `structures.gd`,
+`test_map.gd`'s generalized layout resolution, one full map layout file) — sound logic, the
+`_enter_tree()`-before-children's-`_ready()` ordering trick for resolving the active layout is
+correct and clearly documented, judgment calls (Riverside's indirect starting bonus since no
+fishing/irrigation systems exist yet; chest UI has toggle/display but no item-transfer UX yet)
+are reasonable and flagged. Runtime smoke test extended to cover selection → confirming a
+*non-default* choice → correct layout loading → all building landmarks present and collidable →
+chest interaction → the full farming loop and pass-out re-verified against the new maps; Open
+Plains and Riverside independently boot-checked too, not just the one driven end-to-end. Live
+game launch clean (no errors).
+
+**Milestone (whole phase):** Auto-save works. Player can quit and reload mid-playthrough with
+all state restored.
 
 ### Phase 5 — Basic NPCs, Town Economy & Dialogue
 - [ ] NPC base class — name, sprite, position, dialogue data, wanders within a defined zone

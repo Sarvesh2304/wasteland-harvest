@@ -8,7 +8,6 @@ extends Node2D
 ## Expected in the scene tree as a child of TestMap (see scenes/test_map.tscn) so get_parent()
 ## is the TestMap node it repaints tilled soil through and reads terrain from.
 
-const TestMapLayout := preload("res://scripts/test_map_layout.gd")
 const FarmGrid := preload("res://scripts/farm_grid.gd")
 const CropDB := preload("res://scripts/crop_db.gd")
 
@@ -27,7 +26,7 @@ var _test_map: Node2D
 
 func _ready() -> void:
 	_test_map = get_parent()
-	for entry in TestMapLayout.resource_node_cells():
+	for entry in _test_map.layout.resource_node_cells():
 		var cell: Vector2i = entry["cell"]
 		_resource_nodes[cell] = String(entry["kind"])
 		_spawn_resource_prop(cell, String(entry["kind"]))
@@ -40,6 +39,12 @@ func can_till(cell: Vector2i) -> bool:
 	if _resource_nodes.has(cell) or _plots.has(cell):
 		return false
 	if _test_map.is_tilled_at(cell):
+		return false
+	# Phase 4: a building's footprint can include cells that still read as plain grass in the
+	# layout's ASCII data (only the top-left cell carries the building's marker char — see
+	# map_layouts/layout_common.gd's class doc), so the terrain-char check alone isn't enough to
+	# keep a hoe out from under a farmhouse/mayor's house/shack. is_blocked_at() closes that gap.
+	if _test_map.is_blocked_at(cell):
 		return false
 	return FarmGrid.is_tillable_terrain(_test_map.terrain_at(cell))
 
@@ -117,7 +122,7 @@ func get_plot(cell: Vector2i) -> Dictionary:
 	return _plots.get(cell, {})
 
 
-## -- Resource nodes (Phase 3 minimal scope: single-hit, no respawn — see test_map_layout.gd) --
+## -- Resource nodes (Phase 3 minimal scope: single-hit, no respawn — see map_layouts/layout_common.gd) --
 
 func can_chop(cell: Vector2i) -> bool:
 	return _resource_nodes.get(cell, "") == "tree"
@@ -164,7 +169,7 @@ func _spawn_resource_prop(cell: Vector2i, kind: String) -> void:
 	var visual := ColorRect.new()
 	visual.size = Vector2(12, 12)
 	visual.position = Vector2(-6, -6)
-	# Flat-color placeholder (Phase 3 scope call, see test_map_layout.gd's legend comment):
+	# Flat-color placeholder (Phase 3 scope call, see map_layouts/layout_common.gd's legend comment):
 	# ash-brown stump for trees, concrete-grey for ore, both from the locked GDD §9 palette.
 	visual.color = Color("#7b5025") if kind == "tree" else Color("#9d9180")
 	body.add_child(visual)

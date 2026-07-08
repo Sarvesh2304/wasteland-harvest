@@ -71,6 +71,7 @@ var _step_target := Vector2.ZERO
 ## Bound by main.gd once the world exists (see bind_world()).
 var farm: Node = null
 var test_map: Node = null
+var structures: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -129,17 +130,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			inventory.select_hotbar(i)
 
 
-## Wired by main.gd once the farm/map exist, so player.gd can stay instance-testable on its own
-## (tests/test_player.gd) without needing a full scene.
-func bind_world(farm_node: Node, map_node: Node) -> void:
+## Wired by main.gd once the farm/map/structures exist, so player.gd can stay instance-testable
+## on its own (tests/test_player.gd) without needing a full scene. structures_node is optional
+## (defaults null) so existing single-arg callers/tests keep working unchanged.
+func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null) -> void:
 	farm = farm_node
 	test_map = map_node
+	structures = structures_node
 
 
 ## Plays the shared swing animation and resolves the tile interaction. Locks movement for the
 ## animation's duration exactly like the Phase 2 stub did.
 func use_tool() -> void:
 	if energy <= 0.0:
+		return
+	# Phase 4: chest interaction is instant (no energy cost, no tool-swing lock/animation) and
+	# takes priority over farming — matches Stardew's "activate button opens a chest" convention
+	# rather than routing through the hotbar-tool dispatch below.
+	if structures != null and test_map != null and structures.is_chest_at(_target_cell()):
+		structures.interact_chest()
 		return
 	using_tool = true
 	velocity = Vector2.ZERO
