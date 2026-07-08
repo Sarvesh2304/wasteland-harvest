@@ -7,8 +7,9 @@ extends Node2D
 ## a fixed 1x1 tree/ore footprint to an arbitrary rectangle.
 ##
 ## ROADMAP.md Phase 4 scope: these are placeholder volumes, not full art/interiors — no NPCs live
-## in them yet (Phase 5), no interiors exist, and only the chest is actually interactable this
-## session. The bulletin board is deliberately inert (no quest system exists yet).
+## in them yet (Phase 5) and no interiors exist. Interactable: the chest (storage) and, since
+## Stage 3, the farmhouse bed (sleep = auto-save + skip to next morning — see is_bed_at() and
+## player.gd's _sleep_in_bed()). The bulletin board is deliberately inert (no quest system yet).
 ##
 ## Expected in the scene tree as a child of TestMap (see scenes/test_map.tscn), sibling to Farm,
 ## so get_parent() is the TestMap node whose `layout` this reads building data from — same
@@ -28,6 +29,7 @@ const Inventory := preload("res://scripts/inventory.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
 const BuildGrid := preload("res://scripts/build_grid.gd")
 const FarmGrid := preload("res://scripts/farm_grid.gd")
+const SaveData := preload("res://scripts/save_data.gd")
 
 signal chest_toggled(inventory: Inventory, cell: Vector2i)
 
@@ -46,6 +48,9 @@ const BUILDING_COLORS := {
 	# Phase 4 Stage 2 player-buildable kinds (data/buildings.json):
 	"shelter_tent": "#95ac49",    # faded field green — a salvaged-tarp lean-to
 	"storage_shed": "#7d452a",    # rusted iron-brown — a scrap-sheet storage hut
+	# Phase 4 Stage 3: the farmhouse bed (sleep = save + skip to morning), authored in each
+	# layout beside the farmhouse the same way the chest is:
+	"bed": "#f3acb7",             # mutant blossom pink (GDD §9 seasonal set) — reads as a blanket
 }
 
 ## Under-construction fill for a placed blueprint: the GDD §9 rain-sky blue-grey at ~half alpha,
@@ -60,6 +65,8 @@ var chest_inventory: Inventory = Inventory.new()
 
 var _test_map: Node2D
 var _chest_cell: Vector2i = Vector2i(-1, -1)
+## The farmhouse bed's cell (Phase 4 Stage 3) — same one-marked-cell pattern as _chest_cell.
+var _bed_cell: Vector2i = Vector2i(-1, -1)
 var _bodies: Array[StaticBody2D] = []
 
 ## Runtime-placed structures (Phase 4 Stage 2). Each entry: {building_id, kind, top_left, size,
@@ -85,6 +92,8 @@ func _spawn_building(building: Dictionary) -> void:
 	var kind := String(building["kind"])
 	if kind == "chest":
 		_chest_cell = top_left
+	elif kind == "bed":
+		_bed_cell = top_left
 	_spawn_footprint_body(top_left, footprint_size,
 		Color(String(BUILDING_COLORS.get(kind, "#8c8478"))))
 
@@ -214,3 +223,70 @@ func interact_chest(cell: Vector2i) -> void:
 	var inv := storage_inventory_at(cell)
 	if inv != null:
 		chest_toggled.emit(inv, cell)
+
+
+## -- Phase 4 Stage 3: the farmhouse bed --
+
+## Whether the cell is the layout-authored bed beside the farmhouse. player.gd checks this in
+## its use_tool() priority dispatch (alongside is_chest_at) and runs the sleep sequence itself —
+## sleeping touches player-owned state (energy) and the save system, so the player node owns
+## the sequence the way it already owns _pass_out().
+func is_bed_at(cell: Vector2i) -> bool:
+	return cell == _bed_cell
+
+
+## -- Phase 4 Stage 3: save/load (see scripts/save_data.gd's class doc for the shape) --
+
+func save_state() -> Dictionary:
+	var pending_out: Array = []
+	for entry in _pending:
+		pending_out.append(SaveData.encode_structure_entry(entry))
+	var completed_out: Array = []
+	for entry in _completed:
+		completed_out.append(SaveData.encode_structure_entry(entry))
+	var storage_out := {}
+	for top_left in _storage_inventories:
+		var inv: Inventory = _storage_inventories[top_left]
+		storage_out[SaveData.cell_key(top_left)] = \
+			SaveData.encode_inventory(inv.slots, inv.selected_hotbar_index)
+	return {
+		"pending": pending_out,
+		"completed": completed_out,
+		"storage": storage_out,
+		"chest": SaveData.encode_inventory(
+			chest_inventory.slots, chest_inventory.selected_hotbar_index),
+	}
+
+
+## Rebuilds runtime-placed structures from a loaded save: each entry gets its visual body
+## re-spawned through the same _spawn_footprint_body() the live placement/completion paths use
+## (blueprint-blue for pending, final kind color for completed), and its footprint re-registered
+## in test_map's _runtime_blocked overlay via the same block_cells() call place_blueprint()
+## makes — re-deriving that overlay rather than serialising it, so the two can't diverge.
+## Storage inventories (per-shed + the layout chest's) are restored in place.
+func load_state(data: Dictionary) -> void:
+	for entry_data in data.get("pending", []):
+		_restore_entry(SaveData.decode_structure_entry(entry_data), true)
+	for entry_data in data.get("completed", []):
+		_restore_entry(SaveData.decode_structure_entry(entry_data), false)
+	var storage: Dictionary = data.get("storage", {})
+	for key in storage:
+		var inv := Inventory.new()
+		_apply_inventory_data(inv, storage[key])
+		_storage_inventories[SaveData.parse_cell_key(String(key))] = inv
+	_apply_inventory_data(chest_inventory, data.get("chest", {}))
+
+
+func _restore_entry(entry: Dictionary, pending: bool) -> void:
+	var fill := BLUEPRINT_COLOR if pending \
+		else Color(String(BUILDING_COLORS.get(String(entry["kind"]), "#8c8478")))
+	entry["visual"] = _spawn_footprint_body(entry["top_left"], entry["size"], fill)
+	(_pending if pending else _completed).append(entry)
+	_test_map.block_cells(BuildGrid.footprint_cells(entry["top_left"], entry["size"]))
+
+
+func _apply_inventory_data(inv: Inventory, data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	var decoded := SaveData.decode_inventory(data)
+	inv.restore(decoded["slots"], int(decoded["selected_hotbar_index"]))

@@ -86,6 +86,21 @@ func select_hotbar(index: int) -> void:
 	hotbar_selection_changed.emit(index)
 
 
+## Wholesale slot replacement for the save system (Phase 4 Stage 3 — scripts/save_data.gd
+## produces `slots_in` via decode_inventory, already int-normalised). Pads/truncates to
+## TOTAL_SLOTS so a save from a build with a different backpack size can never leave the
+## array malformed, and emits the same signals live mutations do so bound UIs refresh.
+func restore(slots_in: Array, selected_index: int) -> void:
+	slots = slots_in.duplicate(true)
+	slots.resize(TOTAL_SLOTS)
+	for i in TOTAL_SLOTS:
+		if not slots[i] is Dictionary:
+			slots[i] = {}
+	selected_hotbar_index = clampi(selected_index, 0, HOTBAR_SIZE - 1)
+	changed.emit()
+	hotbar_selection_changed.emit(selected_hotbar_index)
+
+
 ## Reduce the selected slot's tool durability by `amount`. Returns true if the tool just broke
 ## (hit 0) this call. No-op (returns false) if the selected slot isn't a tool.
 func damage_selected_tool(amount: int = 1) -> bool:

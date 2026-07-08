@@ -10,8 +10,8 @@ const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
 
-const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "M", "R", "K", "B", "W", "F", "G", "g"]
-const REQUIRED_BUILDING_KINDS := ["farmhouse", "chest", "mayor_house", "store", "shack", "bulletin_board"]
+const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "W", "F", "G", "g"]
+const REQUIRED_BUILDING_KINDS := ["farmhouse", "chest", "bed", "mayor_house", "store", "shack", "bulletin_board"]
 
 const LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout]
 const LAYOUT_NAMES := ["open_plains", "forest_edge", "riverside"]
@@ -59,6 +59,27 @@ func test_all_layouts_have_all_required_building_kinds() -> void:
 		for kind in REQUIRED_BUILDING_KINDS:
 			assert_true(kinds.get(kind, 0) > 0, "%s missing building kind '%s'" % [LAYOUT_NAMES[i], kind])
 		assert_true(kinds.get("shack", 0) >= 3, "%s has at least 3 settler shacks" % LAYOUT_NAMES[i])
+
+
+func test_bed_is_1x1_and_reachable() -> void:
+	# Phase 4 Stage 3: every start has exactly one farmhouse bed, 1x1 like the chest, with at
+	# least one walkable orthogonal neighbour cell the player can stand on to interact with it.
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var beds: Array[Dictionary] = []
+		for b in layout.buildings():
+			if String(b["kind"]) == "bed":
+				beds.append(b)
+		assert_eq(beds.size(), 1, "%s has exactly one bed" % LAYOUT_NAMES[i])
+		var bed: Dictionary = beds[0]
+		assert_eq(bed["size"], Vector2i(1, 1), "%s bed is 1x1" % LAYOUT_NAMES[i])
+		var cell: Vector2i = bed["top_left"]
+		var reachable := false
+		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = cell + offset
+			if not layout.is_solid(n.x, n.y):
+				reachable = true
+		assert_true(reachable, "%s bed has a walkable neighbour to interact from" % LAYOUT_NAMES[i])
 
 
 func test_all_layouts_have_dock_and_gate() -> void:

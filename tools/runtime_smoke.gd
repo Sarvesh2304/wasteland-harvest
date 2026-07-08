@@ -15,6 +15,19 @@ extends SceneTree
 ## working second storage chest; then gather wood by chopping a tree and build a Shelter Tent the
 ## same way, proving the "gather -> afford -> place -> wait a day" loop from zero spare resources.
 ##
+## Phase 4 Stage 3 (stages 20-23): the full auto-save round trip — the literal phase milestone
+## ("Player can quit and reload mid-playthrough with all state restored"). After all the play
+## above, the player sleeps in the farmhouse bed via the real use_tool interaction (day advances,
+## energy refills, "WORLD SAVED" notice appears, save file written), then a fresh boot is
+## simulated: the whole main scene is torn down, GameState/DayManager are deliberately reset to
+## wrong values, and scenes/settlement_select.tscn is instantiated again exactly as a real launch
+## would — its Stage 3 resume path must skip the picker, reload the save, and restore crops,
+## tilled soil, chopped-resource removals, inventory (incl. tool durability + hotbar selection),
+## player position/facing/energy, both player-built structures with their storage contents, the
+## chest contents, the day/clock, and the chosen settlement. Uses a test-only save filename
+## (game_state.save_path) deleted both before and after, so repeated runs never inherit stale
+## state — a hard requirement, not hygiene theater.
+##
 ## Run: godot --headless --path . --script res://tools/runtime_smoke.gd
 ##
 ## Settlement choice: Forest Edge (rather than the DEFAULT_ID Open Plains) is driven through the
@@ -34,9 +47,9 @@ const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd"
 ## painted-cell counts computed from that layout's ROWS (ground is always (w+1)*(h+1)).
 const OTHER_LAYOUT_CHECKS := [
 	{"id": "open_plains", "layout": OpenPlainsLayout, "ground": 37 * 33, "obstacles": 0,
-		"fence": 129, "water": 20, "decor": 3, "buildings": 9},
+		"fence": 129, "water": 20, "decor": 3, "buildings": 10},
 	{"id": "riverside", "layout": RiversideLayout, "ground": 37 * 33, "obstacles": 0,
-		"fence": 97, "water": 32, "decor": 3, "buildings": 9},
+		"fence": 97, "water": 32, "decor": 3, "buildings": 10},
 ]
 var _other_layout_map: Node2D = null
 var _other_layout_index := 0
@@ -58,6 +71,11 @@ var stage := 0
 var stage_started_at := 0
 var failures: Array[String] = []
 
+## Snapshot taken at the moment of the stage-20 bed save, compared against the reloaded world
+## in stage 23.
+var saved_day := 0
+var saved_position := Vector2.ZERO
+
 ## Farming-loop test plot: a plain grass cell on Forest Edge's ROWS well clear of the pre-baked
 ## farmland patches, treeline/salvage, buildings, and the SW creek (row 20 is open grass across
 ## its whole interior width — see scripts/map_layouts/forest_edge_layout.gd's ROWS).
@@ -73,6 +91,13 @@ func _initialize() -> void:
 	# instantiation, not in this top-level --script entry file itself — hence root.get_node().
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	# Stage 3 test hygiene (hard requirement, see class doc): point the save system at a
+	# test-only filename and clear any stale copy a previous crashed run may have left, BEFORE
+	# the selection screen's _ready() runs its has_save() resume check — otherwise this run
+	# could inherit another run's world (or worse, a real playthrough's save at the default
+	# path could hijack the picker this test drives).
+	game_state.save_path = "user://runtime_smoke_save.json"
+	game_state.delete_save()
 	select = (load("res://scenes/settlement_select.tscn") as PackedScene).instantiate()
 	root.add_child(select)
 	current_scene = select
@@ -97,6 +122,8 @@ func _physics_process(_delta: float) -> bool:
 			# Wait past startup so the selection screen's _ready() has run.
 			if ticks < 5:
 				return false
+			_check(not game_state.has_save(),
+				"no save exists at the test path, so the picker (not the resume path) showed")
 			_check(game_state.chosen_settlement_id == "open_plains",
 				"selection screen boots with the default settlement pre-selected (got '%s')" \
 					% game_state.chosen_settlement_id)
@@ -168,12 +195,13 @@ func _physics_process(_delta: float) -> bool:
 				"all 3 dock plank cells painted")
 			# -- Town-core + farmland landmarks exist, positioned sensibly --
 			var buildings: Array[Dictionary] = ForestEdgeLayout.buildings()
-			_check(buildings.size() == 9, "9 buildings defined (farmhouse, chest, mayor, store, board, 4 shacks)")
-			_check(structures.get_child_count() == 9, "Structures spawned one body per building")
+			_check(buildings.size() == 10,
+				"10 buildings defined (farmhouse, chest, bed, mayor, store, board, 4 shacks)")
+			_check(structures.get_child_count() == 10, "Structures spawned one body per building")
 			var kinds := {}
 			for b in buildings:
 				kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
-			for required in ["farmhouse", "chest", "mayor_house", "store", "bulletin_board"]:
+			for required in ["farmhouse", "chest", "bed", "mayor_house", "store", "bulletin_board"]:
 				_check(kinds.get(required, 0) == 1, "exactly one %s" % required)
 			_check(kinds.get("shack", 0) == 4, "4 settler shacks")
 			var farmhouse: Dictionary = ForestEdgeLayout.building_at(16, 2)
@@ -477,6 +505,129 @@ func _physics_process(_delta: float) -> bool:
 				_check(not farm.can_till(Vector2i(30, 21)), "completed tent cell stays untillable")
 				_enter_stage(20)
 		20:
+			# -- Phase 4 Stage 3: sleep in the farmhouse bed -> auto-save (see class doc) --
+			if ticks == 1:  # exactly once (ticks starts at 1 — see stage 24's note): these
+				# mutations are NOT idempotent, unlike other stages' position-only setup.
+				# Seed extra distinctive state for the round trip: replant + water the
+				# farming-test plot (sleeping will advance it to stage 1/unwatered — that
+				# advanced state is what must survive the reload), and drop items into BOTH
+				# storage inventories (layout chest + built shed) so their contents round-trip.
+				farm.plant(FARM_TEST_CELL, "mutant_potato")
+				farm.water(FARM_TEST_CELL)
+				player.inventory.remove_item("seed_mutant_potato", 1)  # match a real replant's cost
+				structures.chest_inventory.add_item("stone", 2)
+				structures.storage_inventory_at(Vector2i(3, 16)).add_item("wood", 1)
+				player.set_energy(42.0)
+				# Stand one cell south of Forest Edge's bed at (18,4), facing it.
+				player.global_position = test_map.cell_to_world_center(Vector2i(18, 5))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks < 5:
+				return false
+			if ticks == 5:
+				_check(structures.is_bed_at(Vector2i(18, 4)), "bed is at its authored cell")
+				_check(not game_state.has_save(), "no save file before sleeping")
+				var day_before: int = day_manager.day
+				player.use_tool()  # the real bed interaction path
+				_check(not player.using_tool, "bed interaction is instant, no tool swing")
+				_check(day_manager.day == day_before + 1,
+					"sleeping advanced the day (%d -> %d)" % [day_before, day_manager.day])
+				_check(day_manager.clock_text() == "6:00 AM", "woke at 6:00 AM")
+				_check(player.energy == player.max_energy, "sleeping restored full energy")
+				_check(game_state.has_save(), "sleeping wrote the save file")
+				_check(hud.get_node("%SaveNotice").visible, "WORLD SAVED notice appeared")
+				_check(hud.get_node("%SaveNotice").text == "WORLD SAVED", "notice reads WORLD SAVED")
+				saved_day = day_manager.day
+				saved_position = player.global_position
+				_enter_stage(21)
+		21:
+			# -- Simulate quitting: tear the whole game down, deliberately corrupt the resettable
+			#    globals, then boot from the top exactly as a real launch does --
+			if ticks < 5:
+				return false
+			main.queue_free()
+			main = null
+			game_state.chosen_settlement_id = "open_plains"  # save must restore forest_edge
+			day_manager.day = 1                              # save must restore saved_day
+			day_manager.minutes_into_day = 400.0
+			select = (load("res://scenes/settlement_select.tscn") as PackedScene).instantiate()
+			root.add_child(select)
+			current_scene = select
+			_enter_stage(22)
+		22:
+			# -- The fresh boot's resume path must skip the picker straight into main.tscn --
+			if ticks < 20:  # let select._ready's deferred change_scene_to_file complete
+				return false
+			main = current_scene
+			_check(main != null and main.name == "Main",
+				"resume path skipped the picker and booted main.tscn")
+			if main == null or main.name != "Main":
+				_finish()
+				return true
+			player = main.get_node("Player")
+			test_map = main.get_node("TestMap")
+			farm = test_map.get_node("Farm")
+			structures = test_map.get_node("Structures")
+			hud = main.get_node("HUD")
+			_enter_stage(23)
+		23:
+			# -- Everything restored: the phase milestone's literal "all state" check --
+			if ticks < 10:  # a few frames so DayManager's time_changed refreshed the HUD labels
+				return false
+			_check(game_state.chosen_settlement_id == "forest_edge",
+				"chosen settlement restored from the save")
+			_check(test_map.layout == ForestEdgeLayout, "reloaded map resolved the saved layout")
+			_check(day_manager.day == saved_day,
+				"day restored (%d, expected %d)" % [day_manager.day, saved_day])
+			_check(day_manager.clock_text() == "6:00 AM", "clock restored to the saved morning")
+			_check(hud.get_node("%DayLabel").text == "Day %d" % saved_day, "HUD shows the loaded day")
+			_check(player.global_position == saved_position,
+				"player position restored (%s, expected %s)" % [player.global_position, saved_position])
+			_check(player.facing == "north", "player facing restored")
+			_check(player.energy == player.max_energy, "energy restored (full — saved after waking)")
+			_check(hud.get_node("%EnergyFill").value == player.max_energy, "HUD energy bar restored")
+			# Inventory: exact contents from the played-through session, not the starting loadout
+			# + settlement bonus a fresh game would have granted.
+			_check(player.inventory.get_slot(0).get("item_id", "") == "hoe", "hoe back in slot 1")
+			_check(int(player.inventory.get_slot(0).get("durability", -1)) == 49,
+				"hoe durability (49) survived the round trip")
+			_check(player.inventory.count_of("wood") == 0, "wood count (all spent building) restored")
+			_check(player.inventory.count_of("mutant_potato") == 1, "harvested potato restored")
+			_check(player.inventory.count_of("seed_mutant_potato") == 3,
+				"seed count (5 - planted 2) restored")
+			_check(player.inventory.selected_hotbar_index == 2,
+				"hotbar selection (axe, from the chop) restored")
+			# World modifications:
+			_check(test_map.is_tilled_at(FARM_TEST_CELL), "player-tilled cell restored")
+			var plot: Dictionary = farm.get_plot(FARM_TEST_CELL)
+			_check(plot.get("crop_id", "") == "mutant_potato", "planted crop restored")
+			_check(int(plot.get("stage", -1)) == 1,
+				"crop stage restored at 1 (watered plot advanced by the sleep's day tick)")
+			_check(not bool(plot.get("watered", true)), "watered flag consumed by the day tick")
+			_check(not farm.can_chop(Vector2i(33, 2)), "chopped tree stays gone after reload")
+			_check(farm.can_chop(Vector2i(20, 1)), "an unchopped tree is still standing")
+			# Player-built structures + storage:
+			_check(structures._pending.is_empty() and structures._completed.size() == 2,
+				"both completed structures restored")
+			_check(structures.is_chest_at(Vector2i(3, 16)) and structures.is_chest_at(Vector2i(4, 17)),
+				"restored shed is storage on its footprint")
+			_check(structures.storage_inventory_at(Vector2i(3, 16)) != null and
+				structures.storage_inventory_at(Vector2i(3, 16)).count_of("wood") == 1,
+				"shed storage contents restored")
+			_check(structures.chest_inventory.count_of("stone") == 2, "layout chest contents restored")
+			_check(not structures.is_chest_at(Vector2i(30, 21)), "restored tent is not storage")
+			# The _runtime_blocked overlay was re-derived from the restored structures, not
+			# serialised (see save_data.gd's class doc):
+			_check(test_map.is_blocked_at(Vector2i(3, 16)) and test_map.is_blocked_at(Vector2i(30, 21)),
+				"restored footprints re-registered as blocked")
+			_check(not farm.can_till(Vector2i(4, 16)), "can't till under the restored shed")
+			_check(structures.is_bed_at(Vector2i(18, 4)), "bed present again after reload")
+			# Test hygiene (hard requirement): remove the test save so repeated runs start clean.
+			game_state.delete_save()
+			_check(not game_state.has_save(), "test save file cleaned up")
+			_enter_stage(24)
+		24:
 			# -- The other 2 starts also load and paint correctly (not just Forest Edge above) --
 			# (_other_layout_map == null is the "just entered this stage for a new layout" signal
 			# — ticks is never actually 0 here since _enter_stage() was called from the *previous*
@@ -510,10 +661,10 @@ func _physics_process(_delta: float) -> bool:
 			_other_layout_map = null
 			_other_layout_index += 1
 			if _other_layout_index < OTHER_LAYOUT_CHECKS.size():
-				_enter_stage(20)
+				_enter_stage(24)
 			else:
-				_enter_stage(21)
-		21:
+				_enter_stage(25)
+		25:
 			if ticks >= 5:  # let the last queue_free() actually free before quitting
 				_finish()
 		_:

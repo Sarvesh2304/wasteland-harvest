@@ -157,9 +157,20 @@ when.
       chest if it's a Storage Shed. Deliberately just 2 structures (Shelter Tent, Storage Shed) —
       the full 12+ building library with real gameplay functions is Phase 8's job, not this
       stage's.
-- [ ] Auto-save at end of day — interacting with a bed saves all state (crops, inventory, day,
+- [x] Auto-save at end of day — interacting with a bed saves all state (crops, inventory, day,
       world modifications), brief "WORLD SAVED" notification, `FileAccess` + JSON serialisation.
-      **Stage 3, not yet started.**
+      **Stage 3.** Closes a real Phase 2/3 gap along the way: a farmhouse bed (`scripts/
+      structures.gd`'s `is_bed_at()`) now exists at all, mirroring the chest's one-marked-cell
+      pattern in each of the 3 layouts. Sleeping ends the day via the same `DayManager.
+      skip_to_next_morning()` path pass-out already used (crop growth/construction completion
+      fire identically either way), restores full energy, then auto-saves — deliberately in that
+      order, so the save captures the fresh morning. Pure encode/decode of the JSON-unfriendly
+      shapes (`Vector2i` keys/fields, JSON's float round-trip on int fields) lives in
+      `scripts/save_data.gd`; the stateful gather/write/read/apply glue lives in the `GameState`
+      autoload, since the resume-vs-new-game decision has to happen *before* `main.tscn` exists.
+      `settlement_select.tscn` now skips straight to loading a save if one exists, falling
+      through to the picker only for a missing/corrupt/unrecognized one — closing the resume gap
+      Stage 1's own doc comment had explicitly flagged as deferred.
 
 **Stage 1 verified independently:** re-ran the full suite myself (87/87 unit tests), read
 through the new core scripts (`game_state.gd`, `settlement_db.gd`, `structures.gd`,
@@ -186,8 +197,28 @@ confirmed via screenshots: the placement-preview UI (cost/key-hint label, green/
 tint), the placed translucent blueprint, and the completed Storage Shed recolored the morning
 after placement.
 
-**Milestone (whole phase):** Auto-save works. Player can quit and reload mid-playthrough with
-all state restored.
+**Stage 3 verified independently:** re-ran the full suite myself (127/127 unit tests, +13 new
+covering save/load round-tripping through actual JSON text and the new bed's presence/shape/
+reachability) and the extended runtime smoke test, including its most important check for this
+stage: after a real playthrough (till/plant/water/harvest, chop a tree, place and complete two
+buildings, seed storage), sleeping through the actual `use_tool()`-facing-the-bed path, then
+tearing down `main.tscn`, deliberately corrupting in-memory state, and re-instantiating
+`settlement_select.tscn` as a genuine fresh launch — confirmed it skipped straight past the
+picker and restored settlement choice, day/clock, exact player position/facing/energy/inventory,
+tilled cells, crop growth stage, which resource nodes stayed gone, both buildings with their
+storage contents, and the bed itself. Save-file hygiene confirmed clean (test-only filename,
+deleted before and after; independently checked `user://`'s save directory has nothing left
+behind). Read through the new core scripts (`save_data.gd`'s pure encode/decode, `game_state.gd`'s
+save/load/resume glue, each node's `save_state()`/`load_state()`) — sound logic, correctly reuses
+existing patterns throughout (block_cells re-derivation instead of serializing derived state,
+`skip_to_next_morning`'s shared signal path, the established one-marked-cell building convention
+for the bed). Visually confirmed via screenshots: the bed beside the farmhouse and the "WORLD
+SAVED" notice appearing across a day transition.
+
+**Milestone (whole phase) — met.** Auto-save works end-to-end; a player can quit (or have the
+game close) mid-playthrough and reload with crops, inventory, day/time, tilled ground,
+player-built structures and their storage, and player position all correctly restored, skipping
+straight past the settlement picker on a resumed game.
 
 ### Phase 5 — Basic NPCs, Town Economy & Dialogue
 - [ ] NPC base class — name, sprite, position, dialogue data, wanders within a defined zone

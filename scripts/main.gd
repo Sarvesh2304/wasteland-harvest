@@ -31,7 +31,31 @@ func _ready() -> void:
 	var builder: Node2D = $Builder
 	builder.bind(player, test_map, structures)
 	player.builder = builder
-	_grant_starting_resource_bonus()
+	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
+	# before this scene instantiates (see settlement_select.gd's resume path); an empty result
+	# means new game -> grant the one-time settlement starting bonus instead. Applied here, after
+	# every bind above, so restored state flows through the already-connected signals (inventory
+	# UI, energy bar) exactly like live changes would.
+	var save_data := GameState.take_pending_save()
+	if save_data.is_empty():
+		_grant_starting_resource_bonus()
+	else:
+		_apply_save(save_data)
+
+
+## Restores each system's saved state (see scripts/save_data.gd's class doc for the shape) on
+## top of the layout-authored world the child nodes' _ready() already built. Order matters only
+## in that TestMap's layout was already resolved from the restored chosen_settlement_id in
+## _enter_tree(); the per-node load_state() calls are independent overlays. DayManager fields
+## are assigned directly — no day_started emission, since re-loading a day must not re-run
+## daily ticks (crop growth already happened before the save was written).
+func _apply_save(data: Dictionary) -> void:
+	DayManager.day = int(data.get("day", 1))
+	DayManager.minutes_into_day = float(data.get("minutes_into_day", DayManager.DAY_START_MINUTES))
+	test_map.load_state(data.get("map", {}))
+	test_map.get_node("Farm").load_state(data.get("farm", {}))
+	test_map.get_node("Structures").load_state(data.get("structures", {}))
+	player.load_state(data.get("player", {}))
 
 
 ## The chosen settlement's resource-lean bonus (water access / ruin materials / better soil —

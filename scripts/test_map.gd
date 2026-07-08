@@ -32,6 +32,7 @@ extends Node2D
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const WangTileset := preload("res://scripts/wang_tileset.gd")
 const FarmGrid := preload("res://scripts/farm_grid.gd")
+const SaveData := preload("res://scripts/save_data.gd")
 
 ## All 3 map_layouts/*.gd scripts share this tile size; hardcoded (rather than read off
 ## `layout`) because it's needed before `layout` is resolved in some call orders and every start
@@ -164,6 +165,25 @@ func _paint_ground_tile(visual_tile: Vector2i) -> void:
 		is_soil_at(visual_tile.x, visual_tile.y)
 	)
 	ground.set_cell(visual_tile, SOURCE_SETTLEMENT, atlas)
+
+
+## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --
+## Only the _tilled overlay is serialised. _runtime_blocked is deliberately NOT — it's derived
+## from placed/completed structures, and structures.gd's load_state() re-registers each restored
+## footprint via the same block_cells() call place_blueprint() makes live, so save and load
+## can't diverge on what counts as blocked.
+
+func save_state() -> Dictionary:
+	return {"tilled": SaveData.encode_cells(_tilled.keys())}
+
+
+func load_state(data: Dictionary) -> void:
+	for cell in SaveData.decode_cells(data.get("tilled", [])):
+		# Direct overlay write + repaint rather than till_cell(): the cell already passed the
+		# is_tillable guard when it was legally tilled in the saved session — restoring is a
+		# replay of established fact, not a new gameplay action to re-validate.
+		_tilled[cell] = true
+		_repaint_ground_around(cell)
 
 
 ## World position -> logical cell coordinate (floor division by the 16px tile size).

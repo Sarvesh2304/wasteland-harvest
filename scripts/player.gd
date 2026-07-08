@@ -25,6 +25,7 @@ extends CharacterBody2D
 
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
+const SaveData := preload("res://scripts/save_data.gd")
 
 signal energy_changed(current: float, max_energy: float)
 
@@ -161,6 +162,12 @@ func use_tool() -> void:
 	if structures != null and test_map != null and structures.is_chest_at(_target_cell()):
 		structures.interact_chest(_target_cell())
 		return
+	# Phase 4 Stage 3: the farmhouse bed — same instant, energy-free, queue-jumping interaction
+	# shape as the chest above. Sleeping ends the day (auto-saving as it does — see checklist
+	# item "Auto-save at end of day"), so it deliberately never routes through the tool dispatch.
+	if structures != null and test_map != null and structures.is_bed_at(_target_cell()):
+		_sleep_in_bed()
+		return
 	using_tool = true
 	velocity = Vector2.ZERO
 	_play("tool")
@@ -178,13 +185,26 @@ func set_energy(value: float) -> void:
 
 
 ## Stardew's "passing out at zero energy loses the rest of the day" rule (ROADMAP Phase 3),
-## implemented via DayManager's skip_to_next_morning() stand-in (no bed/sleep interaction
-## exists yet — that's a later phase). Waking up restores full energy, same as collapsing in
-## Stardew.
+## via DayManager's skip_to_next_morning(). Waking up restores full energy, same as collapsing
+## in Stardew. Distinct from _sleep_in_bed() below (Phase 4's real bed): collapsing does NOT
+## auto-save — only deliberately going to bed does, per the Stage 3 checklist item.
 func _pass_out() -> void:
 	DayManager.skip_to_next_morning()
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
+
+
+## Phase 4 Stage 3: sleeping in the farmhouse bed (structures.is_bed_at). Ends the day through
+## the same skip_to_next_morning() signal path pass-out uses (so crop growth, construction
+## completion, etc. all fire identically), restores full energy ("waking up rested", matching
+## _pass_out's rule), THEN auto-saves — deliberately after the day advance, so the save captures
+## the fresh morning the player will wake into on reload, not the stale end of the old day.
+## GameState.save_game emits game_saved on success, which the HUD's "WORLD SAVED" notice rides.
+func _sleep_in_bed() -> void:
+	DayManager.skip_to_next_morning()
+	energy = max_energy
+	energy_changed.emit(energy, max_energy)
+	GameState.save_game(self, test_map, farm, structures)
 
 
 ## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs
@@ -239,6 +259,37 @@ func _interact(cell: Vector2i) -> void:
 				if farm.plant(cell, crop_id):
 					inventory.remove_item(item_id, 1)
 					set_energy(energy - ENERGY_PLANT)
+
+
+## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --
+
+func save_state() -> Dictionary:
+	return {
+		# Vector2 split into JSON-friendly scalars.
+		"x": global_position.x,
+		"y": global_position.y,
+		"facing": facing,
+		"energy": energy,
+		"inventory": SaveData.encode_inventory(inventory.slots, inventory.selected_hotbar_index),
+	}
+
+
+func load_state(data: Dictionary) -> void:
+	global_position = Vector2(float(data.get("x", global_position.x)),
+		float(data.get("y", global_position.y)))
+	velocity = Vector2.ZERO
+	if String(data.get("facing", "")) in FACINGS:
+		facing = String(data["facing"])
+	# Direct assign + emit, not set_energy(): restoring a saved value is not a gameplay energy
+	# change and must never re-trigger the pass-out rule (set_energy's crossing check would be
+	# safe for the values a bed save writes, but load shouldn't depend on that).
+	energy = clampf(float(data.get("energy", max_energy)), 0.0, max_energy)
+	energy_changed.emit(energy, max_energy)
+	var inventory_data = data.get("inventory", {})
+	if inventory_data is Dictionary and not (inventory_data as Dictionary).is_empty():
+		var decoded := SaveData.decode_inventory(inventory_data)
+		inventory.restore(decoded["slots"], int(decoded["selected_hotbar_index"]))
+	_play("idle")
 
 
 ## Overflow (backpack full) is silently lost — Phase 3 has no ground-drop system yet; a known,

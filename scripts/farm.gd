@@ -10,6 +10,7 @@ extends Node2D
 
 const FarmGrid := preload("res://scripts/farm_grid.gd")
 const CropDB := preload("res://scripts/crop_db.gd")
+const SaveData := preload("res://scripts/save_data.gd")
 
 signal plot_changed(cell: Vector2i)
 signal resource_node_removed(cell: Vector2i)
@@ -175,6 +176,32 @@ func _spawn_resource_prop(cell: Vector2i, kind: String) -> void:
 	body.add_child(visual)
 	add_child(body)
 	_resource_bodies[cell] = body
+
+
+## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --
+
+func save_state() -> Dictionary:
+	return {
+		"plots": SaveData.encode_plots(_plots),
+		# Nodes still STANDING; a chopped tree / mined ore is simply absent, so it stays gone
+		# after a reload (Phase 3's documented single-hit/no-respawn rule).
+		"resource_nodes": SaveData.encode_resource_nodes(_resource_nodes),
+	}
+
+
+## Applies a loaded save on top of the layout-authored state _ready() already built: prunes the
+## resource nodes the saved playthrough had cleared (removing their collision bodies through the
+## same _remove_resource_node path chopping/mining uses), then installs the saved plots and
+## spawns their crop sprites at the correct stage/watered tint.
+func load_state(data: Dictionary) -> void:
+	var remaining := SaveData.decode_resource_nodes(data.get("resource_nodes", {}))
+	for cell in _resource_nodes.keys():
+		if not remaining.has(cell):
+			_remove_resource_node(cell)
+	_plots = SaveData.decode_plots(data.get("plots", {}))
+	for cell in _plots.keys():
+		_refresh_crop_sprite(cell)
+		plot_changed.emit(cell)
 
 
 ## -- Daily growth tick --

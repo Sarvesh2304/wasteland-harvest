@@ -16,7 +16,7 @@ const ROWS: Array[String] = [
 	"F...................T#T.T#T.O.T.T..F",
 	"F...............H................T.F",
 	"F.................................TF",
-	"F...............C................T.F",
+	"F...............C.D..............T.F",
 	"F................@.................F",
 	"F.....ffffff.....................OTF",
 	"F.....ffffff.ffffff................F",
@@ -56,6 +56,9 @@ const BUILDINGS: Array[Dictionary] = [
 	{"id": "shack_4", "kind": "shack", "top_left": Vector2i(25, 25), "size": Vector2i(2, 2)},
 	{"id": "farmhouse", "kind": "farmhouse", "top_left": Vector2i(16, 2), "size": Vector2i(3, 2)},
 	{"id": "chest", "kind": "chest", "top_left": Vector2i(16, 4), "size": Vector2i(1, 1)},
+	# Phase 4 Stage 3: the bed sits at the farmhouse's south-east corner, mirroring the chest at
+	# its south-west — interacting with it sleeps (auto-save + skip to morning), see structures.gd.
+	{"id": "bed", "kind": "bed", "top_left": Vector2i(18, 4), "size": Vector2i(1, 1)},
 ]
 
 

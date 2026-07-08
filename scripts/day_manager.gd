@@ -55,14 +55,14 @@ func advance_minutes(game_minutes: float) -> void:
 	time_changed.emit(day, minutes_into_day)
 
 
-## Phase 3's "pass out at zero energy" stand-in transition (per this file's Phase 2 comment
-## above, and ROADMAP.md Phase 3's energy checklist item): there's no bed/sleep interaction to
-## hook into yet (that's Phase 4), so passing out jumps straight to next morning rather than
-## advancing minute-by-minute through the rest of the night. Deliberately reuses day_started
-## (rather than a separate signal) so every system that already reacts to a new day — crop
-## growth in particular — behaves identically whether the day changed by a natural midnight
-## rollover or by the player collapsing at 2 PM. player.gd calls this, then restores its own
-## energy to full (waking up rested is the whole point of the rule).
+## End-the-day-now transition: jumps straight to next morning rather than advancing
+## minute-by-minute through the rest of the night. Two callers in player.gd: Phase 3's
+## "pass out at zero energy" rule (_pass_out) and Phase 4 Stage 3's real bed/sleep interaction
+## (_sleep_in_bed, which additionally auto-saves). Deliberately reuses day_started (rather than
+## a separate signal) so every system that already reacts to a new day — crop growth and
+## construction completion in particular — behaves identically whether the day changed by a
+## natural midnight rollover, a collapse at 2 PM, or an early night in bed. The caller restores
+## the player's energy to full itself (waking up rested is the whole point of the rule).
 func skip_to_next_morning() -> void:
 	day += 1
 	minutes_into_day = float(DAY_START_MINUTES)

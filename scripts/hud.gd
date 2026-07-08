@@ -37,6 +37,7 @@ const EMPTY_BG_COLOR := Color("#281a0b", 0.75)  # warm near-black, per §9
 @onready var hotbar_row: HBoxContainer = %Hotbar
 @onready var inventory_grid: GridContainer = %InventoryGrid
 @onready var chest_grid: GridContainer = %ChestGrid
+@onready var save_notice: Label = %SaveNotice
 
 var inventory: Inventory = null
 ## Parallel to inventory.slots — one widget dict per slot: {frame, bg, icon, label}.
@@ -48,9 +49,20 @@ var _chest_inventory: Inventory = null
 var _chest_slot_widgets: Array = []
 
 
+## The "WORLD SAVED" notice's timing (Phase 4 Stage 3): fully visible for HOLD seconds, then
+## fades out over FADE seconds. Brief-but-unmissable; total ~2.4s.
+const SAVE_NOTICE_HOLD := 1.6
+const SAVE_NOTICE_FADE := 0.8
+
+var _save_notice_tween: Tween = null
+
+
 func _ready() -> void:
 	DayManager.time_changed.connect(_on_time_changed)
 	_on_time_changed(DayManager.day, DayManager.minutes_into_day)
+	# Phase 4 Stage 3: transient "WORLD SAVED" notice, driven by the GameState autoload's
+	# game_saved signal (fired from the bed's auto-save) — the save system stays UI-agnostic.
+	GameState.game_saved.connect(_on_game_saved)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -190,6 +202,21 @@ func _build_chest_slot_widgets() -> void:
 func _refresh_all_chest_slots() -> void:
 	for i in _chest_slot_widgets.size():
 		_paint_slot(_chest_slot_widgets[i], _chest_inventory.get_slot(i), false)
+
+
+## Shows the "WORLD SAVED" notice (16px — the theme's one sanctioned larger size, per
+## art/ui/README.md's integer-multiple font convention; colors set in hud.tscn to the HUD's
+## established lamplight-gold-on-warm-black) and fades it out. A save landing while the
+## previous notice is still fading restarts the sequence from fully visible.
+func _on_game_saved() -> void:
+	if _save_notice_tween != null:
+		_save_notice_tween.kill()
+	save_notice.modulate = Color.WHITE
+	save_notice.visible = true
+	_save_notice_tween = create_tween()
+	_save_notice_tween.tween_interval(SAVE_NOTICE_HOLD)
+	_save_notice_tween.tween_property(save_notice, "modulate:a", 0.0, SAVE_NOTICE_FADE)
+	_save_notice_tween.tween_callback(func() -> void: save_notice.visible = false)
 
 
 func _on_time_changed(day: int, minutes_into_day: float) -> void:
