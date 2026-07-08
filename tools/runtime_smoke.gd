@@ -8,6 +8,13 @@ extends SceneTree
 ## loop/pass-out checks against that same map. Simulated input/direct calls only; no display
 ## needed.
 ##
+## Phase 4 Stage 2 (stages 16-19): drives the new building-placement mode end-to-end — enter
+## build mode via the real input handler, cycle the catalog, place a Storage Shed blueprint from
+## the Forest Edge starting materials, verify resources/energy were spent and the site blocks
+## tilling/re-placement, advance a day, confirm the shed became a real collidable building AND a
+## working second storage chest; then gather wood by chopping a tree and build a Shelter Tent the
+## same way, proving the "gather -> afford -> place -> wait a day" loop from zero spare resources.
+##
 ## Run: godot --headless --path . --script res://tools/runtime_smoke.gd
 ##
 ## Settlement choice: Forest Edge (rather than the DEFAULT_ID Open Plains) is driven through the
@@ -44,6 +51,7 @@ var day_manager: Node
 var test_map: Node
 var farm: Node
 var structures: Node
+var builder: Node2D
 var hud: CanvasLayer
 var spawn := Vector2.ZERO
 var stage := 0
@@ -342,6 +350,133 @@ func _physics_process(_delta: float) -> bool:
 				_check(player.energy == player.max_energy, "waking up restores full energy")
 				_enter_stage(16)
 		16:
+			# -- Phase 4 Stage 2: building placement, end to end (see class doc) --
+			# Site: shed footprint (3,16)-(4,17) — open grass south of the creek, west of the
+			# mayor's house (x8-11), on Forest Edge's ROWS. Player stands one cell north.
+			if ticks < 5:
+				player.global_position = test_map.cell_to_world_center(Vector2i(3, 15))
+				player.velocity = Vector2.ZERO
+				player.facing = "south"
+				return false
+			if ticks == 5:
+				builder = main.get_node("Builder")
+				_check(InputMap.has_action("build_toggle") and InputMap.has_action("build_cycle"),
+					"build_toggle/build_cycle input actions are declared in project.godot")
+				_check(not builder.active, "build mode starts inactive")
+				_drive_builder_action("build_toggle")
+				_check(builder.active and builder._preview.visible,
+					"build_toggle enters placement mode and shows the preview")
+				_check(builder.current_id() == "shelter_tent", "catalog starts on the tent")
+				_drive_builder_action("build_cycle")
+				_check(builder.current_id() == "storage_shed", "build_cycle steps to the shed")
+				# Placement-validity spot checks against the live map:
+				_check(structures.can_place(Vector2i(3, 16), Vector2i(2, 2)),
+					"open grass site is placeable")
+				_check(not structures.can_place(Vector2i(2, 11), Vector2i(2, 2)),
+					"can't place onto the creek")
+				_check(not structures.can_place(FARM_TEST_CELL, Vector2i.ONE),
+					"can't place onto the tilled farming-test cell")
+				# Forest Edge bonus materials are untouched so far: 15 wood / 8 stone / 8 scrap.
+				_check(player.inventory.count_of("wood") == 15, "15 wood before building")
+				var energy_before: float = player.energy
+				_check(builder.confirm_placement(), "shed blueprint placed")
+				_check(player.inventory.count_of("wood") == 3, "shed spent 12 wood (15 -> 3)")
+				_check(player.inventory.count_of("stone") == 4, "shed spent 4 stone (8 -> 4)")
+				_check(player.inventory.count_of("scrap_metal") == 6, "shed spent 2 scrap (8 -> 6)")
+				_check(player.energy == energy_before - player.ENERGY_BUILD,
+					"placement cost ENERGY_BUILD (%.2f -> %.2f)" % [energy_before, player.energy])
+				_check(test_map.is_blocked_at(Vector2i(3, 16)) and test_map.is_blocked_at(Vector2i(4, 17)),
+					"blueprint footprint registered as blocked")
+				_check(not structures.can_place(Vector2i(3, 16), Vector2i(2, 2)),
+					"occupied site can't be double-placed")
+				_check(not farm.can_till(Vector2i(4, 16)), "can't till under a blueprint")
+				_check(structures._pending.size() == 1 and structures._completed.is_empty(),
+					"blueprint is pending, not complete")
+				_check(not structures.is_chest_at(Vector2i(3, 16)),
+					"an under-construction shed isn't storage yet")
+				_check(not builder.confirm_placement(),
+					"second shed refused (unaffordable and preview overlaps the first)")
+				_check(player.inventory.count_of("wood") == 3, "refused placement spent nothing")
+				_drive_builder_action("build_toggle")
+				_check(not builder.active and not builder._preview.visible,
+					"build_toggle cancels out of placement mode")
+				# "Wait 1 in-game day": the same day_started signal crop growth rides.
+				day_manager.skip_to_next_morning()
+				_check(structures._pending.is_empty() and structures._completed.size() == 1,
+					"construction completed on the next day's start")
+				_check(structures.is_chest_at(Vector2i(3, 16)) and structures.is_chest_at(Vector2i(4, 17)),
+					"completed shed is storage on every footprint cell")
+				_enter_stage(17)
+		17:
+			# -- The completed shed is a real collidable body: walk the player into it --
+			if ticks < 5:
+				player.global_position = test_map.cell_to_world_center(Vector2i(7, 16))
+				player.velocity = Vector2.ZERO
+				player.facing = "west"
+				Input.action_press("move_left")
+				return false
+			if ticks >= 150:  # ~2.5s: plenty to cross the ~32px gap to the shed's east face
+				Input.action_release("move_left")
+				var shed_east_face_x := 5 * 16.0  # (top_left.x + size.x) * CELL_SIZE
+				_check(player.global_position.x > shed_east_face_x,
+					"completed shed collision stopped the player (x=%.1f, east face at %.1f)" \
+						% [player.global_position.x, shed_east_face_x])
+				_check(player.global_position.x < 110.0,
+					"player actually moved toward the shed before being stopped (x=%.1f)" \
+						% player.global_position.x)
+				_enter_stage(18)
+		18:
+			# -- Shed storage opens its OWN Inventory via the existing chest UI, then gather
+			#    wood (chop) so the tent build below starts from too-few resources --
+			if ticks < 5:
+				player.global_position = test_map.cell_to_world_center(Vector2i(5, 17))
+				player.velocity = Vector2.ZERO
+				player.facing = "west"  # targets (4,17), a shed footprint cell
+				return false
+			if ticks == 5:
+				player.use_tool()
+				_check(not player.using_tool, "shed interaction is instant, no tool swing")
+				_check(hud.get_node("%ChestGrid").visible, "shed storage UI opened")
+				_check(hud._chest_inventory != structures.chest_inventory,
+					"shed storage is its own Inventory, not the layout chest's")
+				_check(hud._chest_inventory == structures.storage_inventory_at(Vector2i(4, 17)),
+					"HUD is bound to the shed's real Inventory instance")
+				player.use_tool()
+				_check(not hud.get_node("%ChestGrid").visible, "shed UI closes on re-interaction")
+				# Tent costs 6 wood; only 3 remain — chop the treeline tree at (33,2) for 3 more.
+				_check(player.inventory.count_of("wood") == 3, "3 wood left, tent unaffordable")
+				player.global_position = test_map.cell_to_world_center(Vector2i(32, 2))
+				player.velocity = Vector2.ZERO
+				player.facing = "east"
+				player.inventory.select_hotbar(2)  # axe
+				_check(farm.can_chop(Vector2i(33, 2)), "tree node present east of the player")
+				player.use_tool()
+				_enter_stage(19)
+		19:
+			# -- Gathered wood affords the Shelter Tent; place + complete it too --
+			if ticks >= 60:
+				_check(not player.using_tool, "chop swing finished")
+				_check(player.inventory.count_of("wood") == 6, "chop granted 3 wood (3 -> 6)")
+				player.global_position = test_map.cell_to_world_center(Vector2i(30, 20))
+				player.velocity = Vector2.ZERO
+				player.facing = "south"  # tent (1x1) lands on (30,21), open grass
+				_drive_builder_action("build_toggle")
+				_drive_builder_action("build_cycle")  # index 1 (shed) wraps back to 0 (tent)
+				_check(builder.current_id() == "shelter_tent", "build_cycle wraps around the catalog")
+				_check(builder.confirm_placement(), "tent blueprint placed")
+				_check(player.inventory.count_of("wood") == 0, "tent spent 6 wood")
+				_check(player.energy == 96.0,
+					"energy ledger holds: 100 - 1.25 (shed) - 1.5 (chop) - 1.25 (tent) = 96, got %.2f" \
+						% player.energy)
+				_check(test_map.is_blocked_at(Vector2i(30, 21)), "tent cell blocked while building")
+				_drive_builder_action("build_toggle")
+				day_manager.skip_to_next_morning()
+				_check(structures._pending.is_empty() and structures._completed.size() == 2,
+					"both player-built structures completed")
+				_check(not structures.is_chest_at(Vector2i(30, 21)), "tent is not storage")
+				_check(not farm.can_till(Vector2i(30, 21)), "completed tent cell stays untillable")
+				_enter_stage(20)
+		20:
 			# -- The other 2 starts also load and paint correctly (not just Forest Edge above) --
 			# (_other_layout_map == null is the "just entered this stage for a new layout" signal
 			# — ticks is never actually 0 here since _enter_stage() was called from the *previous*
@@ -375,15 +510,25 @@ func _physics_process(_delta: float) -> bool:
 			_other_layout_map = null
 			_other_layout_index += 1
 			if _other_layout_index < OTHER_LAYOUT_CHECKS.size():
-				_enter_stage(16)
+				_enter_stage(20)
 			else:
-				_enter_stage(17)
-		17:
+				_enter_stage(21)
+		21:
 			if ticks >= 5:  # let the last queue_free() actually free before quitting
 				_finish()
 		_:
 			pass
 	return false
+
+
+## Drives builder.gd's real _unhandled_input handler with a fabricated action event — exercising
+## the actual input path (toggle/cycle), not just the public methods. (Input.action_press() only
+## feeds the polling Input API in --script mode; it doesn't produce _unhandled_input callbacks.)
+func _drive_builder_action(action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	builder._unhandled_input(event)
 
 
 func _finish() -> void:

@@ -25,6 +25,12 @@ func _ready() -> void:
 	player.bind_world(test_map.get_node("Farm"), test_map, structures)
 	hud.bind_inventory(player.inventory)
 	structures.chest_toggled.connect(hud.toggle_chest_ui)
+	# Phase 4 Stage 2: build/placement mode (scripts/builder.gd) — bound both ways, since the
+	# builder reads the player's facing/inventory and the player suppresses tool swings while
+	# placement mode is active.
+	var builder: Node2D = $Builder
+	builder.bind(player, test_map, structures)
+	player.builder = builder
 	_grant_starting_resource_bonus()
 
 

@@ -64,6 +64,14 @@ var layout = null
 ## player; the layout's static 'f' cells are tilled from map load regardless of this overlay.
 var _tilled: Dictionary = {}
 
+## Runtime-blocked cells (Phase 4 Stage 2), keyed by logical cell coord — the footprints of
+## player-placed structures (pending blueprints AND completed buildings, registered by
+## scripts/structures.gd's place_blueprint). Same overlay-on-static-layout pattern as _tilled:
+## the layout's ASCII stays the authored source of truth, runtime changes layer on top, and
+## is_blocked_at() is the combined query everything (tilling guards, placement-validity checks)
+## reads. Nothing un-places a building yet, so there is deliberately no unblock counterpart.
+var _runtime_blocked: Dictionary = {}
+
 
 func _enter_tree() -> void:
 	layout = SettlementDB.layout_for_id(GameState.chosen_settlement_id)
@@ -109,12 +117,21 @@ func is_tilled_at(cell: Vector2i) -> bool:
 	return _tilled.get(cell, false)
 
 
-## Physically blocked terrain: fence/water/rubble, or inside a building's footprint (see
-## scripts/map_layouts/layout_common.gd's is_solid()). Used by farm.gd's tilling guard so a
-## player can't till a building's footprint cell that happens to read as plain grass in the
-## layout's ASCII data (see layout_common.gd's class doc on why that gap needs an explicit check).
+## Physically blocked terrain: fence/water/rubble, inside a layout building's footprint (see
+## scripts/map_layouts/layout_common.gd's is_solid()), or inside a player-placed structure's
+## footprint (the _runtime_blocked overlay). Used by farm.gd's tilling guard so a player can't
+## till a building's footprint cell that happens to read as plain grass in the layout's ASCII
+## data (see layout_common.gd's class doc on why that gap needs an explicit check), and by
+## structures.gd's can_place() so new blueprints can't overlap anything solid.
 func is_blocked_at(cell: Vector2i) -> bool:
-	return layout.is_solid(cell.x, cell.y)
+	return layout.is_solid(cell.x, cell.y) or _runtime_blocked.has(cell)
+
+
+## Register a player-placed structure's footprint cells as blocked (scripts/structures.gd calls
+## this the moment a blueprint is placed — the site is off-limits from placement, not completion).
+func block_cells(cells: Array[Vector2i]) -> void:
+	for cell in cells:
+		_runtime_blocked[cell] = true
 
 
 ## Till one logical cell (a hoe's effect): flips it into the soil overlay and repaints exactly

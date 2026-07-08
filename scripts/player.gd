@@ -48,6 +48,11 @@ const ENERGY_PLANT := 0.5
 const ENERGY_HARVEST := 0.5
 const ENERGY_CHOP := 1.5
 const ENERGY_MINE := 1.5
+## Phase 4 Stage 2: confirming a building placement (scripts/builder.gd). Priced between
+## watering (1.0) and chopping (1.5) — staking out a construction site is real physical work,
+## heavier than a watering pass but lighter than felling a tree, and it's a one-off per building
+## rather than a per-tile repeated action, so it shouldn't dominate the day's energy budget.
+const ENERGY_BUILD := 1.25
 
 const FACINGS := ["south", "north", "east", "west"]
 const FACING_VECTORS := {
@@ -72,6 +77,10 @@ var _step_target := Vector2.ZERO
 var farm: Node = null
 var test_map: Node = null
 var structures: Node = null
+## Phase 4 Stage 2: the build/placement-mode node (scripts/builder.gd), also bound by main.gd.
+## While its mode is active, "use_tool" means "confirm placement" (handled there), so the
+## held-swing polling below stands down — see _in_build_mode().
+var builder: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -91,7 +100,7 @@ func _physics_process(_delta: float) -> void:
 		_process_step()
 		return
 	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	if Input.is_action_pressed("use_tool"):
+	if Input.is_action_pressed("use_tool") and not _in_build_mode():
 		# Held-button repeat (see class doc): re-triggers every physics frame the button is
 		# down and the previous swing has finished, since use_tool() re-locks using_tool
 		# immediately and this branch is unreachable again until that lock clears. Facing
@@ -146,9 +155,11 @@ func use_tool() -> void:
 		return
 	# Phase 4: chest interaction is instant (no energy cost, no tool-swing lock/animation) and
 	# takes priority over farming — matches Stardew's "activate button opens a chest" convention
-	# rather than routing through the hotbar-tool dispatch below.
+	# rather than routing through the hotbar-tool dispatch below. Stage 2 generalized "the chest"
+	# to any storage cell (layout chest OR a completed player-built Storage Shed), so the target
+	# cell is passed through for structures.gd to resolve which Inventory lives there.
 	if structures != null and test_map != null and structures.is_chest_at(_target_cell()):
-		structures.interact_chest()
+		structures.interact_chest(_target_cell())
 		return
 	using_tool = true
 	velocity = Vector2.ZERO
@@ -174,6 +185,12 @@ func _pass_out() -> void:
 	DayManager.skip_to_next_morning()
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
+
+
+## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs
+## to placement confirmation (handled in builder.gd's _unhandled_input), not tool swings.
+func _in_build_mode() -> bool:
+	return builder != null and bool(builder.active)
 
 
 ## The logical cell directly ahead of the player, in the current facing direction.

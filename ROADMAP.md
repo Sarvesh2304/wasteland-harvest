@@ -145,8 +145,18 @@ when.
       one main gate), reproduced identically across all 3 starts' layout files. All buildings
       are real collidable placeholder volumes (`scripts/structures.gd`) — flat-color per kind
       from the locked palette, no interiors/NPCs yet (Phase 5).
-- [ ] Basic building placement — place a structure blueprint, spend resources, wait 1 in-game
-      day; simple grid-snap system. **Stage 2, not yet started.**
+- [x] Basic building placement — place a structure blueprint, spend resources, wait 1 in-game
+      day; simple grid-snap system. **Stage 2.** New keyboard-only build mode (`scripts/
+      builder.gd`, `B` to toggle, `Q` to cycle, reusing `use_tool`/Space to confirm) lets the
+      player place either of 2 buildable structures (`data/buildings.json` via `scripts/
+      building_db.gd`) on a grid-snapped footprint anchored away from the player
+      (`scripts/build_grid.gd`). Confirming spends resources and energy and spawns a translucent
+      "under construction" placeholder (`scripts/structures.gd`, generalized from Stage 1's
+      layout-only spawner); completion rides `DayManager.day_started` — the same signal crop
+      growth uses — and recolors it to its finished kind, registering a working second storage
+      chest if it's a Storage Shed. Deliberately just 2 structures (Shelter Tent, Storage Shed) —
+      the full 12+ building library with real gameplay functions is Phase 8's job, not this
+      stage's.
 - [ ] Auto-save at end of day — interacting with a bed saves all state (crops, inventory, day,
       world modifications), brief "WORLD SAVED" notification, `FileAccess` + JSON serialisation.
       **Stage 3, not yet started.**
@@ -162,6 +172,19 @@ are reasonable and flagged. Runtime smoke test extended to cover selection → c
 chest interaction → the full farming loop and pass-out re-verified against the new maps; Open
 Plains and Riverside independently boot-checked too, not just the one driven end-to-end. Live
 game launch clean (no errors).
+
+**Stage 2 verified independently:** re-ran the full suite myself (114/114 unit tests, +27 new
+covering footprint anchoring/enumeration, map-bounds checks, affordability, and construction-day
+completion) and the extended runtime smoke test (toggle/cycle/confirm, exact resource+energy
+ledgers, invalid-site refusals, day-advance completion, collision walk into the finished shed,
+shed-storage UI, and a from-zero gather→afford→build pass) — all passed. Read through the new
+core scripts (`build_grid.gd`'s pure anchoring/affordability/completion math, `builder.gd`'s
+input handling, `structures.gd`'s generalized footprint-body spawner and runtime building
+registry, `test_map.gd`'s `_runtime_blocked` overlay mirroring the existing `_tilled` pattern) —
+sound logic, consistent with this codebase's established conventions throughout. Visually
+confirmed via screenshots: the placement-preview UI (cost/key-hint label, green/red valid-site
+tint), the placed translucent blueprint, and the completed Storage Shed recolored the morning
+after placement.
 
 **Milestone (whole phase):** Auto-save works. Player can quit and reload mid-playthrough with
 all state restored.

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/game_camera.gd" id="4_camera"]
 [ext_resource type="Script" path="res://scripts/day_night_modulate.gd" id="5_daynight"]
 [ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6_hud"]
+[ext_resource type="Script" path="res://scripts/builder.gd" id="7_builder"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -13,6 +14,9 @@ script = ExtResource("1_main")
 [node name="TestMap" parent="." instance=ExtResource("2_map")]
 
 [node name="Player" parent="." instance=ExtResource("3_player")]
+
+[node name="Builder" type="Node2D" parent="."]
+script = ExtResource("7_builder")
 
 [node name="GameCamera" type="Camera2D" parent="."]
 script = ExtResource("4_camera")

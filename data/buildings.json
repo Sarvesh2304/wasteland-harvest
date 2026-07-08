@@ -1,0 +1,19 @@
+{
+  "_comment": "Phase 4 Stage 2 buildable-structure catalog (ROADMAP.md 'Basic building placement'). Loaded by scripts/building_db.gd, same shape/conventions as data/items.json + scripts/item_db.gd. Deliberately only 2 entries: Stage 2's job is to prove the place-blueprint -> spend-resources -> wait-a-day mechanic end-to-end; the real 12+ building library with actual gameplay functions is explicitly Phase 8's checklist item, and building it now would be scope creep into that phase. Fields: kind keys scripts/structures.gd's BUILDING_COLORS flat-color placeholder table (Phase 4's established building visual); size is [w, h] in 16px cells; cost items are deliberately limited to wood/stone/scrap_metal because those are the only resources the player can actually gather in-game right now (axe on a tree yields 3 wood; pickaxe on ore yields 2 stone + 1 scrap_metal - see scripts/farm.gd) - cloth_scrap/bottle_caps exist in items.json but have no gather source yet, so costing them would make a structure unbuildable. Cost tuning: Shelter Tent = 2 trees' worth of wood (a cheap first build to learn the mechanic); Storage Shed = 4 trees + 2 ore nodes, and sized so Forest Edge's 'ruin materials' starting bonus (15 wood / 8 stone / 8 scrap) covers it on day 1 - that start's lean is building materials, so it should be able to build first. build_days: 1 per the checklist's 'wait 1 in-game day'.",
+  "shelter_tent": {
+    "name": "Shelter Tent",
+    "kind": "shelter_tent",
+    "size": [1, 1],
+    "cost": {"wood": 6},
+    "build_days": 1,
+    "is_storage": false
+  },
+  "storage_shed": {
+    "name": "Storage Shed",
+    "kind": "storage_shed",
+    "size": [2, 2],
+    "cost": {"wood": 12, "stone": 4, "scrap_metal": 2},
+    "build_days": 1,
+    "is_storage": true
+  }
+}
