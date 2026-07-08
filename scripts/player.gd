@@ -62,6 +62,12 @@ var max_energy := 100.0
 var energy := max_energy
 var using_tool := false
 
+## Till-and-advance stepping (see class doc): a short, grid-snapped move to the next cell,
+## queued between swings when a direction is held alongside "use_tool" so holding both
+## advances tile-by-tile like Stardew's auto-work-and-walk, instead of repeating in place.
+var _stepping := false
+var _step_target := Vector2.ZERO
+
 ## Bound by main.gd once the world exists (see bind_world()).
 var farm: Node = null
 var test_map: Node = null
@@ -80,18 +86,41 @@ func _physics_process(_delta: float) -> void:
 	if using_tool:
 		velocity = Vector2.ZERO
 		return
+	if _stepping:
+		_process_step()
+		return
+	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	if Input.is_action_pressed("use_tool"):
 		# Held-button repeat (see class doc): re-triggers every physics frame the button is
 		# down and the previous swing has finished, since use_tool() re-locks using_tool
-		# immediately and this branch is unreachable again until that lock clears.
+		# immediately and this branch is unreachable again until that lock clears. Facing
+		# follows a held direction so the swing lands on the tile you're steering toward, not
+		# wherever you happened to be facing before.
 		velocity = Vector2.ZERO
+		if input != Vector2.ZERO:
+			facing = facing_from_input(input, facing)
 		use_tool()
 		return
-	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = input * SPEED
 	move_and_slide()
 	facing = facing_from_input(input, facing)
 	_play("walk" if input != Vector2.ZERO else "idle")
+
+
+## Advances one grid cell toward _step_target at normal walk speed, then hands control back to
+## the use_tool-repeat branch above. Bails out early (rather than getting stuck) if something
+## physically blocks the step, e.g. rubble or a resource node revealed by the tile just cleared.
+func _process_step() -> void:
+	var to_target := _step_target - global_position
+	if to_target.length() <= 1.0:
+		global_position = _step_target
+		_stepping = false
+		return
+	velocity = to_target.normalized() * SPEED
+	move_and_slide()
+	_play("walk")
+	if get_slide_collision_count() > 0:
+		_stepping = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -230,4 +259,15 @@ func _play(action: String) -> void:
 func _on_sprite_animation_finished() -> void:
 	if using_tool:
 		using_tool = false
-		_play("idle")
+		# Till-and-advance (see class doc / _process_step()): if a direction is still held
+		# alongside "use_tool" when the swing finishes, queue a one-cell step in that direction
+		# instead of immediately re-swinging in place — the next _physics_process tick will
+		# fire another swing automatically once the step completes, chaining tile-by-tile for
+		# as long as both are held.
+		var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		if Input.is_action_pressed("use_tool") and input != Vector2.ZERO:
+			var dir: Vector2 = FACING_VECTORS.get(facing, Vector2.ZERO)
+			_step_target = global_position + dir * CELL_SIZE
+			_stepping = true
+		else:
+			_play("idle")
