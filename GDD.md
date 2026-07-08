@@ -372,8 +372,9 @@ Practical rules of thumb for all content writing and art direction:
 
 **Visual direction:** top-down 2D pixel art on a plain axis-aligned grid (per `CLAUDE.md` —
 Stardew's true projection, explicitly not isometric). Palette anchored in **post-apocalyptic
-dusty ambers and faded greens** (per `CLAUDE.md`; concrete hex values to be locked in Phase
-1's art-style pass alongside the tile-size decision). The palette should split by layer:
+dusty ambers and faded greens** (per `CLAUDE.md`; concrete hex values locked in Phase 1's
+art-style pass alongside the tile-size decision — see the concrete palette below). The palette
+splits by layer:
 the settlement leans into the warm end — golden-hour ambers, living greens, lamplight — while
 city/ruin zones desaturate toward greys, rust, and sickly green rad-glow accents, so the two
 halves of the game are tonally legible at a glance. UI carries the scavenged-metal /
@@ -501,7 +502,7 @@ new colors.
 | Faded signage cream | `#b5a98c` | Pre-war posters, road markings, bone |
 | Rad-glow green (accent) | `#86e83e` | Radiation pockets, mutant growth, hot loot — accent only |
 | Rad-glow deep | `#3fa832` | Rad-glow falloff, irradiated water |
-| Cold outline / shadow | `#181a16` | Ruins sprite outlines — a *cold* near-black, vs. the settlement's warm `#241a10` |
+| Cold outline / shadow | `#181a16` | Ruins sprite outlines — a *cold* near-black, vs. the settlement's warm `#281a0b` |
 
 **Ruins get no seasonal palette modulation — decided, not deferred.** The ruins are dead ground:
 nothing grows there to green in spring or turn in autumn, and a city that ignores the seasons
@@ -532,12 +533,15 @@ Harvest is an endless sandbox in exactly Stardew Valley's mold:
   items and endgame zones (Phase 14), maxed skills and relationships, the fully built-out
   settlement, and raider-faction alliance status.
 
-## 11. Scope-Addition Flags (for future ROADMAP.md reconciliation)
+## 11. Scope-Addition Flags (reconciled into ROADMAP.md — kept here for design rationale)
 
-The following design decisions in this GDD **exceed what `ROADMAP.md` currently has written**.
-They are firm decisions (from Sarvesh's design Q&A), recorded here so a future session can
-reconcile them into the roadmap's phase checklists. Reconciling ROADMAP.md is explicitly *not*
-done in this document — these flags exist to make that follow-up easy to find.
+**Reconciled** into `ROADMAP.md` Phases 5/9/10/14 as of Phase 1's close-out. The flags below are
+kept for the design reasoning behind those additions, not as an open to-do list — don't treat
+them as pending work.
+
+The following design decisions in this GDD **exceeded what `ROADMAP.md` had written at the time
+this GDD was drafted**. They were firm decisions (from Sarvesh's design Q&A), recorded here so
+they could be reconciled into the roadmap's phase checklists — which has since happened.
 
 1. **Raider/scavenger faction with a full reputation system (§6).** ROADMAP.md Phase 9
    currently describes the ruined city's inhabitants as zombies/monsters only. The GDD adds a
@@ -545,15 +549,14 @@ done in this document — these flags exist to make that follow-up easy to find.
    world state: aggression level, barter-trader access, faction quests, safe passage, and a
    possible wary-alliance end state. This needs new checklist items (likely Phase 9 for the
    faction's presence/hostility and Phase 10/13 for its trade and quest integration) and is a
-   genuinely larger build than Phase 9's current text implies.
-2. **Additional small settlements in the wider world (§7).** ROADMAP.md's current text covers
-   only the home settlement plus the ruined city (Phase 14 adds more *city* zones). The GDD
-   adds a few other small human settlements reachable via trade routes and, later, player
-   vehicles — visitable trading destinations with their own merchants and quest hooks. Most
-   naturally reconciled into Phase 14 (world map / expanded world), alongside vehicle
-   unlocks.
+   genuinely larger build than Phase 9's original text implied — see Phase 9/10's "added per
+   GDD.md §6/§11" items, now checklisted.
+2. **Additional small settlements in the wider world (§7).** ROADMAP.md's text at the time
+   covered only the home settlement plus the ruined city (Phase 14 adds more *city* zones). The
+   GDD adds a few other small human settlements reachable via trade routes and, later, player
+   vehicles — visitable trading destinations with their own merchants and quest hooks. Reconciled
+   into Phase 14 (world map / expanded world), alongside vehicle unlocks.
 
-**Minor naming reconciliation, same pass:** ROADMAP.md Phase 5 names the currency **"Scrap
-Coins"**; the confirmed design decision (§7) is **"Credits"** (with barter as the parallel
-non-currency economy). Credits is authoritative; Phase 5's wording should be updated when the
-roadmap is next revised.
+**Minor naming reconciliation, already done:** ROADMAP.md Phase 5 now names the currency
+**"Credits"** (with barter as the parallel non-currency economy), matching this GDD's §7
+decision — the earlier "Scrap Coins" draft wording is gone.

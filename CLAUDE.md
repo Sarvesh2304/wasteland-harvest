@@ -75,9 +75,11 @@ Same model as Blood Fields: Empires, carried over because it worked well there:
   accordingly. See `GDD.md` §9 for the full concrete palette that was locked alongside this.
 - **Click/interact hit-testing:** even in a top-down (non-diamond) grid, don't let interaction
   resolve on raw tile-geometry alone if a sprite (player, NPC, prop) can visually extend beyond
-  its own tile — resolve against actual visible sprite bounds first, matching the fix applied to
-  Blood Fields: Empires after a real bug there. Cheaper to build this in from the start than to
-  retrofit it.
+  its own tile — resolve against actual visible sprite bounds first, matching the fix *designed*
+  for Blood Fields: Empires after a real bug there (documented in that repo's `ROADMAP.md` "Known
+  Issue" / `CLAUDE.md`'s "Board interaction convention" — not yet implemented there as of
+  2026-07-09, so don't assume a working reference implementation exists to copy). Cheaper to
+  build this in from the start than to retrofit it.
 - Git from day one; commit every working session.
 
 ## Art Pipeline — PixelLab-first
