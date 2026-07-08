@@ -166,7 +166,7 @@ func _spawn_resource_prop(cell: Vector2i, kind: String) -> void:
 	visual.position = Vector2(-6, -6)
 	# Flat-color placeholder (Phase 3 scope call, see test_map_layout.gd's legend comment):
 	# ash-brown stump for trees, concrete-grey for ore, both from the locked GDD §9 palette.
-	visual.color = Color("#6e5033") if kind == "tree" else Color("#8c8478")
+	visual.color = Color("#7b5025") if kind == "tree" else Color("#9d9180")
 	body.add_child(visual)
 	add_child(body)
 	_resource_bodies[cell] = body
@@ -231,7 +231,7 @@ func _crop_texture(crop_id: String, stage: int) -> Texture2D:
 		return load(path)
 	var growth_stages: int = maxi(CropDB.growth_stages(crop_id) - 1, 1)
 	var t := float(stage) / float(growth_stages)
-	var color: Color = Color("#8a9a56").lerp(Color("#c9974b"), t)
+	var color: Color = Color("#95ac49").lerp(Color("#e1982a"), t)
 	var image := Image.create(12, 12, false, Image.FORMAT_RGBA8)
 	image.fill(color)
 	return ImageTexture.create_from_image(image)

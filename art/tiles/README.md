@@ -41,3 +41,16 @@ Both tilesets were generated via `mcp__pixellab__create_topdown_tileset` (`view:
 
 - Settlement sheet: tileset id `abb766dd-ebda-4f0e-a587-39aa21cf613c`
 - Ruins sheet: tileset id `598d94d3-affa-4937-92fa-08e3da44589a`
+
+## Revision note (Phase 3): settlement palette boosted, ruins left alone
+
+`grass_soil_tileset.png`'s actual pixel colors were brightened/saturated in place (HSV
+saturation ×1.30, value ×1.12) as part of a Phase 3 palette fix — see `GDD.md` §9's "Revision
+note." The hex values in this file's own description above are the *original* generation-prompt
+colors (accurate history of what was asked for), not what's currently in the PNG.
+
+`rubble_planks_tileset.png` was deliberately left untouched, including its wood-plank tiles
+(which nominally share the settlement anchor's "worn wood" hex identity) — the whole sheet was
+treated as one ruins-palette unit rather than re-touching individual tiles within it, since
+splitting one blended Wang sheet by sub-region wasn't worth the precision for a single tileset.
+Worth a look if/when Phase 9 gives ruins interiors real dedicated content.

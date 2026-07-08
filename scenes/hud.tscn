@@ -7,7 +7,7 @@
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fill"]
-bg_color = Color(0.909804, 0.760784, 0.407843, 0.88)
+bg_color = Color(1.0, 0.788235, 0.282353, 0.88)
 corner_radius_top_left = 1
 corner_radius_top_right = 1
 corner_radius_bottom_right = 1
@@ -50,8 +50,8 @@ offset_right = -24.0
 offset_bottom = -30.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.913725, 0.862745, 0.698039, 1)
-theme_override_colors/font_outline_color = Color(0.141176, 0.101961, 0.0627451, 1)
+theme_override_colors/font_color = Color(1.0, 0.929412, 0.694118, 1)
+theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 8
 text = "Day 1"
@@ -70,8 +70,8 @@ offset_right = -24.0
 offset_bottom = -19.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.913725, 0.862745, 0.698039, 1)
-theme_override_colors/font_outline_color = Color(0.141176, 0.101961, 0.0627451, 1)
+theme_override_colors/font_color = Color(1.0, 0.929412, 0.694118, 1)
+theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 8
 text = "6:00 AM"

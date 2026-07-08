@@ -380,12 +380,26 @@ halves of the game are tonally legible at a glance. UI carries the scavenged-met
 worn-paper theme already specified in ROADMAP.md Phases 2 and 16. Seasonal palettes (Phase 11)
 modulate the warm base rather than replacing it.
 
-### Concrete palette (locked — Phase 1 art-style pass)
+### Concrete palette (locked — Phase 1 art-style pass; revised Phase 3)
 
 The hex values below are the locked outcome of Phase 1's art-style pass, decided alongside the
 **16×16 px tile size** (Stardew Valley's actual base tile size, confirmed with Sarvesh). Three
 layers: a settlement anchor palette that never changes, a small seasonal modulation set layered
 over it, and a separate ruins palette for expedition content.
+
+**Revision note (Phase 3, same day as first playable Phase 3 build):** after seeing the game
+actually running, the original Phase 1 hex values read as too dull/muted rather than "moody but
+cozy" — the intended post-apocalyptic contrast with Stardew's vibrancy had overshot into
+drabness. Sarvesh asked to fix it rather than defer to Phase 6 polish, since Phase 4+ would
+otherwise generate a lot more art against colors that needed revising anyway. Every settlement-
+anchor and seasonal hex below was boosted by a uniform HSV transform (saturation ×1.30, value
+×1.12, hue untouched — so the identity colors are the same *hues*, just less washed-out) and
+applied both to this table and to every already-generated settlement-side art asset (Phase 1's
+grass/soil tileset, Phase 2's player character and HUD, Phase 3's crop/item art) via a batch
+script rather than expensive full PixelLab regeneration. **The ruins palette below is
+deliberately excluded from this boost** — its desaturation vs. the settlement's warmth is the
+intentional "alive vs. stopped" contrast (see its own section below), and staying dull is the
+point there.
 
 #### Settlement anchor palette (year-round "home" tones)
 
@@ -396,16 +410,16 @@ so walking back through the gate always looks like the same warm place.
 
 | Role | Hex | Used for |
 |---|---|---|
-| Dusty amber (identity color) | `#c9974b` | The game's signature tone — dry grass, thatch, dust, sun-warmed surfaces |
-| Lamplight gold | `#e8c268` | Window glow, lanterns, UI highlights, festival lights |
-| Worn cream | `#e9dcb2` | Worn-paper UI, plaster walls, daylight highlights |
-| Faded field green | `#8a9a56` | Living crops and grass — the "faded green" of the source palette |
-| Deep leaf green | `#5a7042` | Tree canopies, shadowed foliage, mature crops |
-| Worn wood (light) | `#a37b50` | Planks, fences, dock boards |
-| Worn wood (dark) | `#6e5033` | Beams, door frames, shadowed wood |
-| Tilled soil | `#7a5a3c` | Farm plots, dirt paths |
-| Scavenged metal | `#8c8478` | Corrugated roofs, tools, patched walls |
-| Warm outline / deep shadow | `#241a10` | Sprite outlines and darkest shadow — warm near-black, never pure `#000000` |
+| Dusty amber (identity color) | `#e1982a` | The game's signature tone — dry grass, thatch, dust, sun-warmed surfaces |
+| Lamplight gold | `#ffc948` | Window glow, lanterns, UI highlights, festival lights |
+| Worn cream | `#ffedb1` | Worn-paper UI, plaster walls, daylight highlights |
+| Faded field green | `#95ac49` | Living crops and grass — the "faded green" of the source palette |
+| Deep leaf green | `#5d7d3a` | Tree canopies, shadowed foliage, mature crops |
+| Worn wood (light) | `#b77c3e` | Planks, fences, dock boards |
+| Worn wood (dark) | `#7b5025` | Beams, door frames, shadowed wood |
+| Tilled soil | `#895a2e` | Farm plots, dirt paths |
+| Scavenged metal | `#9d9180` | Corrugated roofs, tools, patched walls |
+| Warm outline / deep shadow | `#281a0b` | Sprite outlines and darkest shadow — warm near-black, never pure `#000000` |
 
 #### Seasonal modulation of the settlement palette
 
@@ -422,11 +436,11 @@ on the mutant fruit trees.
 
 | Role | Hex |
 |---|---|
-| Fresh rain-fed green | `#6fa05a` |
-| Damp moss green | `#4e7d57` |
-| Wet soil (dark, rich) | `#5f4630` |
-| Rain-sky blue-grey | `#7d94a3` |
-| Mutant blossom pink | `#d9a8b0` |
+| Fresh rain-fed green | `#6cb34d` |
+| Damp moss green | `#488c55` |
+| Wet soil (dark, rich) | `#6a4626` |
+| Rain-sky blue-grey | `#7fa1b7` |
+| Mutant blossom pink | `#f3acb7` |
 
 **Scorched Summer** — the palette's hottest and most sun-bleached point, and deliberately the
 *opposite* of Stardew's lush green summer: the season is named "Scorched," and this is a
@@ -436,11 +450,11 @@ and over-bright.
 
 | Role | Hex |
 |---|---|
-| Bleached amber | `#d9b06a` |
-| Heat-haze cream | `#ecd9a0` |
-| Sun-scorched straw green | `#a89a55` |
-| Baked earth | `#9c6f42` |
-| Washed haze sky | `#cfc3a2` |
+| Bleached amber | `#f3b751` |
+| Heat-haze cream | `#ffe494` |
+| Sun-scorched straw green | `#bca843` |
+| Baked earth | `#af6d2c` |
+| Washed haze sky | `#e8d6a6` |
 
 **Amber Autumn** — the anchor palette at full song; the season is literally named for the
 game's identity color, and this is its peak expression. Deepest saturation of the year:
@@ -449,25 +463,25 @@ game, it's taken in Amber Autumn.
 
 | Role | Hex |
 |---|---|
-| Peak amber | `#cf8f3a` |
-| Harvest gold | `#e5b354` |
-| Rust-leaf orange | `#b06133` |
-| Ember red-brown | `#8f4a2e` |
-| Last fading green | `#7d7a3f` |
+| Peak amber | `#e88b0f` |
+| Harvest gold | `#ffb72d` |
+| Rust-leaf orange | `#c5520f` |
+| Ember red-brown | `#a03c13` |
+| Last fading green | `#8c8832` |
 
 **Grey Winter** — named "Grey," and it delivers: the organic layer desaturates toward cool
 ash-greys and cold blue tones, a quiet visual echo of nuclear winter that stays on the right
-side of the cozy contract because the anchor palette's lamplight gold (`#e8c268`) is *not*
+side of the cozy contract because the anchor palette's lamplight gold (`#ffc948`) is *not*
 modulated — warm windows against grey snow is the season's whole look, and it's the strongest
 "home versus wasteland" contrast of the year.
 
 | Role | Hex |
 |---|---|
-| Snow-ash white | `#c9cccb` |
-| Cold blue-grey | `#8a97a3` |
-| Frozen ground | `#5d5a52` |
-| Dead-branch brown | `#6b5d4d` |
-| Winter-sky slate | `#4a5560` |
+| Snow-ash white | `#e0e4e3` |
+| Cold blue-grey | `#92a5b7` |
+| Frozen ground | `#686458` |
+| Dead-branch brown | `#78634c` |
+| Winter-sky slate | `#4b5c6c` |
 
 #### Ruins (expedition) palette
 

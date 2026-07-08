@@ -27,3 +27,9 @@ sidecar yet, so `scripts/hud.gd`'s `_refresh_slot()` currently falls back to the
 `ColorRect` rendering for these items too (its `ResourceLoader.exists(icon_path)` check returns
 false) until `godot --headless --import` (or an editor open) runs once. See that README for the
 full explanation of why this wasn't done in this session.
+
+## Revision note (Phase 3): palette boosted, and the import gap above is now closed
+
+Same as `art/crops/README.md`: the import gap was closed the same day (headless `--import`),
+and these 7 icon PNGs were then brightened/saturated in place (HSV saturation ×1.30, value
+×1.12) along with the rest of the settlement-side art — see `GDD.md` §9's "Revision note."

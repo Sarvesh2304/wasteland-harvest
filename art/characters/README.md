@@ -34,3 +34,10 @@ Generated via `mcp__pixellab__create_character` (standard mode, 1 generation):
   `scenes/player.tscn`'s AnimatedSprite2D: animations `idle_*`, `walk_*`, `tool_*` per
   direction; `tool_*` are non-looping (scripts/player.gd waits on `animation_finished`
   to unlock movement).
+
+## Revision note (Phase 3): palette boosted
+
+Every player-sprite PNG here (`rotations/`, `idle/`, `walk/`, `tool/`) had its pixel colors
+brightened/saturated in place (HSV saturation ×1.30, value ×1.12) as part of a Phase 3 palette
+fix — see `GDD.md` §9's "Revision note." `player_frames.tres` itself references the same PNGs
+by path, so no `.tres` changes were needed.

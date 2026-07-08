@@ -46,3 +46,11 @@ fallback, not the real art, until someone with editor access runs `godot --headl
 `.godot/imported/` cache. No code change is needed for the real art to take over after that —
 `ResourceLoader.exists()` will start returning `true` for these paths and the fallback branch
 simply stops being hit.
+
+## Revision note (Phase 3): palette boosted, and the import gap above is now closed
+
+The orchestrating session ran `godot --headless --import` the same day this art was generated,
+so the caveat above (real art not showing up without a manual import) no longer applies — these
+PNGs have been imported and render normally. Separately, all 20 stage PNGs then had their pixel
+colors brightened/saturated in place (HSV saturation ×1.30, value ×1.12) as part of a same-day
+palette fix — see `GDD.md` §9's "Revision note."

@@ -1,13 +1,12 @@
 {
-  "_comment": "Phase 3 item database (ROADMAP.md Phase 3 'first 20 items'). Loaded by scripts/item_db.gd. Each entry: type in [seed, crop, resource, food, tool]; stack_max caps a slot's count (tools are always 1 and instead carry durability_max, consumed via scripts/inventory.gd damage_selected_tool()); icon is a res:// path to real PixelLab art or \"\" when this phase ships a flat-color placeholder instead (see placeholder_color/placeholder_label, drawn in-engine by hud.gd — no PNG for those, per CLAUDE.md scope guidance to keep icon art tractable this phase). value is Credits, unused by any Phase 3 system but seeded now for Phase 5's shop/shipping-box work.",
-
+  "_comment": "Phase 3 item database (ROADMAP.md Phase 3 'first 20 items'). Loaded by scripts/item_db.gd. Each entry: type in [seed, crop, resource, food, tool]; stack_max caps a slot's count (tools are always 1 and instead carry durability_max, consumed via scripts/inventory.gd damage_selected_tool()); icon is a res:// path to real PixelLab art or \"\" when this phase ships a flat-color placeholder instead (see placeholder_color/placeholder_label, drawn in-engine by hud.gd \u2014 no PNG for those, per CLAUDE.md scope guidance to keep icon art tractable this phase). value is Credits, unused by any Phase 3 system but seeded now for Phase 5's shop/shipping-box work.",
   "seed_mutant_potato": {
     "name": "Mutant Potato Seeds",
     "type": "seed",
     "crop_id": "mutant_potato",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#8a9a56",
+    "placeholder_color": "#95ac49",
     "placeholder_label": "SdP",
     "value": 8
   },
@@ -17,7 +16,7 @@
     "crop_id": "dustwheat",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#c9974b",
+    "placeholder_color": "#e1982a",
     "placeholder_label": "SdW",
     "value": 6
   },
@@ -37,11 +36,10 @@
     "crop_id": "sunbloom",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#e8c268",
+    "placeholder_color": "#ffc948",
     "placeholder_label": "SdS",
     "value": 12
   },
-
   "mutant_potato": {
     "name": "Mutant Potato",
     "type": "crop",
@@ -70,7 +68,6 @@
     "icon": "res://art/items/sunbloom.png",
     "value": 30
   },
-
   "wood": {
     "name": "Wood",
     "type": "resource",
@@ -97,7 +94,7 @@
     "type": "resource",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#e9dcb2",
+    "placeholder_color": "#ffedb1",
     "placeholder_label": "Cls",
     "value": 2
   },
@@ -106,17 +103,16 @@
     "type": "resource",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#8c8478",
+    "placeholder_color": "#9d9180",
     "placeholder_label": "Cap",
     "value": 1
   },
-
   "preserved_food": {
     "name": "Preserved Rations",
     "type": "food",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#a37b50",
+    "placeholder_color": "#b77c3e",
     "placeholder_label": "Can",
     "value": 15,
     "energy_restored": 25
@@ -126,19 +122,18 @@
     "type": "food",
     "stack_max": 99,
     "icon": "",
-    "placeholder_color": "#b06133",
+    "placeholder_color": "#c5520f",
     "placeholder_label": "Stw",
     "value": 22,
     "energy_restored": 40
   },
-
   "hoe": {
     "name": "Hoe",
     "type": "tool",
     "stack_max": 1,
     "durability_max": 50,
     "icon": "",
-    "placeholder_color": "#6e5033",
+    "placeholder_color": "#7b5025",
     "placeholder_label": "Hoe"
   },
   "watering_can": {
@@ -147,7 +142,7 @@
     "stack_max": 1,
     "durability_max": 50,
     "icon": "",
-    "placeholder_color": "#7d94a3",
+    "placeholder_color": "#7fa1b7",
     "placeholder_label": "Wtr"
   },
   "axe": {
@@ -174,7 +169,7 @@
     "stack_max": 1,
     "durability_max": 999999,
     "icon": "",
-    "placeholder_color": "#a37b50",
+    "placeholder_color": "#b77c3e",
     "placeholder_label": "Bag"
   }
 }

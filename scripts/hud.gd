@@ -7,7 +7,7 @@ extends CanvasLayer
 ## Listens to the DayManager autoload for time, and to the player's energy_changed signal
 ## (bound by main.gd) for the energy bar. Art: PixelLab-generated scavenged-metal panel and
 ## bar frame (art/ui/), with the bar fill drawn as flat palette colors (lamplight gold
-## #e8c268 on warm near-black) so the readout stays legible at the 320x192 viewport.
+## #ffc948 on warm near-black) so the readout stays legible at the 320x192 viewport.
 ##
 ## Slot widgets are built procedurally from Inventory.TOTAL_SLOTS rather than hand-authored in
 ## the .tscn (27 near-identical widgets would be pure boilerplate there) — same "generate from
@@ -18,8 +18,8 @@ const ItemDB := preload("res://scripts/item_db.gd")
 
 const HOTBAR_SIZE := Inventory.HOTBAR_SIZE
 const SLOT_SIZE := 14.0
-const SELECTED_COLOR := Color("#e8c268")  # lamplight gold — GDD.md §9 settlement anchor palette
-const EMPTY_BG_COLOR := Color(0.141, 0.102, 0.063, 0.75)  # warm near-black, per §9
+const SELECTED_COLOR := Color("#ffc948")  # lamplight gold — GDD.md §9 settlement anchor palette
+const EMPTY_BG_COLOR := Color("#281a0b", 0.75)  # warm near-black, per §9
 
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
@@ -91,8 +91,8 @@ func _make_slot_widget(parent: Control) -> Dictionary:
 	label.size = Vector2(SLOT_SIZE - 1, 7)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	label.add_theme_font_size_override("font_size", 6)
-	label.add_theme_color_override("font_color", Color(0.914, 0.863, 0.698))
-	label.add_theme_color_override("font_outline_color", Color(0.141, 0.102, 0.063))
+	label.add_theme_color_override("font_color", Color("#ffedb1"))
+	label.add_theme_color_override("font_outline_color", Color("#281a0b"))
 	label.add_theme_constant_override("outline_size", 2)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(label)

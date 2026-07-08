@@ -30,3 +30,10 @@ different scale is ever needed.
 
 Text on the HUD uses Godot's default font at small size for Phase 2 — a proper pixel font
 (PixelLab `create_font` or a shared-assets font) is deferred to Phase 16's UI/UX pass.
+
+## Revision note (Phase 3): palette boosted
+
+`hud_plaque.png` and `energy_bar_frame.png` both had their pixel colors brightened/saturated
+in place (HSV saturation ×1.30, value ×1.12) — see `GDD.md` §9's "Revision note." The
+`fill_mode`/in-code fill colors in `hud.gd`/`hud.tscn` were updated to the matching new
+lamplight-gold hex (`#ffc948`) in the same pass.
