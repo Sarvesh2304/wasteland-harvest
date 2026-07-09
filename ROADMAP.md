@@ -335,7 +335,18 @@ them at Marta's store.
       for the next phase
 - [ ] Art pass 1 — replace placeholder tiles with proper pixel art: ground tiles, farmland,
       player character, 3 NPCs, basic buildings
-- [ ] First demo build exported (Windows)
+- [x] First demo build exported (Windows). Godot 4.7's official Windows export templates
+      installed (`~/Library/Application Support/Godot/export_templates/4.7.stable/`, downloaded
+      from the official GitHub release, ~1.3GB), a hand-authored `export_presets.cfg` (Windows
+      Desktop, x86_64, no codesigning) added and tracked in git (previously blanket-gitignored by
+      boilerplate with no documented reason — now genuinely useful, secret-free project config,
+      so un-ignored; the actual `build/` output is gitignored instead, being large regenerable
+      binary output). A real headless export (`godot --headless --export-release "Windows
+      Desktop" build/windows/WastelandHarvest.exe`) succeeded, producing a verified 109MB valid
+      PE32+ Windows executable + its `.pck`. **Caveat:** this proves the export pipeline works
+      end-to-end and is now a one-command operation for any future session — but this specific
+      build predates the bug-fixing sprint and Art Pass 1 below, so re-export once those land
+      before handing a build to actual playtesters.
 
 **Milestone (end of Year 1): Vertical slice demo complete.** Full farming loop, one town, 3 NPCs,
 auto-save, day/night cycle working.

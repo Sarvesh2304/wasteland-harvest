@@ -2,7 +2,12 @@
 .godot/
 .import/
 export.cfg
-export_presets.cfg
+# export_presets.cfg is tracked (not ignored) as of Phase 6 -- it's real, reusable project
+# config (a Windows export preset) with no secrets in it (ssh_remote_deploy/codesign fields are
+# all disabled/placeholder defaults), and re-authoring it from scratch each time would be pure
+# friction for zero benefit. The actual build output below is what's regenerable/binary and
+# should never be committed.
+build/
 
 # OS
 .DS_Store
