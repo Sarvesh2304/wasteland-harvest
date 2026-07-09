@@ -332,7 +332,9 @@ them at Marta's store.
 - [ ] Bug-fixing sprint — play through 5 in-game days end to end; fix crashes, edge cases,
       broken tile interactions
 - [ ] Internal playtesting — 3–5 people play it; note confusion/breakage/fun; prioritise fixes
-      for the next phase
+      for the next phase. **Blocked on real humans, not an agent task** — this needs Sarvesh (and
+      4 others) actually playing the exported build above and giving feedback; flagged rather
+      than silently skipped or faked. Nothing else in this phase depends on it landing first.
 - [ ] Art pass 1 — replace placeholder tiles with proper pixel art: ground tiles, farmland,
       player character, 3 NPCs, basic buildings
 - [x] First demo build exported (Windows). Godot 4.7's official Windows export templates
