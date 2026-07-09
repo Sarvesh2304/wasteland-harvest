@@ -13,6 +13,8 @@ extends Node2D
 ## Phase 5 Stage 2 wires Marta's store (scripts/store_ui.gd) one level deeper: DialogueUI emits
 ## store_requested (when a dialogue choice leads to its OPEN_STORE sentinel), StoreUI owns
 ## opening/browsing/buying, and player.store_ui points back the same way player.dialogue_ui does.
+## Phase 5 Stage 3 wires the shipping box's loading UI (scripts/shipping_ui.gd) and the
+## sale-credit hop (structures.crops_sold -> player.add_credits) — see _ready()'s comment.
 ## The day/night CanvasModulate and DayManager autoload run themselves.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
@@ -52,6 +54,17 @@ func _ready() -> void:
 	store_ui.bind(player)
 	dialogue_ui.store_requested.connect(store_ui.open_store)
 	player.store_ui = store_ui
+	# Phase 5 Stage 3: the shipping box's crop-loading UI (scripts/shipping_ui.gd) — bound both
+	# ways like StoreUI above, but reached directly from use_tool() facing the box (a world
+	# interaction like the chest/bed) rather than through a dialogue choice. The second wire
+	# closes the economy loop: structures.gd resolves the box's overnight sale on day_started
+	# and emits crops_sold(total), which lands here as player Credits — the "Credits added next
+	# morning" checklist line, via the add_credits hook Stage 2 documented for exactly this.
+	var shipping_ui: Node = $ShippingUI
+	shipping_ui.bind(player, structures)
+	player.shipping_box_requested.connect(shipping_ui.open_box)
+	player.shipping_ui = shipping_ui
+	structures.crops_sold.connect(player.add_credits)
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
 	# before this scene instantiates (see settlement_select.gd's resume path); an empty result
 	# means new game -> grant the one-time settlement starting bonus instead. Applied here, after

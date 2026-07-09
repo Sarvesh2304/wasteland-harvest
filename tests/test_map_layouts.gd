@@ -10,8 +10,8 @@ const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
 
-const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "W", "F", "G", "g"]
-const REQUIRED_BUILDING_KINDS := ["farmhouse", "chest", "bed", "mayor_house", "store", "shack", "bulletin_board"]
+const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G", "g"]
+const REQUIRED_BUILDING_KINDS := ["farmhouse", "chest", "bed", "shipping_box", "mayor_house", "store", "shack", "bulletin_board"]
 
 const LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout]
 const LAYOUT_NAMES := ["open_plains", "forest_edge", "riverside"]
@@ -80,6 +80,58 @@ func test_bed_is_1x1_and_reachable() -> void:
 			if not layout.is_solid(n.x, n.y):
 				reachable = true
 		assert_true(reachable, "%s bed has a walkable neighbour to interact from" % LAYOUT_NAMES[i])
+
+
+func test_shipping_box_is_1x1_beside_chest_and_bed_and_reachable() -> void:
+	# Phase 5 Stage 3: every start has exactly one shipping box, 1x1 like the chest/bed, sitting
+	# in the same farmhouse "service row" as both (same y, x strictly between the chest's and the
+	# bed's — the authored chest/box/bed line each layout file documents), with at least one
+	# walkable orthogonal neighbour to interact from.
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var boxes: Array[Dictionary] = []
+		var chest_cell := Vector2i(-1, -1)
+		var bed_cell := Vector2i(-1, -1)
+		for b in layout.buildings():
+			match String(b["kind"]):
+				"shipping_box": boxes.append(b)
+				"chest": chest_cell = b["top_left"]
+				"bed": bed_cell = b["top_left"]
+		assert_eq(boxes.size(), 1, "%s has exactly one shipping box" % LAYOUT_NAMES[i])
+		var box: Dictionary = boxes[0]
+		assert_eq(box["size"], Vector2i(1, 1), "%s shipping box is 1x1" % LAYOUT_NAMES[i])
+		var cell: Vector2i = box["top_left"]
+		assert_eq(cell.y, chest_cell.y, "%s box shares the chest's row" % LAYOUT_NAMES[i])
+		assert_eq(cell.y, bed_cell.y, "%s box shares the bed's row" % LAYOUT_NAMES[i])
+		assert_true(chest_cell.x < cell.x and cell.x < bed_cell.x,
+			"%s box sits between the chest and the bed" % LAYOUT_NAMES[i])
+		var reachable := false
+		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = cell + offset
+			if not layout.is_solid(n.x, n.y):
+				reachable = true
+		assert_true(reachable, "%s shipping box has a walkable neighbour" % LAYOUT_NAMES[i])
+
+
+func test_shipping_box_marker_char_matches_building_cell() -> void:
+	# The 'S' ASCII marker and the BUILDINGS entry are two statements of the same fact — they
+	# must agree (the same guarantee every other marker/building pair gets implicitly via
+	# is_solid, made explicit here since the pair was authored by hand in 3 files).
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var marker_cells: Array[Vector2i] = []
+		var rows: Array[String] = layout.ROWS
+		for y in rows.size():
+			for x in rows[y].length():
+				if rows[y][x] == "S":
+					marker_cells.append(Vector2i(x, y))
+		assert_eq(marker_cells.size(), 1, "%s has exactly one 'S' marker" % LAYOUT_NAMES[i])
+		var box: Dictionary = {}
+		for b in layout.buildings():
+			if String(b["kind"]) == "shipping_box":
+				box = b
+		assert_eq(marker_cells[0], box["top_left"],
+			"%s 'S' marker sits at the shipping box's authored cell" % LAYOUT_NAMES[i])
 
 
 func test_all_layouts_have_dock_and_gate() -> void:

@@ -14,9 +14,11 @@ extends RefCounted
 ##   'G'  town's one main gate (walkable landmark; a break in the south fence line)
 ##   'g'  farm's small perimeter fence gap (walkable landmark; a break in the north fence line,
 ##        "closed later" per ROADMAP.md — no functional gameplay meaning yet, layout marker only)
-##   'H'/'C'/'D'/'M'/'R'/'K'/'B'  building top-left markers (farmhouse/chest/bed/mayor's house/
-##        store/settler shack/bulletin board) — see class doc below on multi-cell footprints.
-##        'D' (the farmhouse beD, Phase 4 Stage 3) is 1x1 like the chest; 'B' was taken.
+##   'H'/'C'/'D'/'M'/'R'/'K'/'B'/'S'  building top-left markers (farmhouse/chest/bed/mayor's
+##        house/store/settler shack/bulletin board/shipping box) — see class doc below on
+##        multi-cell footprints. 'D' (the farmhouse beD, Phase 4 Stage 3) is 1x1 like the chest;
+##        'B' was taken. 'S' (the Shipping box, Phase 5 Stage 3) is 1x1 too, and this time the
+##        kind's own first letter was actually free.
 ##
 ## ## Multi-cell buildings
 ##

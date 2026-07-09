@@ -260,8 +260,16 @@ stage's work).
       shipping-box selling. Credits balance lives on `player.gd` (mirroring `energy`'s pattern
       exactly — a plain field, save/load support, a HUD display), starting at 0 since nothing
       grants Credits until Stage 3 exists.
-- [ ] Shipping box — place harvested crops before sleeping; Credits added next morning; tracks
-      sale history. **Stage 3, not yet started.**
+- [x] Shipping box — place harvested crops before sleeping; Credits added next morning; tracks
+      sale history. **Stage 3.** A new shipping-box building (marker `'S'`) completes the
+      farmhouse's service row (chest / box / bed) in all 3 starts. Loading is one-way and
+      one-crop-per-confirm (`scripts/shipping_ui.gd`, structurally the store's buy flow flipped
+      to load) — crops only, per the checklist wording, gated by `scripts/shipping_db.gd`'s
+      `is_shippable()`. The overnight sale rides `DayManager.day_started` (the same signal crop
+      growth and construction completion already use), resolving strictly before
+      `_sleep_in_bed()`'s trailing save so a sale is never lost on reload. Sale history is kept
+      in full ({day, itemized items, total} per entry) — tracked per the checklist, no viewing UI
+      yet (that would be scope creep into a later phase).
 
 **Stage 1 verified independently:** re-ran the full suite myself (148/148 unit tests, +21 new
 covering wander-zone math, dialogue-tree traversal, and per-layout NPC placement/reachability) and
@@ -295,8 +303,28 @@ reformatting noise. Visually confirmed via screenshots: the store's full catalog
 a selected item's description, and the new HUD Credits plaque alongside the existing day/clock
 plaque.
 
-**Milestone (whole phase):** Player can farm, sell crops, earn currency, and buy seeds. Economy
-loop is closed.
+**Stage 3 verified independently:** re-ran the full suite myself (177/177 unit tests, +17 new
+covering shippable-roster/valuation/contents/sale-total/history math and the box's placement/
+reachability in all 3 layouts) and the extended runtime smoke test — critically, the **entire
+closed economy loop in one continuous run**: a tilled/planted/watered/harvested potato loaded into
+the box via the real facing+`use_tool` path and the loading UI's real input handling, sleeping
+through the bed to resolve the sale (exact Credits credited, itemized history recorded, box
+emptied), a full save/teardown/reload confirming all of that survives a restart, and finally
+walking to Marta and successfully spending those exact freshly-earned Credits at her store — farm
+→ sell → earn → buy, verified as one chain, not just this stage's mechanism in isolation. Also
+verified: a mid-session save with a loaded-but-not-yet-slept box survives a reload un-sold (no
+phantom history entry) and still sells correctly the following sleep. All passed twice in a row.
+Read through the new core scripts (`shipping_db.gd`'s pure math, `structures.gd`'s save-ordering
+guarantee relative to `_sleep_in_bed()`'s trailing save, `shipping_ui.gd`'s one-way one-per-
+confirm loading) — sound logic, consistent with every established convention, including reusing
+the corrected bottom-anchored `HintLabel` pattern without reintroducing Stage 1's bug. Verified no
+reformatting noise and clean save-file hygiene. Visually confirmed via screenshots: the loading
+UI with per-crop held/in-box counts and running total, and the morning after — Credits landed,
+"WORLD SAVED," and the farmhouse's three-color service row (chest/box/bed) all visible together.
+
+**Milestone (whole phase) — met.** Player can farm, sell crops, earn currency, and buy seeds. The
+economy loop is closed and verified end to end: harvest → ship overnight → Credits arrive → spend
+them at Marta's store.
 
 ### Phase 6 — First Playable Build & Stabilisation
 - [ ] All Year 1 systems integrated — farming, inventory, economy, NPCs, day/night, auto-save

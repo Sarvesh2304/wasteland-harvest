@@ -33,10 +33,15 @@ signal energy_changed(current: float, max_energy: float)
 ## chest_toggled -> hud.toggle_chest_ui() signal wiring rather than a direct method call, keeping
 ## player.gd instance-testable (tests/test_player.gd) without a real DialogueUI scene existing.
 signal npc_dialogue_requested(npc: Node)
-## Phase 5 Stage 2: fired on any Credits balance change (a purchase, or Stage 3's future shipping-
-## box sale credit) — hud.gd's currency display binds to this the same way it binds
+## Phase 5 Stage 2: fired on any Credits balance change (a purchase, or a Stage 3 shipping-box
+## sale credit) — hud.gd's currency display binds to this the same way it binds
 ## energy_changed, so the balance's one owner (this field) never needs a UI reference.
 signal credits_changed(current: int)
+## Phase 5 Stage 3: fired instead of handling the shipping-box interaction locally — same
+## signal-handoff shape as npc_dialogue_requested above; main.gd wires it to
+## scripts/shipping_ui.gd's open_box(). No payload: there's exactly one box per map, and the
+## UI reads everything it needs from the player/structures references it was bound with.
+signal shipping_box_requested
 
 ## ~3.5 tiles/second at the 16px tile size — close to Stardew's walk feel.
 const SPEED := 56.0
@@ -110,6 +115,9 @@ var dialogue_ui: Node = null
 ## dialogue_ui is above — while it's open, _physics_process freezes entirely (see _in_store())
 ## and store_ui.gd owns "use_tool"/"move_up"/"move_down" itself to browse/buy/leave.
 var store_ui: Node = null
+## Phase 5 Stage 3: the shipping box's crop-loading UI (scripts/shipping_ui.gd), bound DIRECTLY
+## by main.gd exactly like store_ui above, with the identical freeze rule (see _in_shipping()).
+var shipping_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -139,6 +147,10 @@ func _physics_process(_delta: float) -> void:
 	# (see _in_dialogue()'s comment above) — store_ui.gd owns "use_tool"/"move_up"/"move_down"
 	# itself via its own _unhandled_input to browse/buy/leave, so this loop must stand down too.
 	if _in_store():
+		velocity = Vector2.ZERO
+		return
+	# Phase 5 Stage 3: loading the shipping box, same freeze rule as the store/dialogue above.
+	if _in_shipping():
 		velocity = Vector2.ZERO
 		return
 	if _stepping:
@@ -214,6 +226,12 @@ func use_tool() -> void:
 	if structures != null and test_map != null and structures.is_bed_at(_target_cell()):
 		_sleep_in_bed()
 		return
+	# Phase 5 Stage 3: the shipping box — same instant, energy-free, queue-jumping shape as the
+	# chest/bed above, handed off via a signal like NPC dialogue below (the loading UI needs the
+	# player's inventory and the box's contents, so scripts/shipping_ui.gd owns the interaction).
+	if structures != null and test_map != null and structures.is_shipping_box_at(_target_cell()):
+		shipping_box_requested.emit()
+		return
 	# Phase 5 Stage 1: an NPC directly ahead — same instant, energy-free, queue-jumping shape as
 	# the chest/bed above, but the interaction itself (opening the dialogue box) is handed off via
 	# a signal rather than resolved here, since it belongs to scripts/dialogue_ui.gd (see the
@@ -278,6 +296,11 @@ func _in_store() -> bool:
 	return store_ui != null and bool(store_ui.active)
 
 
+## True while scripts/shipping_ui.gd's box is open — see _physics_process's early-return.
+func _in_shipping() -> bool:
+	return shipping_ui != null and bool(shipping_ui.active)
+
+
 ## The logical cell directly ahead of the player, in the current facing direction.
 func _target_cell() -> Vector2i:
 	var dir: Vector2 = FACING_VECTORS.get(facing, Vector2(0, 1))
@@ -337,8 +360,9 @@ func set_credits(value: int) -> void:
 	credits_changed.emit(credits)
 
 
-## Stage 3's documented hook: crediting a shipping-box sale is just add_credits(sale_total) —
-## no new subsystem needed, per ROADMAP's ask that this stage leave an obvious path for that.
+## Stage 2's documented hook, now live: main.gd wires structures.gd's crops_sold(total) signal
+## straight here, so a shipping-box sale credits the balance with no new subsystem — exactly the
+## path that comment promised Stage 3 would use.
 func add_credits(amount: int) -> void:
 	set_credits(credits + amount)
 

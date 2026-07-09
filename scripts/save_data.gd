@@ -28,9 +28,14 @@ extends RefCounted
 ##                                                        # ones are simply absent — single-hit,
 ##                                                        # no-respawn per Phase 3)
 ##   "structures": {"pending": [entry...], "completed": [entry...],
-##                  "storage": {"x,y": inventory}, "chest": inventory}
+##                  "storage": {"x,y": inventory}, "chest": inventory,
+##                  "shipping": {"contents": {item_id: count},
+##                               "history": [{day, items: {item_id: count}, total}]}}
 ##                  # entry = {building_id, kind, top_left: [x,y], size: [w,h], placed_day}
 ##                  # (the runtime `visual` ColorRect is deliberately dropped; load re-spawns it)
+##                  # shipping (Phase 5 Stage 3) nests under structures rather than claiming a
+##                  # new top-level section because structures.gd owns the live box (see its
+##                  # class doc) — same reasoning as the chest inventory nesting there.
 ## }
 ## test_map.gd's _runtime_blocked overlay is intentionally NOT serialised: it is derived state
 ## (placed/completed building footprints), re-established on load by structures.gd re-calling
@@ -178,6 +183,47 @@ static func decode_structure_entry(data: Dictionary) -> Dictionary:
 		"size": Vector2i(int(size[0]), int(size[1])),
 		"placed_day": int(data.get("placed_day", 1)),
 	}
+
+
+## -- Shipping box (structures.gd's shipping_contents + sale_history, Phase 5 Stage 3) --
+## contents keys are item-id Strings (already JSON-safe); the work here is the usual int
+## re-normalisation of counts/day/total after JSON's float round-trip (see class doc), plus
+## dropping any malformed history rows rather than letting them crash a later reader.
+
+static func encode_shipping(contents: Dictionary, history: Array) -> Dictionary:
+	var contents_out := {}
+	for item_id in contents:
+		contents_out[String(item_id)] = int(contents[item_id])
+	var history_out: Array = []
+	for entry in history:
+		var items_out := {}
+		for item_id in entry.get("items", {}):
+			items_out[String(item_id)] = int(entry["items"][item_id])
+		history_out.append({
+			"day": int(entry.get("day", 1)),
+			"items": items_out,
+			"total": int(entry.get("total", 0)),
+		})
+	return {"contents": contents_out, "history": history_out}
+
+
+static func decode_shipping(data: Dictionary) -> Dictionary:
+	var contents := {}
+	for item_id in data.get("contents", {}):
+		contents[String(item_id)] = int(data["contents"][item_id])
+	var history: Array = []
+	for entry in data.get("history", []):
+		if not entry is Dictionary:
+			continue
+		var items := {}
+		for item_id in entry.get("items", {}):
+			items[String(item_id)] = int(entry["items"][item_id])
+		history.append({
+			"day": int(entry.get("day", 1)),
+			"items": items,
+			"total": int(entry.get("total", 0)),
+		})
+	return {"contents": contents, "history": history}
 
 
 ## -- Top-level assembly / parsing --

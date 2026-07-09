@@ -63,6 +63,24 @@ extends SceneTree
 ## an attempted purchase is refused with zero deduction and zero items granted, then leaves via
 ## the trailing "Leave" row and confirms the player can move/act normally immediately after — the
 ## same "shouldn't leave the player stuck" standard Stage 1 verified for dialogue.
+##
+## Phase 5 Stage 3 (stages 70-71 before the bed sleep, new checks inside stages 20/23, and
+## stages 80-84 after the reload) — the whole-phase milestone's literal closed economy loop
+## ("Player can farm, sell crops, earn currency, and buy seeds"), driven in ONE continuous run:
+## the potato harvested through the real farming path back in stage 15 is loaded into the
+## shipping box via the real facing+use_tool interaction and the loading UI's real input handler
+## (stages 70-71, including empty-handed and non-crop refusals), the stage-20 bed sleep then
+## resolves the overnight sale (exact +20 Cr on top of the seeded 37, itemized history entry,
+## box emptied — all BEFORE that same sleep's auto-save, per structures.gd's ordering guarantee),
+## stage 23 confirms all of that survived the full teardown/reload (potato gone from both
+## inventory and box, 57 Cr balance, history restored), and stage 80 spends those sale-earned
+## Credits at Marta's store through the real dialogue-choice path — farm -> sell -> earn -> buy,
+## end to end. Stages 81-84 then cover the other Stage 3 save-shape requirement: a box loaded but
+## NOT yet slept through (2 sunbloom via the real UI) is written out by a mid-session save —
+## GameState.save_game called directly, because the bed path would sell the load first, which is
+## precisely what this check must avoid — survives a second full teardown/reload with its pending
+## contents intact, and still sells correctly (+60 Cr, second history entry) on the next real bed
+## sleep after the reload.
 
 const CropDB := preload("res://scripts/crop_db.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -77,9 +95,9 @@ const NpcGrid := preload("res://scripts/npc_grid.gd")
 ## painted-cell counts computed from that layout's ROWS (ground is always (w+1)*(h+1)).
 const OTHER_LAYOUT_CHECKS := [
 	{"id": "open_plains", "layout": OpenPlainsLayout, "ground": 37 * 33, "obstacles": 0,
-		"fence": 129, "water": 20, "decor": 3, "buildings": 10},
+		"fence": 129, "water": 20, "decor": 3, "buildings": 11},
 	{"id": "riverside", "layout": RiversideLayout, "ground": 37 * 33, "obstacles": 0,
-		"fence": 97, "water": 32, "decor": 3, "buildings": 10},
+		"fence": 97, "water": 32, "decor": 3, "buildings": 11},
 ]
 var _other_layout_map: Node2D = null
 var _other_layout_index := 0
@@ -101,6 +119,8 @@ var npcs: Node
 var dialogue_ui: Node
 ## Phase 5 Stage 2: Marta's store, fetched once in stage 2 alongside dialogue_ui above.
 var store_ui: Node
+## Phase 5 Stage 3: the shipping box's crop-loading UI, fetched alongside store_ui above.
+var shipping_ui: Node
 ## Wander-check snapshot (stage 60): each NPC's cell recorded once, compared after simulated time.
 var _wander_start_cells: Dictionary = {}
 ## Position snapshot for stage 95's post-store movement check (see that stage).
@@ -199,6 +219,7 @@ func _physics_process(_delta: float) -> bool:
 			npcs = test_map.get_node("Npcs")
 			dialogue_ui = main.get_node("DialogueUI")
 			store_ui = main.get_node("StoreUI")
+			shipping_ui = main.get_node("ShippingUI")
 			hud = main.get_node("HUD")
 			_enter_stage(2)
 		2:
@@ -237,13 +258,14 @@ func _physics_process(_delta: float) -> bool:
 				"all 3 dock plank cells painted")
 			# -- Town-core + farmland landmarks exist, positioned sensibly --
 			var buildings: Array[Dictionary] = ForestEdgeLayout.buildings()
-			_check(buildings.size() == 10,
-				"10 buildings defined (farmhouse, chest, bed, mayor, store, board, 4 shacks)")
-			_check(structures.get_child_count() == 10, "Structures spawned one body per building")
+			_check(buildings.size() == 11,
+				"11 buildings defined (farmhouse, chest, bed, shipping box, mayor, store, board, 4 shacks)")
+			_check(structures.get_child_count() == 11, "Structures spawned one body per building")
 			var kinds := {}
 			for b in buildings:
 				kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
-			for required in ["farmhouse", "chest", "bed", "mayor_house", "store", "bulletin_board"]:
+			for required in ["farmhouse", "chest", "bed", "shipping_box", "mayor_house", "store",
+					"bulletin_board"]:
 				_check(kinds.get(required, 0) == 1, "exactly one %s" % required)
 			_check(kinds.get("shack", 0) == 4, "4 settler shacks")
 			var farmhouse: Dictionary = ForestEdgeLayout.building_at(16, 2)
@@ -840,6 +862,59 @@ func _physics_process(_delta: float) -> bool:
 					"both player-built structures completed")
 				_check(not structures.is_chest_at(Vector2i(30, 21)), "tent is not storage")
 				_check(not farm.can_till(Vector2i(30, 21)), "completed tent cell stays untillable")
+				_enter_stage(70)
+		70:
+			# -- Phase 5 Stage 3: load the stage-15 harvested potato into the shipping box via
+			#    the real facing+use_tool dispatch. Forest Edge's box is at (17,4), between the
+			#    chest and the bed; the player stands on the spawn cell (17,5) directly south. --
+			if ticks < 5:
+				player.global_position = test_map.cell_to_world_center(Vector2i(17, 5))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks == 5:
+				_check(structures.is_shipping_box_at(Vector2i(17, 4)),
+					"shipping box is at its authored cell")
+				_check(not shipping_ui.active, "shipping UI starts closed")
+				var energy_before: float = player.energy
+				player.use_tool()  # the real box interaction path (player.gd's dispatch)
+				_check(shipping_ui.active, "interacting with the box opened the loading UI")
+				_check(player.energy == energy_before,
+					"shipping-box interaction costs no energy (like chest/bed)")
+				_check(not player.using_tool, "opening the box doesn't lock a tool-swing animation")
+				_check(shipping_ui._index == 0, "loading UI opens on the first crop row")
+				_enter_stage(71)
+		71:
+			# -- Drive the loading UI's real _unhandled_input: load the potato, prove the box is
+			#    crop-only and refusals move nothing, then Leave — no sale until morning. --
+			if ticks >= 2:
+				_check(shipping_ui._row_ids.size() == 5, "4 crop rows + trailing Leave")
+				_check(player.inventory.count_of("mutant_potato") == 1,
+					"the stage-15 harvested potato is still in inventory")
+				_drive_shipping_action("use_tool")  # row 0 = mutant_potato: load 1
+				_check(player.inventory.count_of("mutant_potato") == 0,
+					"loading moved the potato OUT of the inventory")
+				_check(structures.shipping_contents == {"mutant_potato": 1},
+					"and INTO the box's pending contents")
+				_check(shipping_ui.get_node("%ValueLabel").text == "In box: 20 Cr",
+					"pending value readout shows the potato's 20 Cr")
+				_drive_shipping_action("use_tool")  # none left: must refuse visibly
+				_check(structures.shipping_contents == {"mutant_potato": 1},
+					"an empty-handed load attempt moves nothing")
+				_check(shipping_ui.get_node("%StatusLabel").text == "None to load.",
+					"and shows the refusal status")
+				_check(not structures.add_to_shipping_box("wood", 1),
+					"the box refuses non-crop resources outright")
+				_check(not structures.add_to_shipping_box("seed_mutant_potato", 1),
+					"the box refuses seeds outright (can't ship away what you need)")
+				for i in 4:
+					_drive_shipping_action("move_down")  # mutant_potato(0) -> Leave(4)
+				_check(shipping_ui._index == 4, "cycled down to the trailing Leave row")
+				_drive_shipping_action("use_tool")
+				_check(not shipping_ui.active, "confirming Leave closes the loading UI")
+				_check(not player.using_tool, "closing the box leaves no stray tool-swing lock")
+				_check(structures.sale_history.is_empty(),
+					"no sale yet — the box sells overnight (next day_started), not on close")
 				_enter_stage(20)
 		20:
 			# -- Phase 4 Stage 3: sleep in the farmhouse bed -> auto-save (see class doc) --
@@ -857,6 +932,8 @@ func _physics_process(_delta: float) -> bool:
 				player.set_energy(42.0)
 				# Phase 5 Stage 2: Credits must round-trip too — set a fresh, distinctive value
 				# here (independent of whatever balance the store stages above left behind).
+				# Phase 5 Stage 3: set BEFORE sleeping on purpose — the box loaded in stage 71
+				# sells overnight, so the post-sleep balance must be exactly 37 + 20.
 				player.set_credits(37)
 				# Stand one cell south of Forest Edge's bed at (18,4), facing it.
 				player.global_position = test_map.cell_to_world_center(Vector2i(18, 5))
@@ -878,6 +955,22 @@ func _physics_process(_delta: float) -> bool:
 				_check(game_state.has_save(), "sleeping wrote the save file")
 				_check(hud.get_node("%SaveNotice").visible, "WORLD SAVED notice appeared")
 				_check(hud.get_node("%SaveNotice").text == "WORLD SAVED", "notice reads WORLD SAVED")
+				# -- Phase 5 Stage 3: the overnight sale resolved during that same sleep, and
+				#    (critically) BEFORE its auto-save — "Credits added next morning" exactly. --
+				_check(player.credits == 57,
+					"the sale credited exactly the potato's value (37 + 20 = 57, got %d)" \
+						% player.credits)
+				_check(hud.get_node("%CreditsLabel").text == "57 Cr",
+					"HUD credits plaque shows the credited balance")
+				_check(structures.shipping_contents.is_empty(), "the sale emptied the box")
+				_check(structures.sale_history.size() == 1, "one sale-history entry recorded")
+				if structures.sale_history.size() == 1:
+					var sale: Dictionary = structures.sale_history[0]
+					_check(int(sale["day"]) == day_manager.day,
+						"history entry records the morning the Credits landed")
+					_check(sale["items"] == {"mutant_potato": 1},
+						"history entry itemizes the sold crop")
+					_check(int(sale["total"]) == 20, "history entry records the 20 Cr total")
 				saved_day = day_manager.day
 				saved_position = player.global_position
 				_enter_stage(21)
@@ -927,15 +1020,17 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.facing == "north", "player facing restored")
 			_check(player.energy == player.max_energy, "energy restored (full — saved after waking)")
 			_check(hud.get_node("%EnergyFill").value == player.max_energy, "HUD energy bar restored")
-			_check(player.credits == 37, "Credits balance restored (%d, expected 37)" % player.credits)
-			_check(hud.get_node("%CreditsLabel").text == "37 Cr", "HUD credits label restored")
+			_check(player.credits == 57,
+				"Credits balance restored INCLUDING the sale credit (%d, expected 57)" % player.credits)
+			_check(hud.get_node("%CreditsLabel").text == "57 Cr", "HUD credits label restored")
 			# Inventory: exact contents from the played-through session, not the starting loadout
 			# + settlement bonus a fresh game would have granted.
 			_check(player.inventory.get_slot(0).get("item_id", "") == "hoe", "hoe back in slot 1")
 			_check(int(player.inventory.get_slot(0).get("durability", -1)) == 49,
 				"hoe durability (49) survived the round trip")
 			_check(player.inventory.count_of("wood") == 0, "wood count (all spent building) restored")
-			_check(player.inventory.count_of("mutant_potato") == 1, "harvested potato restored")
+			_check(player.inventory.count_of("mutant_potato") == 0,
+				"the shipped potato stays gone from the inventory after reload")
 			_check(player.inventory.count_of("seed_mutant_potato") == 4,
 				"seed count (5 - planted 2 + 1 bought from Marta's store) restored")
 			_check(player.inventory.selected_hotbar_index == 2,
@@ -965,10 +1060,158 @@ func _physics_process(_delta: float) -> bool:
 				"restored footprints re-registered as blocked")
 			_check(not farm.can_till(Vector2i(4, 16)), "can't till under the restored shed")
 			_check(structures.is_bed_at(Vector2i(18, 4)), "bed present again after reload")
+			# -- Phase 5 Stage 3: the sold-and-emptied box and its sale history survived too --
+			_check(structures.is_shipping_box_at(Vector2i(17, 4)),
+				"shipping box present again after reload")
+			_check(structures.shipping_contents.is_empty(),
+				"reloaded box is empty (its load was sold before the save)")
+			_check(structures.sale_history.size() == 1, "sale history restored from the save")
+			if structures.sale_history.size() == 1:
+				var sale: Dictionary = structures.sale_history[0]
+				_check(int(sale["day"]) == saved_day and sale["items"] == {"mutant_potato": 1} \
+						and int(sale["total"]) == 20,
+					"restored history entry matches the recorded sale (got %s)" % str(sale))
 			# Test hygiene (hard requirement): remove the test save so repeated runs start clean.
+			# (Stage 81 below writes a fresh one for the pending-box round trip.)
 			game_state.delete_save()
 			_check(not game_state.has_save(), "test save file cleaned up")
-			_enter_stage(24)
+			_enter_stage(80)
+		80:
+			# -- Phase 5 Stage 3 capstone: spend the sale-earned (and reloaded) Credits at
+			#    Marta's store, through the real dialogue-choice path — the phase milestone's
+			#    "farm, sell crops, earn currency, and buy seeds" chain closed in one run. --
+			if ticks < 5:
+				# Re-fetch the UI/roster nodes stage 22's reload rebuilt (it only re-fetched the
+				# world nodes the stage-23 checks needed).
+				npcs = test_map.get_node("Npcs")
+				dialogue_ui = main.get_node("DialogueUI")
+				store_ui = main.get_node("StoreUI")
+				shipping_ui = main.get_node("ShippingUI")
+				var npc: Node = _npc_by_id("marta")
+				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
+				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, -1))
+				player.velocity = Vector2.ZERO
+				player.facing = "south"
+				return false
+			if ticks == 5:
+				player.use_tool()
+				_check(dialogue_ui.active, "Marta's dialogue still opens after the reload")
+				_drive_dialogue_action("use_tool")  # reveal greet
+				_drive_dialogue_action("use_tool")  # advance greet -> stocktake
+				_drive_dialogue_action("use_tool")  # reveal stocktake's branch prompt
+				_drive_dialogue_action("use_tool")  # confirm "Let's see what you've got"
+				_check(store_ui.active, "the store opened via the real dialogue choice")
+				_check(player.credits == 57,
+					"walking in with exactly the sale-earned balance (57, got %d)" % player.credits)
+				var seeds_before: int = player.inventory.count_of("seed_mutant_potato")
+				_drive_store_action("use_tool")  # buy row 0: seed_mutant_potato, 8 Cr
+				_check(player.credits == 49,
+					"bought seeds WITH the shipping-box Credits (57 -> 49, got %d)" % player.credits)
+				_check(player.inventory.count_of("seed_mutant_potato") == seeds_before + 1,
+					"the purchased seed landed in inventory — the economy loop is closed")
+				_drive_store_action("move_up")  # row 0 wraps straight up to the Leave row (10)
+				_check(store_ui._index == 10, "move_up wraps to the trailing Leave row")
+				_drive_store_action("use_tool")
+				_check(not store_ui.active, "left the store cleanly")
+				_enter_stage(81)
+		81:
+			# -- The other Stage 3 save-shape requirement: a box loaded but NOT slept through
+			#    must survive a save/reload with its pending contents intact. --
+			if ticks == 1:  # exactly once: add_item is not idempotent (see stage 20's note)
+				# Seed 2 sunbloom to ship (same seed-distinctive-state convention as stage 20 —
+				# growing a second crop through stages 10-15 again would re-prove farming, not
+				# shipping) and stand at the box.
+				player.inventory.add_item("sunbloom", 2)
+				player.global_position = test_map.cell_to_world_center(Vector2i(17, 5))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks < 5:
+				return false
+			if ticks == 5:
+				player.use_tool()
+				_check(shipping_ui.active, "the loading UI opens after the reload too")
+				for i in 3:
+					_drive_shipping_action("move_down")  # mutant_potato(0) -> sunbloom(3)
+				_check(shipping_ui._index == 3, "cycled to the sunbloom row")
+				_drive_shipping_action("use_tool")
+				_drive_shipping_action("use_tool")  # one unit per confirm: load both
+				_check(player.inventory.count_of("sunbloom") == 0, "both sunbloom left the inventory")
+				_check(structures.shipping_contents == {"sunbloom": 2},
+					"box holds the pending 2-sunbloom load")
+				_drive_shipping_action("move_down")  # sunbloom(3) -> Leave(4)
+				_drive_shipping_action("use_tool")
+				_check(not shipping_ui.active, "left the loading UI")
+				# Mid-session save through the SAME GameState call the bed makes — called
+				# directly, because the bed path would sell the load first, which is exactly
+				# the state this round trip must preserve un-sold.
+				_check(game_state.save_game(player, test_map, farm, structures),
+					"mid-session save written with the box still loaded")
+				saved_day = day_manager.day
+				_enter_stage(82)
+		82:
+			# -- Second teardown/reboot, same shape as stage 21 --
+			if ticks < 5:
+				return false
+			main.queue_free()
+			main = null
+			game_state.chosen_settlement_id = "open_plains"
+			day_manager.day = 1
+			day_manager.minutes_into_day = 400.0
+			select = (load("res://scenes/settlement_select.tscn") as PackedScene).instantiate()
+			root.add_child(select)
+			current_scene = select
+			_enter_stage(83)
+		83:
+			if ticks < 20:  # let select._ready's deferred change_scene_to_file complete
+				return false
+			main = current_scene
+			_check(main != null and main.name == "Main",
+				"resume path booted main.tscn again for the pending-box save")
+			if main == null or main.name != "Main":
+				_finish()
+				return true
+			player = main.get_node("Player")
+			test_map = main.get_node("TestMap")
+			farm = test_map.get_node("Farm")
+			structures = test_map.get_node("Structures")
+			hud = main.get_node("HUD")
+			_enter_stage(84)
+		84:
+			# -- Pending contents survived un-sold; and the reloaded load still sells correctly
+			#    on the next real bed sleep --
+			if ticks < 10:
+				return false
+			if ticks == 10:
+				_check(day_manager.day == saved_day, "day restored for the pending-box save")
+				_check(structures.shipping_contents == {"sunbloom": 2},
+					"a loaded-but-not-slept box survives the reload intact (got %s)" \
+						% str(structures.shipping_contents))
+				_check(structures.sale_history.size() == 1,
+					"history still holds exactly the one earlier sale (no phantom sale on load)")
+				_check(player.credits == 49, "credits restored un-credited (49, got %d)" % player.credits)
+				player.global_position = test_map.cell_to_world_center(Vector2i(18, 5))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"  # targets (18,4), the bed
+				return false
+			if ticks == 15:
+				var day_before: int = day_manager.day
+				player.use_tool()  # sleep: the reloaded pending load must sell now
+				_check(day_manager.day == day_before + 1, "sleeping advanced the day")
+				_check(player.credits == 109,
+					"the reloaded load sold for exactly 2 x 30 Cr (49 + 60 = 109, got %d)" \
+						% player.credits)
+				_check(structures.shipping_contents.is_empty(), "box emptied by the post-reload sale")
+				_check(structures.sale_history.size() == 2, "second sale-history entry appended")
+				if structures.sale_history.size() == 2:
+					var sale: Dictionary = structures.sale_history[1]
+					_check(int(sale["day"]) == day_manager.day and sale["items"] == {"sunbloom": 2} \
+							and int(sale["total"]) == 60,
+						"second entry itemizes the sunbloom sale (got %s)" % str(sale))
+				# Final test hygiene: the sleep re-saved; remove it so repeated runs start clean.
+				game_state.delete_save()
+				_check(not game_state.has_save(), "test save file cleaned up (final)")
+				_enter_stage(24)
 		24:
 			# -- The other 2 starts also load and paint correctly (not just Forest Edge above) --
 			# (_other_layout_map == null is the "just entered this stage for a new layout" signal
@@ -1042,6 +1285,16 @@ func _drive_store_action(action: String) -> void:
 	event.action = action
 	event.pressed = true
 	store_ui._unhandled_input(event)
+
+
+## Same idea once more, for shipping_ui.gd's real _unhandled_input (Phase 5 Stage 3) — drives
+## "use_tool"/"move_up"/"move_down" through the actual handler rather than calling its private
+## _confirm()/etc. methods directly.
+func _drive_shipping_action(action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	shipping_ui._unhandled_input(event)
 
 
 ## Looks up a spawned NPC by its dialogue/roster id (scripts/npcs.gd's spawn list).

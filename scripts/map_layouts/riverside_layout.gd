@@ -19,7 +19,7 @@ const ROWS: Array[String] = [
 	"W.fffffff..........................F",
 	"W.fffffffH.........................F",
 	"W.fffffff..........................F",
-	"W.fffffffC.D.......................F",
+	"W.fffffffCSD.......................F",
 	"W.fffffff.@........................F",
 	"W.fffffff..........................F",
 	"W.fffffff.....................T....F",
@@ -61,6 +61,11 @@ const BUILDINGS: Array[Dictionary] = [
 	# Phase 4 Stage 3: the bed sits at the farmhouse's south-east corner, mirroring the chest at
 	# its south-west — interacting with it sleeps (auto-save + skip to morning), see structures.gd.
 	{"id": "bed", "kind": "bed", "top_left": Vector2i(11, 5), "size": Vector2i(1, 1)},
+	# Phase 5 Stage 3: the shipping box sits between the chest and the bed, completing the
+	# farmhouse's south-face "service row" (chest 9 / box 10 / bed 11) — one step from the '@'
+	# spawn cell directly below it, same relative placement as the other two starts even though
+	# Riverside's farmhouse coordinates diverge. See structures.gd for the interaction.
+	{"id": "shipping_box", "kind": "shipping_box", "top_left": Vector2i(10, 5), "size": Vector2i(1, 1)},
 ]
 
 

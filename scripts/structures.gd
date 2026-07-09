@@ -7,9 +7,11 @@ extends Node2D
 ## a fixed 1x1 tree/ore footprint to an arbitrary rectangle.
 ##
 ## ROADMAP.md Phase 4 scope: these are placeholder volumes, not full art/interiors — no NPCs live
-## in them yet (Phase 5) and no interiors exist. Interactable: the chest (storage) and, since
-## Stage 3, the farmhouse bed (sleep = auto-save + skip to next morning — see is_bed_at() and
-## player.gd's _sleep_in_bed()). The bulletin board is deliberately inert (no quest system yet).
+## in them yet (Phase 5) and no interiors exist. Interactable: the chest (storage), the farmhouse
+## bed (Phase 4 Stage 3: sleep = auto-save + skip to next morning — see is_bed_at() and
+## player.gd's _sleep_in_bed()), and the shipping box (Phase 5 Stage 3: load harvested crops, and
+## the sale resolves on the next day_started — see the shipping section below). The bulletin
+## board is deliberately inert (no quest system yet).
 ##
 ## Expected in the scene tree as a child of TestMap (see scenes/test_map.tscn), sibling to Farm,
 ## so get_parent() is the TestMap node whose `layout` this reads building data from — same
@@ -30,8 +32,14 @@ const BuildingDB := preload("res://scripts/building_db.gd")
 const BuildGrid := preload("res://scripts/build_grid.gd")
 const FarmGrid := preload("res://scripts/farm_grid.gd")
 const SaveData := preload("res://scripts/save_data.gd")
+const ShippingDB := preload("res://scripts/shipping_db.gd")
 
 signal chest_toggled(inventory: Inventory, cell: Vector2i)
+## Phase 5 Stage 3: a shipping-box sale resolved this morning — `total` is the Credits credited.
+## main.gd wires this straight to player.add_credits (the Stage 2-documented hook), keeping this
+## node player-agnostic the same way chest_toggled keeps it UI-agnostic. The itemized entry just
+## appended to sale_history carries the full breakdown for anything that wants more than the sum.
+signal crops_sold(total: int)
 
 const CELL_SIZE := 16
 
@@ -51,6 +59,10 @@ const BUILDING_COLORS := {
 	# Phase 4 Stage 3: the farmhouse bed (sleep = save + skip to morning), authored in each
 	# layout beside the farmhouse the same way the chest is:
 	"bed": "#f3acb7",             # mutant blossom pink (GDD §9 seasonal set) — reads as a blanket
+	# Phase 5 Stage 3: the shipping box (load crops, sleep, Credits next morning), the third
+	# authored 1x1 interactable in the farmhouse's service row (chest / box / bed):
+	"shipping_box": "#c5520f",    # rust red — a scrap-metal shipping crate, distinct from the
+	                              # chest's gold and the bed's pink at a glance
 }
 
 ## Under-construction fill for a placed blueprint: the GDD §9 rain-sky blue-grey at ~half alpha,
@@ -67,7 +79,25 @@ var _test_map: Node2D
 var _chest_cell: Vector2i = Vector2i(-1, -1)
 ## The farmhouse bed's cell (Phase 4 Stage 3) — same one-marked-cell pattern as _chest_cell.
 var _bed_cell: Vector2i = Vector2i(-1, -1)
+## The shipping box's cell (Phase 5 Stage 3) — third instance of the same pattern.
+var _shipping_box_cell: Vector2i = Vector2i(-1, -1)
 var _bodies: Array[StaticBody2D] = []
+
+## -- Phase 5 Stage 3: shipping-box state (lives HERE rather than on a new sibling node because
+## this node already owns every other authored interactable's state — the chest's Inventory, the
+## bed's cell — plus the day_started subscription the sale resolves on; a whole new node would
+## exist only to hold two fields and re-subscribe to the same signal. The pure math it defers to
+## is scripts/shipping_db.gd, mirroring the shop_db.gd/store_ui.gd split.) --
+
+## Pending, not-yet-sold contents: {item_id: count}. One-way (Stardew convention): crops go in
+## via add_to_shipping_box(), and the only way out is the overnight sale — no retrieval UX to
+## build or save-scum. Cleared each morning it resolves.
+var shipping_contents: Dictionary = {}
+## One entry per morning a non-empty box sold: {day, items: {item_id: count}, total} — see
+## shipping_db.gd's class doc for the field reasoning. Kept in full (never truncated): entries
+## are a few dozen bytes each and a real playthrough sleeps ~112 times a year, so even a long
+## save stays trivially small — and a future ledger UI gets the complete record for free.
+var sale_history: Array = []
 
 ## Runtime-placed structures (Phase 4 Stage 2). Each entry: {building_id, kind, top_left, size,
 ## placed_day, visual} — visual is the body's ColorRect, recolored in place on completion.
@@ -94,6 +124,8 @@ func _spawn_building(building: Dictionary) -> void:
 		_chest_cell = top_left
 	elif kind == "bed":
 		_bed_cell = top_left
+	elif kind == "shipping_box":
+		_shipping_box_cell = top_left
 	_spawn_footprint_body(top_left, footprint_size,
 		Color(String(BUILDING_COLORS.get(kind, "#8c8478"))))
 
@@ -186,6 +218,14 @@ func _on_day_started(day: int) -> void:
 		else:
 			still_pending.append(entry)
 	_pending = still_pending
+	# Phase 5 Stage 3: the shipping box's overnight sale rides the same signal. Because signal
+	# emission is synchronous, this (and the crops_sold -> player.add_credits hop main.gd wires)
+	# has fully resolved before player._sleep_in_bed()'s skip_to_next_morning() call returns —
+	# i.e. strictly BEFORE the GameState.save_game() at the end of that function, so the save
+	# always captures the emptied box, the appended history entry, and the credited balance.
+	# It fires identically on a natural midnight rollover or a pass-out, which is correct:
+	# morning came either way, so "Credits added next morning" holds (Stardew's rule too).
+	_resolve_shipping_sale(day)
 
 
 func _complete_construction(entry: Dictionary) -> void:
@@ -235,6 +275,40 @@ func is_bed_at(cell: Vector2i) -> bool:
 	return cell == _bed_cell
 
 
+## -- Phase 5 Stage 3: the shipping box --
+
+## Whether the cell is the layout-authored shipping box. Checked by player.gd's use_tool()
+## priority dispatch (alongside is_chest_at/is_bed_at); the interaction itself (the crop-loading
+## UI) is scripts/shipping_ui.gd's job, reached via player.gd's shipping_box_requested signal —
+## the same signal-handoff shape as NPC dialogue, since the UI needs the player's inventory.
+func is_shipping_box_at(cell: Vector2i) -> bool:
+	return cell == _shipping_box_cell
+
+
+## Loads crops into the box's pending contents. Returns false (contents untouched) for a
+## non-crop item or non-positive count — the item-removal from the player's inventory is the
+## CALLER's job (scripts/shipping_ui.gd), and only after this returns true, so a refusal can
+## never eat the item; this node stays inventory-agnostic exactly like place_blueprint().
+func add_to_shipping_box(item_id: String, count: int) -> bool:
+	var updated := ShippingDB.add_to_contents(shipping_contents, item_id, count)
+	if updated == shipping_contents:
+		return false
+	shipping_contents = updated
+	return true
+
+
+## Sells the pending contents (if any) on the new morning `day`: appends the itemized history
+## entry, clears the box, and emits crops_sold with the total for main.gd's wire to
+## player.add_credits. See _on_day_started's comment for the save-ordering guarantee.
+func _resolve_shipping_sale(day: int) -> void:
+	if shipping_contents.is_empty():
+		return
+	var entry := ShippingDB.make_history_entry(day, shipping_contents)
+	sale_history.append(entry)
+	shipping_contents = {}
+	crops_sold.emit(int(entry["total"]))
+
+
 ## -- Phase 4 Stage 3: save/load (see scripts/save_data.gd's class doc for the shape) --
 
 func save_state() -> Dictionary:
@@ -255,6 +329,7 @@ func save_state() -> Dictionary:
 		"storage": storage_out,
 		"chest": SaveData.encode_inventory(
 			chest_inventory.slots, chest_inventory.selected_hotbar_index),
+		"shipping": SaveData.encode_shipping(shipping_contents, sale_history),
 	}
 
 
@@ -275,6 +350,12 @@ func load_state(data: Dictionary) -> void:
 		_apply_inventory_data(inv, storage[key])
 		_storage_inventories[SaveData.parse_cell_key(String(key))] = inv
 	_apply_inventory_data(chest_inventory, data.get("chest", {}))
+	# Phase 5 Stage 3: a mid-session save can hold a loaded-but-not-yet-sold box (the player
+	# filled it, then saved/quit without sleeping) — restoring it here is what guarantees that
+	# pending load still sells on the next morning after a reload, never silently vanishing.
+	var shipping := SaveData.decode_shipping(data.get("shipping", {}))
+	shipping_contents = shipping["contents"]
+	sale_history = shipping["history"]
 
 
 func _restore_entry(entry: Dictionary, pending: bool) -> void:

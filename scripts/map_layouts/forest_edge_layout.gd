@@ -16,7 +16,7 @@ const ROWS: Array[String] = [
 	"F...................T#T.T#T.O.T.T..F",
 	"F...............H................T.F",
 	"F.................................TF",
-	"F...............C.D..............T.F",
+	"F...............CSD..............T.F",
 	"F................@.................F",
 	"F.....ffffff.....................OTF",
 	"F.....ffffff.ffffff................F",
@@ -59,6 +59,11 @@ const BUILDINGS: Array[Dictionary] = [
 	# Phase 4 Stage 3: the bed sits at the farmhouse's south-east corner, mirroring the chest at
 	# its south-west — interacting with it sleeps (auto-save + skip to morning), see structures.gd.
 	{"id": "bed", "kind": "bed", "top_left": Vector2i(18, 4), "size": Vector2i(1, 1)},
+	# Phase 5 Stage 3: the shipping box sits between the chest and the bed, completing the
+	# farmhouse's south-face "service row" (chest 16 / box 17 / bed 18) — one step from the '@'
+	# spawn cell directly below it, matching Stardew's bin-beside-the-farmhouse placement. Load
+	# harvested crops in, sleep, and the sale's Credits arrive next morning — see structures.gd.
+	{"id": "shipping_box", "kind": "shipping_box", "top_left": Vector2i(17, 4), "size": Vector2i(1, 1)},
 ]
 
 
