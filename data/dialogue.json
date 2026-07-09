@@ -1,0 +1,80 @@
+{
+	"_comment": "Phase 5 Stage 1 NPC dialogue (ROADMAP 'dialogue stored in JSON for easy editing'). One entry per npc id (matching map_layouts' npcs() ids): name = the dialogue box's speaker plate, start = the node shown on interact, nodes = id -> {text, next?} for linear beats, {text, choices: [{text, next}]} for a branch point, or {text} alone for a terminal node (advancing closes the box). Loaded via scripts/dialogue_db.gd only — see its header for the traversal rules. Tone contract: GDD.md section 9 ('people who have chosen hope and are a little funny about it'); every character's dialogue is static flavor this stage — no quest hooks, affinity, or schedule reactivity until Phases 7/13. Writing note: the pixel font's glyph set has no > < [ ] $ % & * = etc. (see art/ui/README.md) — stick to letters, digits, and basic punctuation in all text below.",
+	"mayor_harlan": {
+		"name": "Mayor Harlan",
+		"start": "greet",
+		"nodes": {
+			"greet": {
+				"text": "Ah — the new farmer. Harlan. Mayor, more or less, since nobody else wanted the paperwork.",
+				"next": "founding"
+			},
+			"founding": {
+				"text": "Twenty-five years ago this town was a fence post and an argument. Now look at it. A whole town's worth of arguments.",
+				"next": "offer"
+			},
+			"offer": {
+				"text": "You look like you could use work, and I keep a list. Interested?",
+				"choices": [
+					{"text": "Happy to help.", "next": "offer_yes"},
+					{"text": "Just looking around.", "next": "offer_no"}
+				]
+			},
+			"offer_yes": {
+				"text": "Good answer. For now, grow things — a town runs on its stomach. I'll have proper work for you soon enough."
+			},
+			"offer_no": {
+				"text": "Look all you like. The fence keeps the wasteland out, not the neighbors. When you're ready to be useful, mine's the ugly house with the good roof."
+			}
+		}
+	},
+	"marta": {
+		"name": "Marta",
+		"start": "greet",
+		"nodes": {
+			"greet": {
+				"text": "Morning! Marta. If it's worth trading, it comes through here — seeds, tools, gossip. The gossip's free.",
+				"next": "stocktake"
+			},
+			"stocktake": {
+				"text": "Store's not open for business quite yet. Still counting inventory. Twice. Some of it counts back.",
+				"choices": [
+					{"text": "What will you sell?", "next": "stock"},
+					{"text": "Counts back?", "next": "chicken"}
+				]
+			},
+			"stock": {
+				"text": "Seeds mostly, tools, whatever the caravans bring in. Credits only, mind — I don't care what the bottle-cap man says, that is not money."
+			},
+			"chicken": {
+				"text": "The two-headed chicken got into the seed bins again. Both heads deny it. Come back when I open shop — I'll have proper stock and fewer suspects."
+			}
+		}
+	},
+	"scout_kael": {
+		"name": "Scout Kael",
+		"start": "greet",
+		"nodes": {
+			"greet": {
+				"text": "Hold up — new face. Kael. I scout the road east so the road east doesn't scout us.",
+				"next": "city"
+			},
+			"city": {
+				"text": "Past this gate, half a day's walk, there's the old city. Towers taller than anything alive, streets that still remember cars.",
+				"next": "ask"
+			},
+			"ask": {
+				"text": "Everything the fence keeps out lives there. So of course everyone keeps asking me what's inside.",
+				"choices": [
+					{"text": "So what IS inside?", "next": "inside"},
+					{"text": "Sounds dangerous.", "next": "danger"}
+				]
+			},
+			"inside": {
+				"text": "Salvage. Medicine. Machines that hum if you're lucky, things that bite if you're not. When you're ready — and better armed — I'll walk you in myself."
+			},
+			"danger": {
+				"text": "Smart. It is. That's why I go careful and come home every time. Home's the whole trick — lamplight at your back going out, lamplight in front coming home."
+			}
+		}
+	}
+}

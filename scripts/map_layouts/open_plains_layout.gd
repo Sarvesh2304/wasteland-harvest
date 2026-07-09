@@ -104,6 +104,12 @@ static func buildings() -> Array[Dictionary]:
 	return BUILDINGS
 
 
+## Phase 5 Stage 1: the shared town-core NPC roster (see LayoutCommon.TOWN_NPCS's doc for the
+## positions and why they're common to all 3 starts).
+static func npcs() -> Array[Dictionary]:
+	return LayoutCommon.TOWN_NPCS
+
+
 static func building_at(x: int, y: int) -> Dictionary:
 	return LayoutCommon.building_at(BUILDINGS, x, y)
 

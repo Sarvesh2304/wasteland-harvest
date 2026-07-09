@@ -221,20 +221,59 @@ player-built structures and their storage, and player position all correctly res
 straight past the settlement picker on a resumed game.
 
 ### Phase 5 — Basic NPCs, Town Economy & Dialogue
-- [ ] NPC base class — name, sprite, position, dialogue data, wanders within a defined zone
-      (`NavigationAgent2D`)
-- [ ] Dialogue system — interact near an NPC to open a dialogue box, character-by-character text,
-      basic branching, dialogue stored in JSON for easy editing
-- [ ] First NPCs: Mayor Harlan (quest-giver), Marta (store owner), Scout Kael (tells you about
-      the ruined city)
+
+Built in 3 stages, same reasoning as Phase 4 (a session interruption never loses more than one
+stage's work).
+
+- [x] NPC base class — name, sprite, position, dialogue data, wanders within a defined zone
+      (`NavigationAgent2D`). **Stage 1.** Implemented as a grid random-walk (`scripts/npc_grid.gd`
+      pure math + `scripts/npc.gd` stateful shell) rather than real `NavigationAgent2D` — this
+      codebase has no navigation infrastructure anywhere, and re-baking a navmesh every time a
+      Phase 4 player-built structure appears is a lot of machinery for "amble near home." An NPC
+      idles, then steps one validated cell within a small Chebyshev-radius zone around its home
+      cell, respecting terrain/buildings/player-built structures for free via the existing
+      `is_blocked_at()`. Flat-color placeholder sprites (real PixelLab art is Phase 6's "Art pass
+      1" checklist item).
+- [x] Dialogue system — interact near an NPC to open a dialogue box, character-by-character text,
+      basic branching, dialogue stored in JSON for easy editing. **Stage 1.** `data/dialogue.json`
+      + `scripts/dialogue_db.gd` (same static-module convention as `item_db.gd`), traversal logic
+      pure and unit-tested. `scripts/dialogue_ui.gd` is the presentation shell: typewriter reveal,
+      instant-skip on repeat press, one branch point per NPC (2 options -> distinct follow-up
+      lines). Keyboard-only, no new input actions (`use_tool` advances/closes, `move_up`/
+      `move_down` cycle choices, reusing `settlement_select.gd`'s cycle-then-confirm shape).
+- [x] First NPCs: Mayor Harlan (quest-giver), Marta (store owner), Scout Kael (tells you about
+      the ruined city). **Stage 1.** Shared verbatim across all 3 starting layouts (`layout_common
+      .gd`'s `TOWN_NPCS`, matching the town-core-is-one-template structural decision `MAPS.md` §2
+      already established for buildings). Harlan stands by his house, Marta by her store, Kael
+      just inside the town's main gate (MAPS.md §2 already places expedition departures there —
+      the scout who watches the road east naturally posts up at the door to it). "Quest-giver" is
+      flavor/dialogue only this stage — no quest system exists yet (Phase 13).
 - [ ] Town store — Marta sells seeds/basic tools/food; UI shows name/description/price; currency
       is Credits (per `GDD.md` §7; not "Scrap Coins" as earlier drafted — Credits is settled
       humanity's established currency, with barter as a parallel economy for raiders/remote
-      traders who don't accept it)
+      traders who don't accept it). **Stage 2, not yet started.**
 - [ ] Shipping box — place harvested crops before sleeping; Credits added next morning; tracks
-      sale history
+      sale history. **Stage 3, not yet started.**
 
-**Milestone:** Player can farm, sell crops, earn currency, and buy seeds. Economy loop is closed.
+**Stage 1 verified independently:** re-ran the full suite myself (148/148 unit tests, +21 new
+covering wander-zone math, dialogue-tree traversal, and per-layout NPC placement/reachability) and
+the extended runtime smoke test (approaches and opens dialogue with all 3 NPCs via the real
+facing+`use_tool` path, confirms zero energy cost and a full player freeze while a conversation is
+open, drives both branches of a choice through the real input handler, confirms the player can
+walk normally after every close, and confirms all 3 NPCs wander at least once within ~10s of
+simulated time without leaving their zone or clipping through terrain) — all passed, twice in a
+row. Read through the new core scripts — sound logic, consistent with established conventions
+(pure/stateful split, signal-based handoff rather than direct calls, data-driven per-layout
+spawning mirroring `structures.gd`'s `buildings()`). One real bug found and fixed during the
+build (an unbounded wait loop in the smoke test's Kael stage, now safety-bounded) and one caught in
+my own review of the verification screenshots: the dialogue box's hint label used a "full rect"
+anchor stretch instead of a bottom-anchored strip, rendering "Space to continue"/"Up/Down to
+choose..." above the box instead of inside it — fixed directly (a one-line anchor correction in
+`dialogue_ui.tscn`, matching `settlement_select.tscn`'s already-correct `HintLabel` pattern),
+re-verified visually and via a full test+smoke re-run afterward.
+
+**Milestone (whole phase):** Player can farm, sell crops, earn currency, and buy seeds. Economy
+loop is closed.
 
 ### Phase 6 — First Playable Build & Stabilisation
 - [ ] All Year 1 systems integrated — farming, inventory, economy, NPCs, day/night, auto-save

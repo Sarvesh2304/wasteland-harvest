@@ -35,6 +35,34 @@ const FarmGrid := preload("res://scripts/farm_grid.gd")
 
 const SOLID_TERRAIN_CHARS := ["F", "W", "#"]
 
+## Phase 5 Stage 1: the three town-core NPCs (ROADMAP.md "First NPCs"), shared verbatim by all
+## 3 starting layouts — the town core is one spatial template (MAPS.md §2), and since every
+## town-core building coordinate is already identical across the 3 files, the NPC roster lives
+## here once rather than being triplicated (a layout with a divergent town could stop delegating
+## its npcs() here, the same way Riverside already diverges on farmhouse coordinates).
+## Each entry: {id (dialogue key in data/dialogue.json), home (cell the NPC spawns at and
+## wanders around), wander_radius (Chebyshev cell radius of the wander zone — see npc_grid.gd)}.
+##   - mayor_harlan (10, 19): on the plaza directly south of his fortified house's door
+##     (footprint x8-11, y16-18) — "half town hall, half keep", he holds court out front.
+##   - marta (17, 24): directly north of her store (footprint x16-18, y25-26), out front with
+##     the crates — MAPS.md's "economic heart" faces the plaza.
+##   - scout_kael (18, 28): just inside the town's one main gate (the 'G' cells at x17-18,
+##     y31 — confirmed against ForestEdgeLayout.gate_cells()). MAPS.md §2 puts expedition
+##     departures and bandit-scout events at the gate, so the scout who watches the road to the
+##     ruined city naturally posts up there — he's the last face you see walking out toward the
+##     ruins and the first one coming home.
+## wander_radius is deliberately 1 (a tight 3x3 zone), not larger: with homes spaced ~5 cells
+## apart in y (19, 24, 28), a radius of 2 would let neighbouring NPCs' wander zones overlap by a
+## cell (verified this the hard way — tools/runtime_smoke.gd's dialogue stages occasionally
+## picked up the WRONG NPC at a shared boundary cell when this was 2, an intermittent failure
+## that traced back to here); radius 1 keeps every zone strictly disjoint while still reading as
+## "stands near home and ambles a little."
+const TOWN_NPCS: Array[Dictionary] = [
+	{"id": "mayor_harlan", "home": Vector2i(10, 19), "wander_radius": 1},
+	{"id": "marta", "home": Vector2i(17, 24), "wander_radius": 1},
+	{"id": "scout_kael", "home": Vector2i(18, 28), "wander_radius": 1},
+]
+
 
 static func size(rows: Array[String]) -> Vector2i:
 	return Vector2i(rows[0].length(), rows.size())

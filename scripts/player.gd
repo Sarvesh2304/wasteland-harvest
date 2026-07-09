@@ -28,6 +28,11 @@ const ItemDB := preload("res://scripts/item_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 
 signal energy_changed(current: float, max_energy: float)
+## Phase 5 Stage 1: fired instead of handling the interaction locally (see use_tool()'s priority
+## dispatch) so scripts/dialogue_ui.gd can own opening the box — mirrors structures.gd's
+## chest_toggled -> hud.toggle_chest_ui() signal wiring rather than a direct method call, keeping
+## player.gd instance-testable (tests/test_player.gd) without a real DialogueUI scene existing.
+signal npc_dialogue_requested(npc: Node)
 
 ## ~3.5 tiles/second at the 16px tile size — close to Stardew's walk feel.
 const SPEED := 56.0
@@ -82,6 +87,14 @@ var structures: Node = null
 ## While its mode is active, "use_tool" means "confirm placement" (handled there), so the
 ## held-swing polling below stands down — see _in_build_mode().
 var builder: Node = null
+## Phase 5 Stage 1: the NPC roster (scripts/npcs.gd) — bound by main.gd like farm/test_map/
+## structures above, used by use_tool()'s priority dispatch to find an NPC directly ahead.
+var npcs: Node = null
+## Phase 5 Stage 1: the dialogue box (scripts/dialogue_ui.gd), bound DIRECTLY by main.gd
+## (not via bind_world) the same way player.builder is — while it's open, _physics_process
+## freezes entirely (see _in_dialogue()) and dialogue_ui.gd owns "use_tool" itself (via its own
+## _unhandled_input) to advance/close the conversation.
+var dialogue_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -95,6 +108,16 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if using_tool:
+		velocity = Vector2.ZERO
+		return
+	# Phase 5 Stage 1: a conversation freezes the player completely (movement AND tool-swing
+	# polling) for as long as it's open — dialogue_ui.gd owns "use_tool" itself via its own
+	# _unhandled_input to advance/close, so this loop must not also react to the same held key.
+	# Checked ahead of everything below (not folded into the use_tool-repeat branch's condition
+	# the way _in_build_mode() is) specifically because build mode still lets the player walk to
+	# reposition the preview, but a dialogue must NOT — the player should read as genuinely stuck
+	# in the conversation, not free to wander off mid-sentence.
+	if _in_dialogue():
 		velocity = Vector2.ZERO
 		return
 	if _stepping:
@@ -141,12 +164,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## Wired by main.gd once the farm/map/structures exist, so player.gd can stay instance-testable
-## on its own (tests/test_player.gd) without needing a full scene. structures_node is optional
-## (defaults null) so existing single-arg callers/tests keep working unchanged.
-func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null) -> void:
+## on its own (tests/test_player.gd) without needing a full scene. structures_node/npcs_node are
+## optional (default null) so existing callers/tests keep working unchanged.
+func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
+		npcs_node: Node = null) -> void:
 	farm = farm_node
 	test_map = map_node
 	structures = structures_node
+	npcs = npcs_node
 
 
 ## Plays the shared swing animation and resolves the tile interaction. Locks movement for the
@@ -168,6 +193,15 @@ func use_tool() -> void:
 	if structures != null and test_map != null and structures.is_bed_at(_target_cell()):
 		_sleep_in_bed()
 		return
+	# Phase 5 Stage 1: an NPC directly ahead — same instant, energy-free, queue-jumping shape as
+	# the chest/bed above, but the interaction itself (opening the dialogue box) is handed off via
+	# a signal rather than resolved here, since it belongs to scripts/dialogue_ui.gd (see the
+	# signal's own doc comment above for why).
+	if npcs != null and test_map != null:
+		var npc: Node = npcs.npc_at(_target_cell())
+		if npc != null:
+			npc_dialogue_requested.emit(npc)
+			return
 	using_tool = true
 	velocity = Vector2.ZERO
 	_play("tool")
@@ -211,6 +245,11 @@ func _sleep_in_bed() -> void:
 ## to placement confirmation (handled in builder.gd's _unhandled_input), not tool swings.
 func _in_build_mode() -> bool:
 	return builder != null and bool(builder.active)
+
+
+## True while scripts/dialogue_ui.gd's box is open — see _physics_process's early-return.
+func _in_dialogue() -> bool:
+	return dialogue_ui != null and bool(dialogue_ui.active)
 
 
 ## The logical cell directly ahead of the player, in the current facing direction.

@@ -6,6 +6,10 @@ extends Node2D
 ## water/harvest target resolution) and the HUD's hotbar to the player's inventory. Phase 4
 ## additionally wires Structures (buildings/chest), the chest UI toggle, and grants the chosen
 ## settlement's starting-resource bonus (ROADMAP.md Phase 4: "differing starting resources").
+## Phase 5 Stage 1 wires the NPC roster (scripts/npcs.gd) into player.bind_world() and the
+## dialogue box (scripts/dialogue_ui.gd) both ways, the same shape as Builder below: the player
+## emits npc_dialogue_requested, DialogueUI owns opening/advancing it, and player.dialogue_ui
+## points back so its held-tool polling can stand down while a conversation is open.
 ## The day/night CanvasModulate and DayManager autoload run themselves.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
@@ -22,7 +26,8 @@ func _ready() -> void:
 	camera.set_target(player)
 	hud.bind_player(player)
 	var structures: Node = test_map.get_node("Structures")
-	player.bind_world(test_map.get_node("Farm"), test_map, structures)
+	var npcs: Node = test_map.get_node("Npcs")
+	player.bind_world(test_map.get_node("Farm"), test_map, structures, npcs)
 	hud.bind_inventory(player.inventory)
 	structures.chest_toggled.connect(hud.toggle_chest_ui)
 	# Phase 4 Stage 2: build/placement mode (scripts/builder.gd) — bound both ways, since the
@@ -31,6 +36,12 @@ func _ready() -> void:
 	var builder: Node2D = $Builder
 	builder.bind(player, test_map, structures)
 	player.builder = builder
+	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
+	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
+	# signal that says one should start.
+	var dialogue_ui: Node = $DialogueUI
+	player.npc_dialogue_requested.connect(dialogue_ui.open_dialogue)
+	player.dialogue_ui = dialogue_ui
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
 	# before this scene instantiates (see settlement_select.gd's resume path); an empty result
 	# means new game -> grant the one-time settlement starting bonus instead. Applied here, after

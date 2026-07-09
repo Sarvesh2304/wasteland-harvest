@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/day_night_modulate.gd" id="5_daynight"]
 [ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6_hud"]
 [ext_resource type="Script" path="res://scripts/builder.gd" id="7_builder"]
+[ext_resource type="PackedScene" path="res://scenes/dialogue_ui.tscn" id="8_dialogue"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -25,3 +26,5 @@ script = ExtResource("4_camera")
 script = ExtResource("5_daynight")
 
 [node name="HUD" parent="." instance=ExtResource("6_hud")]
+
+[node name="DialogueUI" parent="." instance=ExtResource("8_dialogue")]

@@ -207,3 +207,32 @@ func test_layout_common_building_at() -> void:
 	]
 	assert_eq(LayoutCommon.building_at(buildings, 2, 3).get("id", ""), "a")
 	assert_true(LayoutCommon.building_at(buildings, 10, 10).is_empty())
+
+
+## -- Phase 5 Stage 1: shared town-core NPC roster (LayoutCommon.TOWN_NPCS) --
+
+func test_all_layouts_expose_the_shared_npc_roster() -> void:
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var npcs: Array[Dictionary] = layout.npcs()
+		assert_eq(npcs, LayoutCommon.TOWN_NPCS,
+			"%s's npcs() is the same shared town-core roster" % LAYOUT_NAMES[i])
+
+
+func test_all_layouts_npc_home_cells_are_walkable() -> void:
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		for entry in layout.npcs():
+			var home: Vector2i = entry["home"]
+			assert_false(layout.is_solid(home.x, home.y),
+				"%s npc '%s' home cell %s isn't blocked" % [LAYOUT_NAMES[i], entry["id"], home])
+
+
+func test_npc_roster_has_three_unique_ids_and_positive_radius() -> void:
+	var ids := {}
+	for entry in LayoutCommon.TOWN_NPCS:
+		var id := String(entry["id"])
+		assert_false(ids.has(id), "npc id '%s' is unique in the roster" % id)
+		ids[id] = true
+		assert_true(int(entry["wander_radius"]) > 0, "%s has a positive wander radius" % id)
+	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs this stage")

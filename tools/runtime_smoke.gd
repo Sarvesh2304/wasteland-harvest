@@ -35,11 +35,26 @@ extends SceneTree
 ## layout-resolution wiring works for a *non-default* choice, not just the fallback every other
 ## headless entry point (this file's own historical convention, plus a future test) already
 ## exercises implicitly.
+##
+## Phase 5 Stage 1 (stages 50-61, spliced in between Phase 3's pass-out check and Phase 4 Stage
+## 2's building placement — chosen because NPC dialogue is energy-free like the chest/bed, so it
+## can't perturb the exact energy-ledger arithmetic stages 16-19 already assert against a known
+## starting value): approaches Mayor Harlan through the real facing+use_tool interaction path,
+## verifies the dialogue box opens bound to the right NPC at no energy cost, that a held movement
+## key is genuinely ignored while talking, that the typewriter reveal is truly character-by-
+## character (a partial string spotted mid-reveal) before instantly-revealing, walks both
+## branches of Harlan's "basic branching" choice via the real move_down + use_tool input path
+## (proving they lead to distinct follow-up lines and that a fresh visit resets the highlighted
+## option), repeats the same real interaction against Marta and Scout Kael, confirms the player
+## can still walk normally afterward, then lets ~10s of simulated time pass and checks every NPC
+## actually stepped at least once while never leaving its authored wander zone or its cell ever
+## reading as blocked terrain.
 
 const CropDB := preload("res://scripts/crop_db.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
+const NpcGrid := preload("res://scripts/npc_grid.gd")
 
 ## Standalone-TestMap sanity check for the other 2 starts (ROADMAP Phase 4: "correct layout
 ## loads" for whichever start was picked, not just the one driven through the full selection ->
@@ -66,6 +81,11 @@ var farm: Node
 var structures: Node
 var builder: Node2D
 var hud: CanvasLayer
+## Phase 5 Stage 1: NPC roster + dialogue box, fetched once in stage 2 alongside structures/hud.
+var npcs: Node
+var dialogue_ui: Node
+## Wander-check snapshot (stage 60): each NPC's cell recorded once, compared after simulated time.
+var _wander_start_cells: Dictionary = {}
 var spawn := Vector2.ZERO
 var stage := 0
 var stage_started_at := 0
@@ -157,6 +177,8 @@ func _physics_process(_delta: float) -> bool:
 			test_map = main.get_node("TestMap")
 			farm = test_map.get_node("Farm")
 			structures = test_map.get_node("Structures")
+			npcs = test_map.get_node("Npcs")
+			dialogue_ui = main.get_node("DialogueUI")
 			hud = main.get_node("HUD")
 			_enter_stage(2)
 		2:
@@ -209,6 +231,14 @@ func _physics_process(_delta: float) -> bool:
 			var mayor: Dictionary = ForestEdgeLayout.building_at(8, 16)
 			_check(String(mayor.get("kind", "")) == "mayor_house", "mayor's house sits in the town-core region")
 			_check(structures.is_chest_at(Vector2i(16, 4)), "chest is at its authored cell")
+			# -- Phase 5 Stage 1: the 3 town-core NPCs spawned at their authored home cells --
+			_check(npcs.npcs().size() == 3, "3 NPCs spawned")
+			for entry in ForestEdgeLayout.npcs():
+				var npc: Node = _npc_by_id(String(entry["id"]))
+				_check(npc != null, "npc '%s' exists" % entry["id"])
+				if npc != null:
+					_check(test_map.world_to_cell(npc.global_position) == entry["home"],
+						"npc '%s' spawned at its authored home cell %s" % [entry["id"], entry["home"]])
 			_enter_stage(3)
 		3:
 			# -- Basic collision on buildings works: walk the player into the mayor's house --
@@ -376,6 +406,208 @@ func _physics_process(_delta: float) -> bool:
 					"energy hitting zero triggered a day skip (day %d -> %d)" % [day_before, day_manager.day])
 				_check(day_manager.clock_text() == "6:00 AM", "woke up at 6:00 AM")
 				_check(player.energy == player.max_energy, "waking up restores full energy")
+				_enter_stage(50)
+		50:
+			# -- Phase 5 Stage 1: approach Mayor Harlan and open the dialogue box (see class doc's
+			#    NPC section). Stands one cell south of wherever Harlan's actual live cell is
+			#    (rather than his authored home) so this check is robust even if he's already
+			#    taken a wander step by the time this stage runs.
+			if ticks < 5:
+				var npc: Node = _npc_by_id("mayor_harlan")
+				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
+				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks == 5:
+				var npc: Node = _npc_by_id("mayor_harlan")
+				_check(not dialogue_ui.active, "dialogue box starts closed")
+				var energy_before: float = player.energy
+				player.use_tool()  # the real facing-based interaction path (player.gd's dispatch)
+				_check(dialogue_ui.active, "interacting with Harlan opened the dialogue box")
+				_check(dialogue_ui.npc == npc, "dialogue box is bound to the correct NPC")
+				_check(bool(npc.talking), "the NPC freezes while talking")
+				_check(player.energy == energy_before, "NPC dialogue costs no energy (like chest/bed)")
+				_check(not player.using_tool, "opening dialogue doesn't lock a tool-swing animation")
+				_check(dialogue_ui.get_node("%NameLabel").text == "Mayor Harlan",
+					"name plate shows the NPC's display name")
+				_check(dialogue_ui.get_node("%Box").visible, "dialogue box is visible")
+				_enter_stage(51)
+		51:
+			# -- The player is genuinely frozen while talking (held movement input is ignored) --
+			if ticks == 0:
+				Input.action_press("move_right")
+				return false
+			if ticks < 6:
+				return false
+			if ticks == 6:
+				_check(player.velocity == Vector2.ZERO,
+					"player stays frozen mid-dialogue despite a held movement key")
+				Input.action_release("move_right")
+				# -- Character-by-character reveal: some, but not all, of the line is visible --
+				var body_label: Label = dialogue_ui.get_node("%BodyLabel")
+				var full_len: int = dialogue_ui._full_text.length()
+				_check(body_label.text.length() > 0 and body_label.text.length() < full_len,
+					"typewriter shows a partial line (%d/%d chars) before it finishes" \
+						% [body_label.text.length(), full_len])
+				_enter_stage(52)
+		52:
+			# -- Drive the real conversation through dialogue_ui's actual _unhandled_input path:
+			#    reveal, advance two linear beats, reach the branch, pick "just looking" (index 1,
+			#    exercising move_down + the SECOND choice), read its distinct follow-up, close. --
+			if ticks >= 2:
+				_drive_dialogue_action("use_tool")  # instantly reveal "greet"
+				_check(dialogue_ui._is_fully_revealed(), "space instantly reveals the rest of a line")
+				_drive_dialogue_action("use_tool")  # advance greet -> founding
+				_check(dialogue_ui._node_id == "founding", "advanced past the greeting")
+				_drive_dialogue_action("use_tool")  # reveal founding
+				_drive_dialogue_action("use_tool")  # advance founding -> offer (the branch point)
+				_check(dialogue_ui._node_id == "offer", "reached the branch point")
+				_drive_dialogue_action("use_tool")  # reveal the branch prompt
+				_check(dialogue_ui.get_node("%ChoicesBox").visible,
+					"choice options appear once the branch prompt finishes revealing")
+				_check(dialogue_ui._choice_index == 0, "first option highlighted by default")
+				_drive_dialogue_action("move_down")
+				_check(dialogue_ui._choice_index == 1, "move_down highlights the second option")
+				_drive_dialogue_action("use_tool")  # confirm choice 1 -> offer_no
+				_check(dialogue_ui._node_id == "offer_no",
+					"confirming the highlighted (2nd) option followed ITS branch, not the 1st")
+				var offer_no_text: String = dialogue_ui._full_text
+				_drive_dialogue_action("use_tool")  # reveal offer_no
+				_drive_dialogue_action("use_tool")  # terminal node -> closes
+				_check(not dialogue_ui.active, "advancing past a terminal node closes the box")
+				_check(offer_no_text.find("useful") != -1,
+					"the 'just looking' branch's follow-up text is Harlan's distinct 2nd-option line")
+				_enter_stage(53)
+		53:
+			# -- Re-open Harlan and take the OTHER branch (index 0), proving it leads elsewhere,
+			#    and confirm the NPC/player both fully unfroze after stage 52's close() --
+			if ticks < 5:
+				var npc: Node = _npc_by_id("mayor_harlan")
+				_check(not bool(npc.talking), "NPC unfroze after the box closed")
+				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
+				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks == 5:
+				# The player is free to walk again post-close — proven concretely in stage 56
+				# (a real held-input walk) rather than here; this stage focuses on re-opening.
+				player.use_tool()
+				_check(dialogue_ui.active, "re-opening Harlan's dialogue works after a prior close")
+				_drive_dialogue_action("use_tool")  # reveal greet
+				_drive_dialogue_action("use_tool")  # advance -> founding
+				_drive_dialogue_action("use_tool")  # reveal founding
+				_drive_dialogue_action("use_tool")  # advance -> offer
+				_drive_dialogue_action("use_tool")  # reveal offer
+				_check(dialogue_ui._choice_index == 0, "choice resets to the first option on a fresh visit")
+				_drive_dialogue_action("use_tool")  # confirm choice 0 -> offer_yes
+				_check(dialogue_ui._node_id == "offer_yes", "the FIRST option follows ITS OWN branch")
+				var offer_yes_text: String = dialogue_ui._full_text
+				_check(offer_yes_text.find("Good answer") != -1,
+					"the 'happy to help' branch's follow-up is Harlan's distinct 1st-option line")
+				_drive_dialogue_action("use_tool")  # reveal
+				_drive_dialogue_action("use_tool")  # close
+				_check(not dialogue_ui.active, "second conversation closed cleanly")
+				_enter_stage(54)
+		54:
+			# -- Marta and Scout Kael: same real interaction path, proving it's not special-cased
+			#    to Harlan, each read through its own start line --
+			if ticks < 5:
+				var npc: Node = _npc_by_id("marta")
+				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
+				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, -1))
+				player.velocity = Vector2.ZERO
+				player.facing = "south"
+				return false
+			if ticks == 5:
+				player.use_tool()
+				_check(dialogue_ui.active and dialogue_ui.npc == _npc_by_id("marta"),
+					"interacting with Marta opens HER dialogue")
+				_check(dialogue_ui.get_node("%NameLabel").text == "Marta", "name plate shows Marta")
+				_drive_dialogue_action("use_tool")  # reveal "greet"
+				_drive_dialogue_action("use_tool")  # advance greet -> stocktake (not terminal yet)
+				_enter_stage(55)
+		55:
+			# -- Marta's tree (now sitting at "stocktake", a branch point) needs a reveal, a
+			#    choice confirm (default index 0 -> "stock"), a reveal, and a close; finish
+			#    driving her conversation shut, THEN move to stage 57 for Kael. Deliberately not
+			#    tick-counted (unlike the setup/interact stages elsewhere): how many presses a
+			#    given node chain needs is dialogue-tree-dependent, so this just keeps driving for
+			#    as long as _unhandled_input has more to do, however many ticks that takes — bounded
+			#    generously (well beyond any real chain length) so a genuine bug fails loudly
+			#    instead of running the suite forever.
+			if dialogue_ui.active:
+				_check(ticks < 100, "Marta's conversation closed well within the safety bound")
+				if ticks >= 100:
+					_enter_stage(57)
+					return false
+				_drive_dialogue_action("use_tool")
+				return false
+			_enter_stage(57)
+		57:
+			# -- Approach and interact with Scout Kael (same shape as stage 50's Harlan setup) --
+			if ticks < 5:
+				var npc: Node = _npc_by_id("scout_kael")
+				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
+				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks == 5:
+				player.use_tool()
+				_check(dialogue_ui.active and dialogue_ui.npc == _npc_by_id("scout_kael"),
+					"interacting with Kael opens HIS dialogue")
+				_check(dialogue_ui.get_node("%NameLabel").text == "Scout Kael", "name plate shows Kael")
+				# Bounded (not an unconditional `while`, on principle): a real dialogue-tree bug
+				# or a mis-resolved NPC should surface as a clear assertion failure below, never
+				# hang the whole suite waiting on a condition that stops being true.
+				var guard := 0
+				while dialogue_ui.active and guard < 20:
+					_drive_dialogue_action("use_tool")
+					guard += 1
+				_check(guard < 20, "Kael's conversation chain closed well within the safety bound")
+				_check(not dialogue_ui.active, "Kael's conversation closes after its full chain")
+				_check(not player.using_tool, "no stray tool-swing lock left over from any of this")
+				_enter_stage(56)
+		56:
+			# -- Player movement/interaction genuinely still works after all that dialogue (the
+			#    literal "shouldn't leave the player stuck" requirement) --
+			if ticks < 5:
+				player.global_position = spawn
+				player.velocity = Vector2.ZERO
+				Input.action_press("move_left")
+				return false
+			if ticks >= 30:
+				Input.action_release("move_left")
+				_check(player.global_position.x < spawn.x, "player can still walk after every conversation closed")
+				_check(player.facing == "west", "facing still tracks input normally")
+				# -- Wander check: record each NPC's cell now, verified to have moved (but stayed
+				#    in-zone / off solid terrain) after simulated time in stage 61. --
+				for entry in ForestEdgeLayout.npcs():
+					var npc: Node = _npc_by_id(String(entry["id"]))
+					_wander_start_cells[String(entry["id"])] = test_map.world_to_cell(npc.global_position)
+				_enter_stage(60)
+		60:
+			# -- Let real time pass (well past IDLE_SECONDS_MAX) so every NPC gets at least one
+			#    wander step, without touching player/day state that later stages depend on --
+			if ticks >= 600:  # ~10s of physics frames
+				_enter_stage(61)
+		61:
+			if ticks >= 5:
+				var any_moved := false
+				for entry in ForestEdgeLayout.npcs():
+					var id := String(entry["id"])
+					var home: Vector2i = entry["home"]
+					var npc: Node = _npc_by_id(id)
+					var cell: Vector2i = test_map.world_to_cell(npc.global_position)
+					if cell != _wander_start_cells[id]:
+						any_moved = true
+					_check(NpcGrid.within_zone(cell, home, int(entry["wander_radius"])),
+						"%s's wander stayed within its authorized zone (at %s, home %s)" % [id, cell, home])
+					_check(not test_map.is_blocked_at(cell),
+						"%s never wandered onto solid/blocked terrain (at %s)" % [id, cell])
+				_check(any_moved, "at least one of the 3 NPCs actually wandered over ~10s")
 				_enter_stage(16)
 		16:
 			# -- Phase 4 Stage 2: building placement, end to end (see class doc) --
@@ -680,6 +912,24 @@ func _drive_builder_action(action: String) -> void:
 	event.action = action
 	event.pressed = true
 	builder._unhandled_input(event)
+
+
+## Same idea as _drive_builder_action, for dialogue_ui.gd's real _unhandled_input (Phase 5
+## Stage 1) — drives "use_tool"/"move_up"/"move_down" through the actual handler rather than
+## calling its private _advance()/etc. methods directly.
+func _drive_dialogue_action(action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	dialogue_ui._unhandled_input(event)
+
+
+## Looks up a spawned NPC by its dialogue/roster id (scripts/npcs.gd's spawn list).
+func _npc_by_id(id: String) -> Node:
+	for npc in npcs.npcs():
+		if String(npc.npc_id) == id:
+			return npc
+	return null
 
 
 func _finish() -> void:
