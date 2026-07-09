@@ -58,6 +58,14 @@ Same model as Blood Fields: Empires, carried over because it worked well there:
   the timer" self-report as evidence of progress — background self-wake sleeps have failed to
   actually resume an agent more than once; check PixelLab status directly
   (`list_characters`/`get_character` etc.) instead.
+- **Autosave at 98% session/context usage:** for every session (Sonnet orchestrator or a Fable 5
+  builder agent), when session/context usage is reported at or approaching 98% — whether
+  self-reported or reported by Sarvesh in chat — treat that as a hard trigger to immediately
+  commit (and push, if push has already been confirmed for that session) whatever verified work
+  is sitting uncommitted, rather than waiting for a natural stopping point. Don't just checkpoint
+  at phase/stage boundaries (see "Repo Conventions" below) — checkpoint reactively the moment a
+  reported percentage gets close to the limit, since a session can end with no further warning
+  after that.
 
 ## Engine & Technical Spec
 
