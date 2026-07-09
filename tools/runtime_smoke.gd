@@ -45,12 +45,27 @@ extends SceneTree
 ## character (a partial string spotted mid-reveal) before instantly-revealing, walks both
 ## branches of Harlan's "basic branching" choice via the real move_down + use_tool input path
 ## (proving they lead to distinct follow-up lines and that a fresh visit resets the highlighted
-## option), repeats the same real interaction against Marta and Scout Kael, confirms the player
-## can still walk normally afterward, then lets ~10s of simulated time pass and checks every NPC
-## actually stepped at least once while never leaving its authored wander zone or its cell ever
-## reading as blocked terrain.
+## option), repeats the same real interaction against Marta (stages 54-55) and Scout Kael, confirms
+## the player can still walk normally afterward, then lets ~10s of simulated time pass and checks
+## every NPC actually stepped at least once while never leaving its authored wander zone or its
+## cell ever reading as blocked terrain.
+##
+## Phase 5 Stage 2 (stages 90-95, spliced in between Marta's dialogue (stage 55) and Scout Kael
+## (stage 57) — Marta's "Let's see what you've got" choice is what opens the store, so this is the
+## natural point in the flow to drive it): confirms choosing that option actually opened
+## scripts/store_ui.gd (not just closed the dialogue), grants the player enough Credits to test an
+## affordable purchase (Credits aren't earnable yet — Stage 3's shipping box is next session — so
+## this is the same "seed distinctive state to exercise" convention stage 20 already uses for
+## energy/inventory), buys a seed (row 0) via the real move/use_tool input path and confirms the
+## exact Credits deducted and the item landed in inventory via Inventory.add_item, cycles down to
+## the pickaxe row and buys a replacement tool (confirming a FRESH full-durability instance
+## appears, not a stacked count), then drops the balance too low to afford anything and confirms
+## an attempted purchase is refused with zero deduction and zero items granted, then leaves via
+## the trailing "Leave" row and confirms the player can move/act normally immediately after — the
+## same "shouldn't leave the player stuck" standard Stage 1 verified for dialogue.
 
 const CropDB := preload("res://scripts/crop_db.gd")
+const ItemDB := preload("res://scripts/item_db.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
@@ -84,8 +99,12 @@ var hud: CanvasLayer
 ## Phase 5 Stage 1: NPC roster + dialogue box, fetched once in stage 2 alongside structures/hud.
 var npcs: Node
 var dialogue_ui: Node
+## Phase 5 Stage 2: Marta's store, fetched once in stage 2 alongside dialogue_ui above.
+var store_ui: Node
 ## Wander-check snapshot (stage 60): each NPC's cell recorded once, compared after simulated time.
 var _wander_start_cells: Dictionary = {}
+## Position snapshot for stage 95's post-store movement check (see that stage).
+var _store_check_start_pos := Vector2.ZERO
 var spawn := Vector2.ZERO
 var stage := 0
 var stage_started_at := 0
@@ -179,6 +198,7 @@ func _physics_process(_delta: float) -> bool:
 			structures = test_map.get_node("Structures")
 			npcs = test_map.get_node("Npcs")
 			dialogue_ui = main.get_node("DialogueUI")
+			store_ui = main.get_node("StoreUI")
 			hud = main.get_node("HUD")
 			_enter_stage(2)
 		2:
@@ -529,22 +549,107 @@ func _physics_process(_delta: float) -> bool:
 				_drive_dialogue_action("use_tool")  # advance greet -> stocktake (not terminal yet)
 				_enter_stage(55)
 		55:
-			# -- Marta's tree (now sitting at "stocktake", a branch point) needs a reveal, a
-			#    choice confirm (default index 0 -> "stock"), a reveal, and a close; finish
-			#    driving her conversation shut, THEN move to stage 57 for Kael. Deliberately not
-			#    tick-counted (unlike the setup/interact stages elsewhere): how many presses a
-			#    given node chain needs is dialogue-tree-dependent, so this just keeps driving for
-			#    as long as _unhandled_input has more to do, however many ticks that takes — bounded
-			#    generously (well beyond any real chain length) so a genuine bug fails loudly
-			#    instead of running the suite forever.
-			if dialogue_ui.active:
-				_check(ticks < 100, "Marta's conversation closed well within the safety bound")
-				if ticks >= 100:
-					_enter_stage(57)
-					return false
-				_drive_dialogue_action("use_tool")
+			# -- Marta's tree (now sitting at "stocktake", a branch point): reveal it, confirm the
+			#    default (first) choice, "Let's see what you've got" — which should open the ACTUAL
+			#    store rather than just printing more dialogue text, proving the stale "not open
+			#    for business yet" line was replaced with a real trigger, not just reworded flavor.
+			#    Deterministic (unlike the old version of this stage) since the store-opening
+			#    sentinel makes the chain length fixed: reveal, then confirm.
+			if ticks >= 2:
+				_drive_dialogue_action("use_tool")  # reveal stocktake's branch prompt
+				_check(dialogue_ui.get_node("%ChoicesBox").visible, "Marta's branch choices appear")
+				_check(dialogue_ui._choice_index == 0, "first choice highlighted by default")
+				_drive_dialogue_action("use_tool")  # confirm choice 0 -> OPEN_STORE sentinel
+				_check(not dialogue_ui.active,
+					"choosing 'Let's see what you've got' closes the dialogue box")
+				_enter_stage(90)
+		90:
+			# -- Phase 5 Stage 2: confirm the dialogue choice actually opened the real store (not
+			#    just closed the conversation) and seed enough Credits to test an affordable
+			#    purchase (see class doc: Credits aren't earnable yet this stage). --
+			if ticks < 5:
 				return false
-			_enter_stage(57)
+			if ticks == 5:
+				_check(store_ui.active,
+					"choosing 'Let's see what you've got' opened Marta's store")
+				_check(store_ui._player == player, "store is bound to the real player")
+				_check(not player.using_tool, "opening the store doesn't lock a tool-swing animation")
+				_check(store_ui._index == 0, "store opens with the first catalog row highlighted")
+				player.set_credits(50)
+				_check(store_ui.get_node("%CreditsLabel").text == "Credits: 50",
+					"credits label reflects the granted balance")
+				_enter_stage(91)
+		91:
+			# -- Buy the first stock row (seed_mutant_potato, 8 Cr) via the real use_tool path --
+			if ticks >= 2:
+				var seeds_before: int = player.inventory.count_of("seed_mutant_potato")
+				_drive_store_action("use_tool")
+				_check(player.credits == 42,
+					"buying seed_mutant_potato (8 Cr) deducted from 50 -> 42 (got %d)" % player.credits)
+				_check(player.inventory.count_of("seed_mutant_potato") == seeds_before + 1,
+					"the purchased seed landed in inventory via Inventory.add_item")
+				_check(store_ui.get_node("%StatusLabel").text != "",
+					"a purchase confirmation status message is shown")
+				_enter_stage(92)
+		92:
+			# -- Cycle down to the pickaxe row (index 9 of the 10-item catalog) and buy a
+			#    replacement tool — confirms a FRESH full-durability instance, not a stacked count --
+			if ticks >= 2:
+				for i in 9:
+					_drive_store_action("move_down")
+				_check(store_ui._index == 9, "move_down cycled all the way to the pickaxe row")
+				_check(store_ui.get_node("%DescriptionLabel").text != "",
+					"the highlighted row's description populates the detail label")
+				var credits_before: int = player.credits
+				_drive_store_action("use_tool")  # buy a replacement pickaxe (28 Cr)
+				_check(player.credits == credits_before - 28,
+					"pickaxe purchase deducted exactly 28 Credits (%d -> %d)" \
+						% [credits_before, player.credits])
+				var found_fresh_pickaxe := false
+				for slot in player.inventory.slots:
+					if String(slot.get("item_id", "")) == "pickaxe" \
+							and int(slot.get("durability", -1)) == ItemDB.durability_max("pickaxe"):
+						found_fresh_pickaxe = true
+				_check(found_fresh_pickaxe,
+					"a fresh full-durability replacement pickaxe landed in inventory")
+				_enter_stage(93)
+		93:
+			# -- Insufficient funds: drop the balance too low for anything left, attempt a
+			#    purchase, confirm it's refused with zero deduction and zero items granted --
+			if ticks >= 2:
+				player.set_credits(2)  # below every remaining stocked item's price
+				_drive_store_action("move_up")  # pickaxe(9) -> axe(8), still 28 Cr, unaffordable
+				_check(store_ui._index == 8, "move_up returned to the axe row")
+				var credits_before: int = player.credits
+				var axes_before: int = player.inventory.count_of("axe")
+				_drive_store_action("use_tool")  # attempt an unaffordable purchase
+				_check(player.credits == credits_before,
+					"an insufficient-funds purchase attempt deducted nothing")
+				_check(player.inventory.count_of("axe") == axes_before,
+					"an insufficient-funds purchase attempt granted nothing")
+				_check(store_ui.get_node("%StatusLabel").text != "",
+					"a can't-afford status message is shown")
+				_enter_stage(94)
+		94:
+			# -- Cycle to the trailing "Leave" row and confirm it closes the store --
+			if ticks >= 2:
+				for i in 2:
+					_drive_store_action("move_down")  # axe(8) -> pickaxe(9) -> Leave(10)
+				_check(store_ui._index == 10, "cycled down to the trailing Leave row")
+				_drive_store_action("use_tool")  # confirm Leave -> closes the store
+				_check(not store_ui.active, "confirming the Leave row closes the store")
+				_check(not player.using_tool, "closing the store leaves no stray tool-swing lock")
+				_store_check_start_pos = player.global_position
+				Input.action_press("move_up")
+				_enter_stage(95)
+		95:
+			# -- The literal "shouldn't leave the player stuck" check: real movement immediately
+			#    after leaving the store, via the real held-input path --
+			if ticks >= 20:
+				Input.action_release("move_up")
+				_check(player.global_position.y < _store_check_start_pos.y,
+					"player can move immediately after leaving the store")
+				_enter_stage(57)
 		57:
 			# -- Approach and interact with Scout Kael (same shape as stage 50's Harlan setup) --
 			if ticks < 5:
@@ -750,6 +855,9 @@ func _physics_process(_delta: float) -> bool:
 				structures.chest_inventory.add_item("stone", 2)
 				structures.storage_inventory_at(Vector2i(3, 16)).add_item("wood", 1)
 				player.set_energy(42.0)
+				# Phase 5 Stage 2: Credits must round-trip too — set a fresh, distinctive value
+				# here (independent of whatever balance the store stages above left behind).
+				player.set_credits(37)
 				# Stand one cell south of Forest Edge's bed at (18,4), facing it.
 				player.global_position = test_map.cell_to_world_center(Vector2i(18, 5))
 				player.velocity = Vector2.ZERO
@@ -819,6 +927,8 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.facing == "north", "player facing restored")
 			_check(player.energy == player.max_energy, "energy restored (full — saved after waking)")
 			_check(hud.get_node("%EnergyFill").value == player.max_energy, "HUD energy bar restored")
+			_check(player.credits == 37, "Credits balance restored (%d, expected 37)" % player.credits)
+			_check(hud.get_node("%CreditsLabel").text == "37 Cr", "HUD credits label restored")
 			# Inventory: exact contents from the played-through session, not the starting loadout
 			# + settlement bonus a fresh game would have granted.
 			_check(player.inventory.get_slot(0).get("item_id", "") == "hoe", "hoe back in slot 1")
@@ -826,8 +936,8 @@ func _physics_process(_delta: float) -> bool:
 				"hoe durability (49) survived the round trip")
 			_check(player.inventory.count_of("wood") == 0, "wood count (all spent building) restored")
 			_check(player.inventory.count_of("mutant_potato") == 1, "harvested potato restored")
-			_check(player.inventory.count_of("seed_mutant_potato") == 3,
-				"seed count (5 - planted 2) restored")
+			_check(player.inventory.count_of("seed_mutant_potato") == 4,
+				"seed count (5 - planted 2 + 1 bought from Marta's store) restored")
 			_check(player.inventory.selected_hotbar_index == 2,
 				"hotbar selection (axe, from the chop) restored")
 			# World modifications:
@@ -922,6 +1032,16 @@ func _drive_dialogue_action(action: String) -> void:
 	event.action = action
 	event.pressed = true
 	dialogue_ui._unhandled_input(event)
+
+
+## Same idea again, for store_ui.gd's real _unhandled_input (Phase 5 Stage 2) — drives
+## "use_tool"/"move_up"/"move_down" through the actual handler rather than calling its private
+## _confirm()/etc. methods directly.
+func _drive_store_action(action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	store_ui._unhandled_input(event)
 
 
 ## Looks up a spawned NPC by its dialogue/roster id (scripts/npcs.gd's spawn list).

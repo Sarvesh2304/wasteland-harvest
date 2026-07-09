@@ -10,6 +10,9 @@ extends Node2D
 ## dialogue box (scripts/dialogue_ui.gd) both ways, the same shape as Builder below: the player
 ## emits npc_dialogue_requested, DialogueUI owns opening/advancing it, and player.dialogue_ui
 ## points back so its held-tool polling can stand down while a conversation is open.
+## Phase 5 Stage 2 wires Marta's store (scripts/store_ui.gd) one level deeper: DialogueUI emits
+## store_requested (when a dialogue choice leads to its OPEN_STORE sentinel), StoreUI owns
+## opening/browsing/buying, and player.store_ui points back the same way player.dialogue_ui does.
 ## The day/night CanvasModulate and DayManager autoload run themselves.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
@@ -42,6 +45,13 @@ func _ready() -> void:
 	var dialogue_ui: Node = $DialogueUI
 	player.npc_dialogue_requested.connect(dialogue_ui.open_dialogue)
 	player.dialogue_ui = dialogue_ui
+	# Phase 5 Stage 2: Marta's store (scripts/store_ui.gd) — bound both ways like DialogueUI
+	# above, one level deeper (dialogue_ui.store_requested rather than a direct player signal),
+	# since the store is reached via a dialogue choice, not a direct use_tool interaction.
+	var store_ui: Node = $StoreUI
+	store_ui.bind(player)
+	dialogue_ui.store_requested.connect(store_ui.open_store)
+	player.store_ui = store_ui
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
 	# before this scene instantiates (see settlement_select.gd's resume path); an empty result
 	# means new game -> grant the one-time settlement starting bonus instead. Applied here, after

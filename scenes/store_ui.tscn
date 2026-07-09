@@ -1,0 +1,200 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/store_ui.gd" id="1_script"]
+
+[node name="StoreUI" type="CanvasLayer"]
+layer = 2
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Box" type="Control" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Bg" type="ColorRect" parent="Root/Box"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.482353, 0.313725, 0.145098, 1)
+
+[node name="Inner" type="ColorRect" parent="Root/Box"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = -2.0
+offset_bottom = -2.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 0.929412, 0.694118, 1)
+
+[node name="TitleLabel" type="Label" parent="Root/Box"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 2.0
+offset_right = -6.0
+offset_bottom = 10.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.615686, 0.568627, 0.501961, 1)
+text = "MARTA'S STORE"
+horizontal_alignment = 1
+
+[node name="CreditsLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 12.0
+offset_right = -6.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.788235, 0.282353, 1)
+theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+text = "Credits: 0"
+horizontal_alignment = 1
+
+[node name="RowsBox" type="VBoxContainer" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 30.0
+offset_right = -10.0
+offset_bottom = 128.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="Row0" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row1" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row2" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row3" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row4" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row5" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row6" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row7" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row8" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row9" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Item"
+
+[node name="Row10" type="Label" parent="Root/Box/RowsBox"]
+theme_override_colors/font_color = Color(0.482353, 0.313725, 0.145098, 1)
+text = "Leave"
+
+[node name="DescriptionLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 130.0
+offset_right = -8.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.156863, 0.101961, 0.043137, 1)
+autowrap_mode = 3
+text = ""
+
+[node name="StatusLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 162.0
+offset_right = -8.0
+offset_bottom = 170.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.772549, 0.32549, 0.058824, 1)
+horizontal_alignment = 1
+text = ""
+
+[node name="HintLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = -10.0
+offset_right = -6.0
+offset_bottom = -2.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.615686, 0.568627, 0.501961, 1)
+horizontal_alignment = 1
+text = "Up/Down choose   Space buy/leave"

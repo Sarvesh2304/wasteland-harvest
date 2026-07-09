@@ -22,6 +22,11 @@ extends CanvasLayer
 ## keeping this session's chest to display/toggle only matches its "keep the UI minimal" scope
 ## note and avoids inventing new input conventions this codebase doesn't have yet (no mouse
 ## drag-and-drop exists anywhere else in the UI).
+##
+## Phase 5 Stage 2 adds a small Credits plaque (top-left, mirroring the day/clock plaque's own
+## top-right positioning) bound to the player's credits_changed signal — the same bind-a-signal-
+## to-a-label shape as the energy bar, just without a fill/bar (a plain number reads fine for a
+## value this small; a full bar would over-dramatize what's usually a two-digit balance).
 
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -34,6 +39,7 @@ const EMPTY_BG_COLOR := Color("#281a0b", 0.75)  # warm near-black, per §9
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
 @onready var energy_fill: ProgressBar = %EnergyFill
+@onready var credits_label: Label = %CreditsLabel
 @onready var hotbar_row: HBoxContainer = %Hotbar
 @onready var inventory_grid: GridContainer = %InventoryGrid
 @onready var chest_grid: GridContainer = %ChestGrid
@@ -74,6 +80,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func bind_player(player: Node) -> void:
 	player.energy_changed.connect(_on_energy_changed)
 	_on_energy_changed(player.energy, player.max_energy)
+	player.credits_changed.connect(_on_credits_changed)
+	_on_credits_changed(player.credits)
 
 
 ## Called by main.gd once the player's Inventory exists. Builds the slot widgets once, then
@@ -232,3 +240,7 @@ func _on_time_changed(day: int, minutes_into_day: float) -> void:
 func _on_energy_changed(current: float, max_energy: float) -> void:
 	energy_fill.max_value = max_energy
 	energy_fill.value = current
+
+
+func _on_credits_changed(current: int) -> void:
+	credits_label.text = "%d Cr" % current

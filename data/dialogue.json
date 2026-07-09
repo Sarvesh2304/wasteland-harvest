@@ -1,5 +1,5 @@
 {
-	"_comment": "Phase 5 Stage 1 NPC dialogue (ROADMAP 'dialogue stored in JSON for easy editing'). One entry per npc id (matching map_layouts' npcs() ids): name = the dialogue box's speaker plate, start = the node shown on interact, nodes = id -> {text, next?} for linear beats, {text, choices: [{text, next}]} for a branch point, or {text} alone for a terminal node (advancing closes the box). Loaded via scripts/dialogue_db.gd only — see its header for the traversal rules. Tone contract: GDD.md section 9 ('people who have chosen hope and are a little funny about it'); every character's dialogue is static flavor this stage — no quest hooks, affinity, or schedule reactivity until Phases 7/13. Writing note: the pixel font's glyph set has no > < [ ] $ % & * = etc. (see art/ui/README.md) — stick to letters, digits, and basic punctuation in all text below.",
+	"_comment": "Phase 5 Stage 1 NPC dialogue (ROADMAP 'dialogue stored in JSON for easy editing'), extended by Phase 5 Stage 2 with a store-opening trigger. One entry per npc id (matching map_layouts' npcs() ids): name = the dialogue box's speaker plate, start = the node shown on interact, nodes = id -> {text, next?} for linear beats, {text, choices: [{text, next}]} for a branch point, or {text} alone for a terminal node (advancing closes the box). A choice's \"next\" can also be the literal sentinel string \"OPEN_STORE\", recognized by scripts/dialogue_ui.gd's _advance() (NOT scripts/dialogue_db.gd, which stays domain-agnostic pure traversal) — landing on it closes the dialogue box and opens scripts/store_ui.gd instead of going to another node. Only Marta's tree uses it this stage (she's the only shopkeeper), but the mechanism itself isn't Marta-specific. Loaded via scripts/dialogue_db.gd only — see its header for the traversal rules. Tone contract: GDD.md section 9 ('people who have chosen hope and are a little funny about it'); every character's dialogue is static flavor this stage — no quest hooks, affinity, or schedule reactivity until Phases 7/13. Writing note: the pixel font's glyph set has no > < [ ] $ % & * = etc. (see art/ui/README.md) — stick to letters, digits, and basic punctuation in all text below.",
 	"mayor_harlan": {
 		"name": "Mayor Harlan",
 		"start": "greet",
@@ -36,17 +36,14 @@
 				"next": "stocktake"
 			},
 			"stocktake": {
-				"text": "Store's not open for business quite yet. Still counting inventory. Twice. Some of it counts back.",
+				"text": "Just finished the morning count — seeds, tools, tinned rations, all present and only mildly suspicious. Credits only, mind — I don't care what the bottle-cap man says, that is not money.",
 				"choices": [
-					{"text": "What will you sell?", "next": "stock"},
+					{"text": "Let's see what you've got.", "next": "OPEN_STORE"},
 					{"text": "Counts back?", "next": "chicken"}
 				]
 			},
-			"stock": {
-				"text": "Seeds mostly, tools, whatever the caravans bring in. Credits only, mind — I don't care what the bottle-cap man says, that is not money."
-			},
 			"chicken": {
-				"text": "The two-headed chicken got into the seed bins again. Both heads deny it. Come back when I open shop — I'll have proper stock and fewer suspects."
+				"text": "The two-headed chicken got into the seed bins again. Both heads deny it. I've recounted twice just to be sure it didn't eat the profits."
 			}
 		}
 	},

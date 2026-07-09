@@ -33,6 +33,10 @@ signal energy_changed(current: float, max_energy: float)
 ## chest_toggled -> hud.toggle_chest_ui() signal wiring rather than a direct method call, keeping
 ## player.gd instance-testable (tests/test_player.gd) without a real DialogueUI scene existing.
 signal npc_dialogue_requested(npc: Node)
+## Phase 5 Stage 2: fired on any Credits balance change (a purchase, or Stage 3's future shipping-
+## box sale credit) — hud.gd's currency display binds to this the same way it binds
+## energy_changed, so the balance's one owner (this field) never needs a UI reference.
+signal credits_changed(current: int)
 
 ## ~3.5 tiles/second at the 16px tile size — close to Stardew's walk feel.
 const SPEED := 56.0
@@ -71,6 +75,13 @@ const FACING_VECTORS := {
 var facing := "south"
 var max_energy := 100.0
 var energy := max_energy
+## Phase 5 Stage 2: the player's Credits balance (GDD.md §7 — settled humanity's currency, not
+## the earlier-drafted "Scrap Coins"). Starts at 0, deliberately: nothing grants Credits yet
+## (Stage 3's shipping box is the actual earning mechanism, next session) — a fresh player
+## legitimately can't afford anything at Marta's store until they've sold a first harvest, which
+## is the intended shape of "Economy loop is closed" only once the whole phase (both stages)
+## lands. See add_credits()/set_credits() below for Stage 3's hook to credit a sale.
+var credits := 0
 var using_tool := false
 
 ## Till-and-advance stepping (see class doc): a short, grid-snapped move to the next cell,
@@ -95,6 +106,10 @@ var npcs: Node = null
 ## freezes entirely (see _in_dialogue()) and dialogue_ui.gd owns "use_tool" itself (via its own
 ## _unhandled_input) to advance/close the conversation.
 var dialogue_ui: Node = null
+## Phase 5 Stage 2: Marta's store (scripts/store_ui.gd), bound DIRECTLY by main.gd the same way
+## dialogue_ui is above — while it's open, _physics_process freezes entirely (see _in_store())
+## and store_ui.gd owns "use_tool"/"move_up"/"move_down" itself to browse/buy/leave.
+var store_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -118,6 +133,12 @@ func _physics_process(_delta: float) -> void:
 	# reposition the preview, but a dialogue must NOT — the player should read as genuinely stuck
 	# in the conversation, not free to wander off mid-sentence.
 	if _in_dialogue():
+		velocity = Vector2.ZERO
+		return
+	# Phase 5 Stage 2: browsing Marta's store freezes the player exactly like a conversation does
+	# (see _in_dialogue()'s comment above) — store_ui.gd owns "use_tool"/"move_up"/"move_down"
+	# itself via its own _unhandled_input to browse/buy/leave, so this loop must stand down too.
+	if _in_store():
 		velocity = Vector2.ZERO
 		return
 	if _stepping:
@@ -252,6 +273,11 @@ func _in_dialogue() -> bool:
 	return dialogue_ui != null and bool(dialogue_ui.active)
 
 
+## True while scripts/store_ui.gd's box is open — see _physics_process's early-return.
+func _in_store() -> bool:
+	return store_ui != null and bool(store_ui.active)
+
+
 ## The logical cell directly ahead of the player, in the current facing direction.
 func _target_cell() -> Vector2i:
 	var dir: Vector2 = FACING_VECTORS.get(facing, Vector2(0, 1))
@@ -300,6 +326,23 @@ func _interact(cell: Vector2i) -> void:
 					set_energy(energy - ENERGY_PLANT)
 
 
+## -- Credits (Phase 5 Stage 2) --
+
+## Sets the Credits balance directly (clamped at 0 — a purchase must never be allowed to drive it
+## negative, and there's no legitimate way to owe Credits in this game). Used both by
+## scripts/store_ui.gd after a successful purchase (fed shop_db.gd's pure attempt_purchase()
+## result) and available as the general "set the balance" primitive load_state() below also uses.
+func set_credits(value: int) -> void:
+	credits = maxi(0, value)
+	credits_changed.emit(credits)
+
+
+## Stage 3's documented hook: crediting a shipping-box sale is just add_credits(sale_total) —
+## no new subsystem needed, per ROADMAP's ask that this stage leave an obvious path for that.
+func add_credits(amount: int) -> void:
+	set_credits(credits + amount)
+
+
 ## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --
 
 func save_state() -> Dictionary:
@@ -309,6 +352,7 @@ func save_state() -> Dictionary:
 		"y": global_position.y,
 		"facing": facing,
 		"energy": energy,
+		"credits": credits,
 		"inventory": SaveData.encode_inventory(inventory.slots, inventory.selected_hotbar_index),
 	}
 
@@ -324,6 +368,11 @@ func load_state(data: Dictionary) -> void:
 	# safe for the values a bed save writes, but load shouldn't depend on that).
 	energy = clampf(float(data.get("energy", max_energy)), 0.0, max_energy)
 	energy_changed.emit(energy, max_energy)
+	# Direct assign + emit, not set_credits(): same reasoning as energy above — restoring a saved
+	# balance is not a purchase and set_credits()'s clamp is a no-op for any value a real save
+	# ever wrote anyway (int(...) already can't be negative coming out of save_state()).
+	credits = int(data.get("credits", 0))
+	credits_changed.emit(credits)
 	var inventory_data = data.get("inventory", {})
 	if inventory_data is Dictionary and not (inventory_data as Dictionary).is_empty():
 		var decoded := SaveData.decode_inventory(inventory_data)

@@ -248,10 +248,18 @@ stage's work).
       just inside the town's main gate (MAPS.md §2 already places expedition departures there —
       the scout who watches the road east naturally posts up at the door to it). "Quest-giver" is
       flavor/dialogue only this stage — no quest system exists yet (Phase 13).
-- [ ] Town store — Marta sells seeds/basic tools/food; UI shows name/description/price; currency
+- [x] Town store — Marta sells seeds/basic tools/food; UI shows name/description/price; currency
       is Credits (per `GDD.md` §7; not "Scrap Coins" as earlier drafted — Credits is settled
       humanity's established currency, with barter as a parallel economy for raiders/remote
-      traders who don't accept it). **Stage 2, not yet started.**
+      traders who don't accept it). **Stage 2.** Marta stocks all 4 seeds, both food items, and
+      the 4 tools that actually wear out (hoe/watering can/axe/pickaxe — framed as replacements
+      for a broken one, since no repair system exists yet; the unbreakable Scavenger's Bag isn't
+      stocked). Reached via a new choice in Marta's dialogue ("Let's see what you've got") rather
+      than a separate interaction, resolving her Stage-1 dialogue's stale "store's not open yet"
+      line now that it actually is. Buy-only, per the roadmap's own split from Stage 3's
+      shipping-box selling. Credits balance lives on `player.gd` (mirroring `energy`'s pattern
+      exactly — a plain field, save/load support, a HUD display), starting at 0 since nothing
+      grants Credits until Stage 3 exists.
 - [ ] Shipping box — place harvested crops before sleeping; Credits added next morning; tracks
       sale history. **Stage 3, not yet started.**
 
@@ -271,6 +279,21 @@ anchor stretch instead of a bottom-anchored strip, rendering "Space to continue"
 choose..." above the box instead of inside it — fixed directly (a one-line anchor correction in
 `dialogue_ui.tscn`, matching `settlement_select.tscn`'s already-correct `HintLabel` pattern),
 re-verified visually and via a full test+smoke re-run afterward.
+
+**Stage 2 verified independently:** re-ran the full suite myself (160/160 unit tests, +12 new
+covering catalog pricing/affordability/purchase-deduction math) and the extended runtime smoke
+test (opens the store via the real dialogue-choice path, buys a seed with exact Credits deducted
+and the item landed in inventory, buys a tool and confirms a fresh full-durability instance
+rather than a stack, forces and confirms an insufficient-funds refusal with zero deduction,
+leaves via the Leave row, and confirms the player can move/interact normally afterward) — all
+passed, twice in a row. Read through the new core scripts (`shop_db.gd`'s pure pricing/
+affordability math, `store_ui.gd`'s presentation shell, the `OPEN_STORE` sentinel handoff kept
+out of the domain-agnostic `dialogue_db.gd`) — sound logic, consistent with established
+conventions throughout, including correctly applying the bottom-anchored `HintLabel` fix from
+Stage 1's review rather than repeating that mistake. Verified no `.json`/`project.godot`
+reformatting noise. Visually confirmed via screenshots: the store's full catalog with prices and
+a selected item's description, and the new HUD Credits plaque alongside the existing day/clock
+plaque.
 
 **Milestone (whole phase):** Player can farm, sell crops, earn currency, and buy seeds. Economy
 loop is closed.

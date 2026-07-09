@@ -22,6 +22,11 @@ extends CanvasLayer
 ## While open, player.gd's _physics_process freezes entirely (its _in_dialogue() gate) and the
 ## talking NPC freezes too (npc.gd's set_talking) — close() unfreezes both unconditionally, so a
 ## conversation can never leave the player or the NPC stuck.
+##
+## Phase 5 Stage 2: a choice's "next" can also be the OPEN_STORE_SENTINEL below (see
+## data/dialogue.json's class doc) — landing on it closes this box and emits store_requested
+## instead of advancing to another node, so Marta's "Let's see what you've got" choice opens
+## scripts/store_ui.gd rather than just printing more text.
 
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 
@@ -31,8 +36,17 @@ const CHARS_PER_SECOND := 28.0
 ## reveal the rest" just fast-forwards _elapsed past this, no special-cased skip flag needed.
 const INSTANT_REVEAL_ELAPSED := 999.0
 
+## Recognized only here (the presentation shell), not in scripts/dialogue_db.gd, which stays a
+## domain-agnostic pure traversal module with no concept of "a store."
+const OPEN_STORE_SENTINEL := "OPEN_STORE"
+
 const CHOICE_COLOR := Color("#7b5025")            # worn wood (dark) — unselected choice
 const CHOICE_SELECTED_COLOR := Color("#c5520f")   # rust red — reads as "this one's highlighted"
+
+## Phase 5 Stage 2: fired when a conversation's choice leads to OPEN_STORE_SENTINEL — main.gd
+## wires this to scripts/store_ui.gd's open_store(), the same one-level-deeper handoff shape as
+## player.gd's own npc_dialogue_requested -> main.gd -> DialogueUI.open_dialogue().
+signal store_requested(npc: Node)
 
 @onready var box: Control = %Box
 @onready var name_label: Label = %NameLabel
@@ -110,10 +124,20 @@ func _advance() -> void:
 		_refresh_body()
 		return
 	var next_id := DialogueDB.advance_from(_current_node(), _choice_index)
-	if next_id == "":
+	if next_id == OPEN_STORE_SENTINEL:
+		_open_store()
+	elif next_id == "":
 		close()
 	else:
 		_goto_node(next_id)
+
+
+## Closes the conversation and hands off to scripts/store_ui.gd (see class doc / the sentinel's
+## comment above). Captures `npc` before close() clears the field.
+func _open_store() -> void:
+	var target_npc := npc
+	close()
+	store_requested.emit(target_npc)
 
 
 func _goto_node(node_id: String) -> void:

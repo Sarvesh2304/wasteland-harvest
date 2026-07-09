@@ -25,6 +25,36 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="CreditsPanel" type="TextureRect" parent="Root" unique_id=846710135]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 106.0
+offset_bottom = 52.0
+mouse_filter = 2
+texture = ExtResource("2_plaque")
+
+[node name="CreditsLabel" type="Label" parent="Root/CreditsPanel" unique_id=1473986879]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 6.0
+offset_right = -24.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.929412, 0.694118, 1)
+theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 16
+text = "0 Cr"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="ClockPanel" type="TextureRect" parent="Root" unique_id=846710134]
 layout_mode = 1
 anchors_preset = 1
