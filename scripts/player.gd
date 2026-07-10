@@ -22,6 +22,17 @@ extends CharacterBody2D
 ## press): _physics_process polls Input.is_action_pressed() every physics frame rather than
 ## reacting only to the press *event*, and re-fires use_tool() the instant the previous swing's
 ## using_tool lock clears, for as long as the button stays held.
+##
+## The INSTANT interactions in use_tool()'s dispatch (chest, bed, shipping box, NPC dialogue)
+## are the exception: they fire once per discrete press, never on held-key repeat (playtest
+## bug-fix, 2026-07-10 — a held/tapped key spanning several 60fps physics frames used to sleep
+## multiple days at once, and re-open a just-closed dialogue/store/shipping UI). The gate is
+## the _instant_armed press-edge latch below, NOT Input.is_action_just_pressed(): just-pressed's
+## one-physics-frame window lands on the frame AFTER the input system dispatched the same press
+## to _unhandled_input (verified empirically with a parse_input_event probe), so a press that a
+## modal UI consumed to close itself would still read just-pressed on the next poll and re-open
+## the interaction. The latch re-arms only on release, and a press held while (or in the frame
+## after) any modal surface was open never counts — see instant_armed_next().
 
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -89,6 +100,17 @@ var energy := max_energy
 var credits := 0
 var using_tool := false
 
+## Press-edge latch for use_tool()'s instant interactions (see class doc). True means the next
+## poll frame that finds the button down may fire an instant interaction; consumed (set false)
+## the moment the poll fires use_tool(), re-armed only by seeing the button up. Starts armed so
+## the very first press works.
+var _instant_armed := true
+## Whether any modal surface (dialogue/store/shipping/build mode) was active on the PREVIOUS
+## physics frame — a press first observed on the frame right after a modal closed belongs to
+## that modal (it's the press that closed it, dispatched between physics frames), so the latch
+## must treat it as consumed. See instant_armed_next().
+var _modal_open_last_frame := false
+
 ## Till-and-advance stepping (see class doc): a short, grid-snapped move to the next cell,
 ## queued between swings when a direction is held alongside "use_tool" so holding both
 ## advances tile-by-tile like Stardew's auto-work-and-walk, instead of repeating in place.
@@ -130,6 +152,13 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	# The instant-interaction press-edge latch runs before every early return below, so it
+	# tracks the button across swing-lock frames and modal-frozen frames alike (a release+press
+	# during a swing still arms; a press held into/through a modal never does).
+	var modal_open := _in_dialogue() or _in_store() or _in_shipping() or _in_build_mode()
+	_instant_armed = instant_armed_next(_instant_armed,
+		Input.is_action_pressed("use_tool"), modal_open, _modal_open_last_frame)
+	_modal_open_last_frame = modal_open
 	if using_tool:
 		velocity = Vector2.ZERO
 		return
@@ -166,7 +195,13 @@ func _physics_process(_delta: float) -> void:
 		velocity = Vector2.ZERO
 		if input != Vector2.ZERO:
 			facing = facing_from_input(input, facing)
-		use_tool()
+		# Instant interactions fire only on the discrete press edge (see class doc); consume the
+		# latch so the frames the key stays physically down can't re-fire a chest toggle, a bed
+		# sleep, or a just-closed dialogue/store/shipping UI. The swing path is untouched — its
+		# repeat is governed by the using_tool lock, exactly as before.
+		var instant_allowed := _instant_armed
+		_instant_armed = false
+		use_tool(instant_allowed)
 		return
 	velocity = input * SPEED
 	move_and_slide()
@@ -209,7 +244,15 @@ func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
 
 ## Plays the shared swing animation and resolves the tile interaction. Locks movement for the
 ## animation's duration exactly like the Phase 2 stub did.
-func use_tool() -> void:
+##
+## instant_allowed (playtest bug-fix, 2026-07-10): whether the four INSTANT interaction branches
+## below (chest/bed/shipping box/NPC) may fire. The held-key poll in _physics_process passes the
+## press-edge latch's state here, so those branches fire once per discrete press instead of every
+## physics frame the key stays down — while direct callers (tests, tools) default to true and
+## behave exactly as before. When an instant target sits ahead but the press edge is spent, the
+## call is a no-op rather than a fallthrough: a held tool button walking past a chest must not
+## start swinging AT the chest either (the instant targets always preempted the swing dispatch).
+func use_tool(instant_allowed: bool = true) -> void:
 	if energy <= 0.0:
 		return
 	# Phase 4: chest interaction is instant (no energy cost, no tool-swing lock/animation) and
@@ -218,19 +261,22 @@ func use_tool() -> void:
 	# to any storage cell (layout chest OR a completed player-built Storage Shed), so the target
 	# cell is passed through for structures.gd to resolve which Inventory lives there.
 	if structures != null and test_map != null and structures.is_chest_at(_target_cell()):
-		structures.interact_chest(_target_cell())
+		if instant_allowed:
+			structures.interact_chest(_target_cell())
 		return
 	# Phase 4 Stage 3: the farmhouse bed — same instant, energy-free, queue-jumping interaction
 	# shape as the chest above. Sleeping ends the day (auto-saving as it does — see checklist
 	# item "Auto-save at end of day"), so it deliberately never routes through the tool dispatch.
 	if structures != null and test_map != null and structures.is_bed_at(_target_cell()):
-		_sleep_in_bed()
+		if instant_allowed:
+			_sleep_in_bed()
 		return
 	# Phase 5 Stage 3: the shipping box — same instant, energy-free, queue-jumping shape as the
 	# chest/bed above, handed off via a signal like NPC dialogue below (the loading UI needs the
 	# player's inventory and the box's contents, so scripts/shipping_ui.gd owns the interaction).
 	if structures != null and test_map != null and structures.is_shipping_box_at(_target_cell()):
-		shipping_box_requested.emit()
+		if instant_allowed:
+			shipping_box_requested.emit()
 		return
 	# Phase 5 Stage 1: an NPC directly ahead — same instant, energy-free, queue-jumping shape as
 	# the chest/bed above, but the interaction itself (opening the dialogue box) is handed off via
@@ -239,7 +285,8 @@ func use_tool() -> void:
 	if npcs != null and test_map != null:
 		var npc: Node = npcs.npc_at(_target_cell())
 		if npc != null:
-			npc_dialogue_requested.emit(npc)
+			if instant_allowed:
+				npc_dialogue_requested.emit(npc)
 			return
 	using_tool = true
 	velocity = Vector2.ZERO
@@ -426,6 +473,25 @@ static func facing_from_input(input: Vector2, current: String) -> String:
 	if absf(input.x) >= absf(input.y) and input.x != 0.0:
 		return "east" if input.x > 0.0 else "west"
 	return "south" if input.y > 0.0 else "north"
+
+
+## Pure press-edge latch rule for use_tool()'s instant interactions (testable headlessly, no
+## Node/scene required — see the class doc's held-key section for why this exists instead of
+## Input.is_action_just_pressed). Given the latch's previous state, whether "use_tool" reads
+## pressed this physics frame, and whether any modal surface is open now / was open on the
+## previous physics frame, returns the latch's new state BEFORE the poll consumes it:
+##   - button up  -> re-arm (a fresh press is a fresh edge), regardless of modal state;
+##   - button down with a modal open now OR last frame -> disarm (that press belongs to the
+##     modal UI — including the press that just closed it, which the input system dispatched
+##     to _unhandled_input between physics frames);
+##   - button down otherwise -> carry the previous state (armed until the poll consumes it).
+static func instant_armed_next(armed: bool, pressed: bool, modal_open: bool,
+		modal_was_open: bool) -> bool:
+	if not pressed:
+		return true
+	if modal_open or modal_was_open:
+		return false
+	return armed
 
 
 ## Pure energy math (testable headlessly, no Node/scene required): clamps current+delta into

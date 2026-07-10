@@ -30,6 +30,10 @@ const ModalGate := preload("res://scripts/modal_gate.gd")
 ## Exposed as a plain field so the test tooling (tools/soak_test.gd) can inspect it.
 var modal_gate: ModalGate = ModalGate.new()
 
+## The build/placement-mode node, kept as a field so _process's time-pause poll below can exempt
+## it from the "any modal open" check (see that poll's comment for the judgment call).
+var _builder: Node2D = null
+
 
 func _ready() -> void:
 	player.global_position = test_map.get_spawn_position()
@@ -47,6 +51,7 @@ func _ready() -> void:
 	var builder: Node2D = $Builder
 	builder.bind(player, test_map, structures)
 	player.builder = builder
+	_builder = builder
 	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
 	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
 	# signal that says one should start.
@@ -88,6 +93,26 @@ func _ready() -> void:
 		_grant_starting_resource_bonus()
 	else:
 		_apply_save(save_data)
+
+
+## Time pauses while any TRUE modal surface is open (playtest UX gap, 2026-07-10 — Stardew's
+## clock freezes during conversations and menus): DayManager's long-dormant time_paused hook,
+## polled per frame from the modal gate this scene already owns. Build mode is deliberately
+## EXEMPT (hence is_any_open_except(_builder), not is_any_open()): while placing, the player
+## still walks the world to reposition the preview — they're not "away from the world" the way
+## a conversation freezes them, and Stardew's clock likewise runs while a placement item is
+## held. The HUD's inventory/chest grids are also non-pausing for the same reason: they're
+## passive overlays the player can walk and act under, and frozen time under a still-actable
+## player would be a free-time exploit, not a convenience.
+func _process(_delta: float) -> void:
+	DayManager.time_paused = modal_gate.is_any_open_except(_builder)
+
+
+## The scene dying (quit-to-boot in the test tooling, a future title-screen return) must never
+## leak a frozen clock into the next boot: DayManager is an autoload and outlives this scene,
+## and if a modal happened to be open at teardown nothing would ever set time_paused back.
+func _exit_tree() -> void:
+	DayManager.time_paused = false
 
 
 ## Restores each system's saved state (see scripts/save_data.gd's class doc for the shape) on

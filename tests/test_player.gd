@@ -56,3 +56,34 @@ func test_energy_delta_no_pass_out_while_staying_positive() -> void:
 	var result := PlayerScript.apply_energy_delta(10.0, 100.0, -4.0)
 	assert_eq(result["energy"], 6.0)
 	assert_false(result["passed_out"])
+
+
+## The instant-interaction press-edge latch (2026-07-10 playtest bug-fix) — the pure rule behind
+## "chest/bed/shipping box/NPC fire once per discrete press, never on held-key repeat, and a
+## press a modal UI consumed to close itself never re-fires them." The live wiring (poll consume,
+## modal tracking) needs a scene and is covered by tools/held_input_smoke.gd.
+func test_instant_latch_rearms_on_release() -> void:
+	assert_true(PlayerScript.instant_armed_next(false, false, false, false),
+		"releasing the button re-arms a consumed latch")
+	assert_true(PlayerScript.instant_armed_next(false, false, true, true),
+		"release re-arms even while a modal is open (the NEXT press is a fresh edge)")
+
+
+func test_instant_latch_holds_armed_state_while_pressed() -> void:
+	assert_true(PlayerScript.instant_armed_next(true, true, false, false),
+		"a fresh press keeps the latch armed until the poll consumes it")
+	assert_false(PlayerScript.instant_armed_next(false, true, false, false),
+		"holding after the poll consumed the edge stays disarmed — no per-frame re-fire")
+
+
+func test_instant_latch_disarms_while_modal_open() -> void:
+	assert_false(PlayerScript.instant_armed_next(true, true, true, false),
+		"a press held while a modal is open belongs to that modal, not the world")
+
+
+func test_instant_latch_disarms_on_frame_after_modal_closed() -> void:
+	# The reported reopen bugs' exact shape: the press that closed a dialogue/store/shipping UI
+	# is dispatched to _unhandled_input between physics frames, so the poll first sees it on the
+	# frame AFTER the modal closed — modal_open is already false, but modal_was_open is not.
+	assert_false(PlayerScript.instant_armed_next(true, true, false, true),
+		"the press that closed a modal must not reopen the interaction one frame later")

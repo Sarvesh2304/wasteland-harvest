@@ -35,7 +35,10 @@ const SKY_KEYFRAMES: Array = [
 
 var day := 1
 var minutes_into_day := float(DAY_START_MINUTES)
-## Future pause hook (menus, cutscenes, sleep transitions).
+## Pause hook, live since 2026-07-10: scripts/main.gd polls the modal gate every frame and sets
+## this true while any modal UI (dialogue/store/shipping — deliberately not build mode, see
+## main.gd's _process) is open, freezing the clock Stardew-style. Still available for future
+## cutscenes/sleep transitions the same way.
 var time_paused := false
 
 

@@ -97,6 +97,11 @@ func close() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not active:
 		return
+	# Esc leaves the loading UI — same additive Stardew-convention shortcut as dialogue_ui.gd's
+	# (see its matching comment); the Leave row keeps working exactly as before.
+	if event.is_action_pressed("ui_cancel"):
+		close()
+		return
 	if event.is_action_pressed("move_up"):
 		_index = wrapi(_index - 1, 0, _row_ids.size())
 		status_label.text = ""

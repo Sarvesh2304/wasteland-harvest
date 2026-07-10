@@ -112,6 +112,14 @@ func close() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not active:
 		return
+	# Esc backs out of the conversation (playtest UX gap, 2026-07-10 — Stardew's "Esc closes
+	# whatever menu you're in" convention). Godot's built-in "ui_cancel" action (Escape) is used
+	# as-is; project.godot doesn't override it. Additive: the existing close paths (advancing
+	# past a terminal node) are untouched, and close() already unfreezes player and NPC
+	# unconditionally, so backing out mid-conversation can never leave either stuck.
+	if event.is_action_pressed("ui_cancel"):
+		close()
+		return
 	var choices := DialogueDB.node_choices(_current_node())
 	if not choices.is_empty() and _is_fully_revealed():
 		if event.is_action_pressed("move_up"):

@@ -36,6 +36,18 @@ const SLOT_SIZE := 14.0
 const SELECTED_COLOR := Color("#ffc948")  # lamplight gold — GDD.md §9 settlement anchor palette
 const EMPTY_BG_COLOR := Color("#281a0b", 0.75)  # warm near-black, per §9
 
+## World-grid cell size in pixels — same 16px tile as player.gd/structures.gd's own CELL_SIZE
+## consts; needed here for the chest walk-away distance check below.
+const CELL_SIZE := 16.0
+## Player-to-chest distance (px) beyond which an open chest/storage UI auto-closes (playtest UX
+## gap, 2026-07-10 — Stardew's walking away from an open chest closes it). Interacting range is
+## exactly 1 tile (use_tool targets the cell directly ahead, so the player's center sits ~16px
+## from the chest's center when interacting, ~23px at the worst diagonal shuffle around it) —
+## 3 tiles (48px) is that range plus a comfortable 2 tiles of slack: the player can shift
+## freely around the chest while sorting, but deliberately walking a couple of tiles away
+## reads as "done with the chest" and closes it.
+const CHEST_CLOSE_DISTANCE := 3.0 * CELL_SIZE
+
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
 @onready var energy_fill: ProgressBar = %EnergyFill
@@ -53,6 +65,11 @@ var _slot_widgets: Array = []
 ## toggle_chest_ui(), and its own parallel widget array (same shape as _slot_widgets above).
 var _chest_inventory: Inventory = null
 var _chest_slot_widgets: Array = []
+## The interacted storage cell toggle_chest_ui() was last opened at — the walk-away auto-close
+## (_process below) measures the player's live distance against this cell's world center.
+var _chest_cell := Vector2i.ZERO
+## The player node, kept from bind_player() for the walk-away distance check.
+var _player: Node = null
 
 
 ## The "WORLD SAVED" notice's timing (Phase 4 Stage 3): fully visible for HOLD seconds, then
@@ -74,10 +91,36 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_inventory"):
 		inventory_grid.visible = not inventory_grid.visible
+	# Esc closes the HUD's toggleable grids too (playtest UX gap, 2026-07-10 — the same
+	# Stardew "Esc backs out of whatever menu you're in" convention dialogue/store/shipping
+	# now follow). Both at once if both are open: these are passive overlays, and "Esc clears
+	# whatever panels are up" is the predictable read. The existing toggles ("I" key,
+	# re-interacting with the chest) keep working unchanged.
+	elif event.is_action_pressed("ui_cancel"):
+		inventory_grid.visible = false
+		chest_grid.visible = false
+
+
+## Walk-away auto-close for the chest/storage grid (see CHEST_CLOSE_DISTANCE's comment): checked
+## continuously while it's open, since nothing freezes the player while a chest is open (it's a
+## passive overlay, not a modal surface).
+func _process(_delta: float) -> void:
+	if chest_grid.visible and _player != null \
+			and chest_out_of_range(_player.global_position, _chest_cell):
+		chest_grid.visible = false
+
+
+## Pure distance rule for the walk-away close (headless-testable, no scene required): whether
+## the player's world position is beyond CHEST_CLOSE_DISTANCE of the storage cell's center.
+static func chest_out_of_range(player_pos: Vector2, chest_cell: Vector2i,
+		max_distance: float = CHEST_CLOSE_DISTANCE) -> bool:
+	var chest_center := (Vector2(chest_cell) + Vector2(0.5, 0.5)) * CELL_SIZE
+	return player_pos.distance_to(chest_center) > max_distance
 
 
 ## Called by main.gd once the player exists.
 func bind_player(player: Node) -> void:
+	_player = player
 	player.energy_changed.connect(_on_energy_changed)
 	_on_energy_changed(player.energy, player.max_energy)
 	player.credits_changed.connect(_on_credits_changed)
@@ -187,7 +230,11 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 ## interacts with the chest. Re-interacting while it's already open closes it again (a simple
 ## toggle, matching the "I" key's inventory_grid behaviour above) rather than needing a separate
 ## close affordance.
-func toggle_chest_ui(inv: Inventory, _cell: Vector2i) -> void:
+func toggle_chest_ui(inv: Inventory, cell: Vector2i) -> void:
+	# The interacted cell anchors the walk-away distance check (see _process above). For a 2x2
+	# shed this is whichever footprint cell was targeted — measuring from the side the player
+	# actually opened it from is the natural anchor.
+	_chest_cell = cell
 	if _chest_inventory == inv and chest_grid.visible:
 		chest_grid.visible = false
 		return
