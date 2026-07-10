@@ -1,10 +1,11 @@
 extends Node2D
 ## Phase 4 building layer: spawns the farmhouse, mayor's fortified house, Marta's store, settler
-## shacks, storage chest, and bulletin board as real, collidable placeholder volumes — one
-## StaticBody2D + one flat-color visual per building, sized to its footprint (top_left + size in
-## cells, from scripts/map_layouts/*.gd's buildings() list). Same "flat-color placeholder,
-## StaticBody2D + ColorRect" pattern as scripts/farm.gd's _spawn_resource_prop, generalized from
-## a fixed 1x1 tree/ore footprint to an arbitrary rectangle.
+## shacks, storage chest, and bulletin board as real, collidable volumes — one StaticBody2D +
+## one visual per building, sized to its footprint (top_left + size in cells, from
+## scripts/map_layouts/*.gd's buildings() list). Phase 6 Art pass 1: the visual is now a
+## Sprite2D with the kind's real PixelLab art when art/buildings/<kind>.png exists, falling back
+## to the original flat-color fill (see _building_texture) — same fallback pattern as farm.gd's
+## _crop_texture.
 ##
 ## ROADMAP.md Phase 4 scope: these are placeholder volumes, not full art/interiors — no NPCs live
 ## in them yet (Phase 5) and no interiors exist. Interactable: the chest (storage), the farmhouse
@@ -100,7 +101,8 @@ var shipping_contents: Dictionary = {}
 var sale_history: Array = []
 
 ## Runtime-placed structures (Phase 4 Stage 2). Each entry: {building_id, kind, top_left, size,
-## placed_day, visual} — visual is the body's ColorRect, recolored in place on completion.
+## placed_day, visual} — visual is the body's visual node (blueprint ColorRect while pending;
+## swapped for the final textured/flat Sprite2D on completion — see _complete_construction).
 var _pending: Array[Dictionary] = []
 var _completed: Array[Dictionary] = []
 ## Completed storage structures' own Inventory instances, keyed by top_left — one fresh instance
@@ -126,14 +128,21 @@ func _spawn_building(building: Dictionary) -> void:
 		_bed_cell = top_left
 	elif kind == "shipping_box":
 		_shipping_box_cell = top_left
-	_spawn_footprint_body(top_left, footprint_size,
-		Color(String(BUILDING_COLORS.get(kind, "#8c8478"))))
+	_spawn_footprint_body(top_left, footprint_size, kind)
 
 
-## The shared "one StaticBody2D + one flat-color ColorRect covering the footprint" spawner —
-## Phase 4 Stage 1's layout-building pattern, factored out so Stage 2's runtime blueprints reuse
-## it verbatim. Returns the ColorRect so completion can recolor it in place.
-func _spawn_footprint_body(top_left: Vector2i, footprint_size: Vector2i, fill: Color) -> ColorRect:
+## The shared "one StaticBody2D + one visual covering the footprint" spawner — Phase 4 Stage 1's
+## layout-building pattern, factored out so Stage 2's runtime blueprints reuse it verbatim.
+## Phase 6 Art pass 1: the *completed* visual is now a Sprite2D textured with the kind's real
+## PixelLab art when it exists (art/buildings/<kind>.png), falling back to a flat-color
+## ImageTexture in the kind's BUILDING_COLORS fill — the exact "real art with graceful
+## placeholder fallback" pattern farm.gd's _crop_texture() established. An under-construction
+## blueprint (`blueprint = true`) still renders EXACTLY as before — a translucent
+## BLUEPRINT_COLOR ColorRect — regardless of whether final art exists; only completion swaps in
+## the textured sprite (see _complete_construction). Returns the visual node (CanvasItem: the
+## blueprint ColorRect or the final Sprite2D) so completion can swap it in place.
+func _spawn_footprint_body(top_left: Vector2i, footprint_size: Vector2i, kind: String,
+		blueprint: bool = false) -> CanvasItem:
 	var px_size := Vector2(footprint_size) * float(CELL_SIZE)
 	# _test_map is typed as the generic Node2D (see class doc — avoids a circular preload with
 	# test_map.gd), so its cell_to_world_center() return type isn't statically known; an explicit
@@ -151,15 +160,42 @@ func _spawn_footprint_body(top_left: Vector2i, footprint_size: Vector2i, fill: C
 	shape.shape = rect
 	body.add_child(shape)
 
-	var visual := ColorRect.new()
-	visual.size = px_size - Vector2(2, 2)
-	visual.position = -visual.size * 0.5
-	visual.color = fill
+	var visual := _make_visual(kind, px_size, blueprint)
 	body.add_child(visual)
 
 	add_child(body)
 	_bodies.append(body)
 	return visual
+
+
+## Builds the footprint's visual node. Blueprint: the Phase 4 Stage 2 translucent-blue ColorRect,
+## unchanged. Final: a Sprite2D centered on the body origin (the body sits at the footprint's
+## world center, and Sprite2D textures are center-anchored by default, so position stays zero).
+func _make_visual(kind: String, px_size: Vector2, blueprint: bool) -> CanvasItem:
+	if blueprint:
+		var rect := ColorRect.new()
+		rect.size = px_size - Vector2(2, 2)
+		rect.position = -rect.size * 0.5
+		rect.color = BLUEPRINT_COLOR
+		return rect
+	var sprite := Sprite2D.new()
+	sprite.texture = _building_texture(kind, px_size)
+	return sprite
+
+
+## Real PixelLab art if the kind's file exists (art/buildings/<kind>.png — see
+## art/buildings/README.md for provenance); otherwise a flat-color placeholder ImageTexture in
+## the kind's BUILDING_COLORS fill (sized like the old ColorRect: footprint minus the 1px
+## margin), so the game still runs — and headless tests still pass — even before/without the
+## generated art present. Same shape as farm.gd's _crop_texture() and hud.gd's icon loading.
+func _building_texture(kind: String, px_size: Vector2) -> Texture2D:
+	var path := "res://art/buildings/%s.png" % kind
+	if ResourceLoader.exists(path):
+		return load(path)
+	var image := Image.create(maxi(int(px_size.x) - 2, 1), maxi(int(px_size.y) - 2, 1),
+		false, Image.FORMAT_RGBA8)
+	image.fill(Color(String(BUILDING_COLORS.get(kind, "#8c8478"))))
+	return ImageTexture.create_from_image(image)
 
 
 ## -- Phase 4 Stage 2: runtime building placement --
@@ -196,10 +232,11 @@ func place_blueprint(building_id: String, top_left: Vector2i) -> bool:
 	var footprint_size := BuildingDB.size_of(building_id)
 	if not can_place(top_left, footprint_size):
 		return false
-	var visual := _spawn_footprint_body(top_left, footprint_size, BLUEPRINT_COLOR)
+	var kind := BuildingDB.kind(building_id)
+	var visual := _spawn_footprint_body(top_left, footprint_size, kind, true)
 	_pending.append({
 		"building_id": building_id,
-		"kind": BuildingDB.kind(building_id),
+		"kind": kind,
 		"top_left": top_left,
 		"size": footprint_size,
 		"placed_day": DayManager.day,
@@ -229,8 +266,16 @@ func _on_day_started(day: int) -> void:
 
 
 func _complete_construction(entry: Dictionary) -> void:
-	var visual: ColorRect = entry["visual"]
-	visual.color = Color(String(BUILDING_COLORS.get(String(entry["kind"]), "#8c8478")))
+	# Phase 6 Art pass 1: completion swaps the blueprint ColorRect for the kind's final visual
+	# (real texture or flat-color fallback) inside the same body — the body, its collision, and
+	# the footprint blocking all stay put; only the visual child changes.
+	var blueprint_visual: CanvasItem = entry["visual"]
+	var body := blueprint_visual.get_parent()
+	blueprint_visual.queue_free()
+	var final_visual := _make_visual(String(entry["kind"]),
+		Vector2(Vector2i(entry["size"])) * float(CELL_SIZE), false)
+	body.add_child(final_visual)
+	entry["visual"] = final_visual
 	_completed.append(entry)
 	if BuildingDB.is_storage(String(entry["building_id"])):
 		_storage_inventories[entry["top_left"]] = Inventory.new()
@@ -335,7 +380,7 @@ func save_state() -> Dictionary:
 
 ## Rebuilds runtime-placed structures from a loaded save: each entry gets its visual body
 ## re-spawned through the same _spawn_footprint_body() the live placement/completion paths use
-## (blueprint-blue for pending, final kind color for completed), and its footprint re-registered
+## (blueprint-blue for pending, final kind art/fill for completed), and its footprint re-registered
 ## in test_map's _runtime_blocked overlay via the same block_cells() call place_blueprint()
 ## makes — re-deriving that overlay rather than serialising it, so the two can't diverge.
 ## Storage inventories (per-shed + the layout chest's) are restored in place.
@@ -359,9 +404,8 @@ func load_state(data: Dictionary) -> void:
 
 
 func _restore_entry(entry: Dictionary, pending: bool) -> void:
-	var fill := BLUEPRINT_COLOR if pending \
-		else Color(String(BUILDING_COLORS.get(String(entry["kind"]), "#8c8478")))
-	entry["visual"] = _spawn_footprint_body(entry["top_left"], entry["size"], fill)
+	entry["visual"] = _spawn_footprint_body(entry["top_left"], entry["size"],
+		String(entry["kind"]), pending)
 	(_pending if pending else _completed).append(entry)
 	_test_map.block_cells(BuildGrid.footprint_cells(entry["top_left"], entry["size"]))
 

@@ -345,7 +345,7 @@ them at Marta's store.
       for the next phase. **Blocked on real humans, not an agent task** — this needs Sarvesh (and
       4 others) actually playing the exported build above and giving feedback; flagged rather
       than silently skipped or faked. Nothing else in this phase depends on it landing first.
-- [ ] Art pass 1 — replace placeholder tiles with proper pixel art: ground tiles, farmland,
+- [x] Art pass 1 — replace placeholder tiles with proper pixel art: ground tiles, farmland,
       player character, 3 NPCs, basic buildings. Ground tiles/farmland already had real PixelLab
       art from Phase 1 (untouched, no known issues). **NPCs and the player character: done.**
       Mayor Harlan, Marta, and Scout Kael each got a real PixelLab character (`create_character`
@@ -358,8 +358,21 @@ them at Marta's store.
       building/the grass — caught via screenshot, not assumed). Also repaired: the player
       character's north-view had actual face patches painted onto several idle/walk/tool frames
       (worse than `art/characters/README.md` had originally flagged — a simple neck sliver), now
-      fixed frame-by-frame. **Basic buildings — not yet started**, separate follow-up stage via
-      PixelLab's `create_map_object`.
+      fixed frame-by-frame. **Basic buildings: done.** All 10 building kinds (farmhouse,
+      mayor_house, store, shack, chest, bulletin_board, bed, shipping_box, shelter_tent,
+      storage_shed) got real PixelLab art via `create_map_object` (basic mode, `low top-down` to
+      match the characters, one generation per kind — every instance of a kind, e.g. all 4
+      shacks, shares one texture). `create_map_object`'s 32x32 minimum canvas couldn't produce
+      the 5 kinds with 16x16 (1x1-cell) footprints directly; resolved by generating at 32x32 and
+      downscaling 2x with a modal-block kernel (each output pixel takes the most frequent color
+      among its source block's opaque pixels) chosen over nearest-neighbor (broke up fine
+      details) and box-average (blurry, and erased the chest's clasp) — verified visually at
+      true in-game scale. `scripts/structures.gd`'s building-visual spawner now loads real art
+      when `art/buildings/<kind>.png` exists, falling back to the original flat-color fill
+      otherwise (same pattern as `farm.gd`'s crop art); the Phase 4 Stage 2 translucent-blue
+      under-construction blueprint visual is untouched — only a *completed* building's visual
+      swaps to the final art, confirmed via a screenshot showing a real Storage Shed standing
+      next to a still-translucent pending Shelter Tent blueprint in the same frame.
 - [x] First demo build exported (Windows). Godot 4.7's official Windows export templates
       installed (`~/Library/Application Support/Godot/export_templates/4.7.stable/`, downloaded
       from the official GitHub release, ~1.3GB), a hand-authored `export_presets.cfg` (Windows
@@ -385,6 +398,20 @@ a bug), and a soak-test stage confirmed three concurrent `day_started` subscribe
 construction completion, shipping sale) resolve together with exact, non-double-counted state.
 Verified no reformatting noise, clean save-file hygiene. Visually confirmed via screenshots: "B"
 pressed mid-dialogue produces no build-mode overlay, dialogue box undisturbed.
+
+**Art pass 1 (buildings half) verified independently:** re-ran the full suite myself (187/187,
+unchanged — a pure art/rendering swap) and both `tools/runtime_smoke.gd` and `tools/soak_test.gd`
+(both exercise real building placement/completion, so the blueprint-vs-completed visual swap and
+collision footprints are proven, not just passing by coincidence). Confirmed all 10 generated
+PNGs' actual pixel dimensions exactly match their expected footprint sizes (e.g. farmhouse
+48x32, the 5 downscaled props genuinely 16x16) — `structures.gd` loads them unscaled, so a
+mismatch would have misaligned the sprite against its collision body. Read through
+`structures.gd`'s diff — the blueprint/final visual split is clean and correctly preserves the
+Phase 4 Stage 2 under-construction rendering byte-for-byte. Visually confirmed via screenshots:
+the town's building cluster, Marta's store close-up, all three 16px farmhouse-service-row props
+reading distinctly at true scale, and — the most important check — a real Storage Shed and a
+still-translucent pending Shelter Tent blueprint together in one frame, proving completion is
+what triggers the art swap, not placement.
 
 **Milestone (end of Year 1): Vertical slice demo complete.** Full farming loop, one town, 3 NPCs,
 auto-save, day/night cycle working.
