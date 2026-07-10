@@ -57,6 +57,12 @@ signal store_requested(npc: Node)
 ## True while a conversation is open — player.gd's _in_dialogue() reads this directly (same
 ## shape as builder.gd's `active`).
 var active := false
+## Phase 6: the shared modal mutual-exclusion registry (scripts/modal_gate.gd), assigned by
+## main.gd — open_dialogue() refuses while any other modal surface (build mode, store, shipping
+## UI) is open. Structurally this was already unreachable (player.use_tool(), the only trigger,
+## can't fire while build mode or another freeze-surface is active), but the gate makes the
+## invariant explicit rather than incidental to player.gd's dispatch details.
+var modal_gate: RefCounted = null
 var npc: Node = null
 
 var _node_id := ""
@@ -84,6 +90,8 @@ func _process(delta: float) -> void:
 ## (defensive — every roster NPC has one, see tests/test_dialogue_db.gd).
 func open_dialogue(target_npc: Node) -> void:
 	if active or not DialogueDB.has_dialogue(String(target_npc.npc_id)):
+		return
+	if modal_gate != null and modal_gate.is_any_open_except(self):
 		return
 	npc = target_npc
 	npc.set_talking(true)

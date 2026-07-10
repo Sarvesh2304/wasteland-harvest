@@ -43,6 +43,13 @@ const LABEL_OUTLINE := Color("#281a0b")        # warm near-black, same as HUD ou
 var active := false
 var catalog_index := 0
 
+## Phase 6: the shared modal mutual-exclusion registry (scripts/modal_gate.gd), assigned by
+## main.gd alongside bind(). set_active(true) refuses while any OTHER modal surface (dialogue
+## box, store, shipping UI) is open — before this, pressing "B" mid-conversation turned build
+## mode on underneath the open dialogue, and one "use_tool" press then advanced the dialogue AND
+## confirmed a blueprint placement simultaneously (see modal_gate.gd's class doc).
+var modal_gate: RefCounted = null
+
 var _player: Node = null
 var _test_map: Node = null
 var _structures: Node = null
@@ -83,7 +90,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		confirm_placement()
 
 
+## Entering build mode is refused while another modal UI is open (see modal_gate's comment
+## above); leaving (value == false) is never gated — cancel must always work.
 func set_active(value: bool) -> void:
+	if value and modal_gate != null and modal_gate.is_any_open_except(self):
+		return
 	active = value and _player != null
 	_preview.visible = active
 	_label.visible = active

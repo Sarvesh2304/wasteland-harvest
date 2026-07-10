@@ -46,6 +46,11 @@ const LEAVE_DESCRIPTION := "Thanks for stopping by."
 ## True while the store is open — player.gd's _in_store() reads this directly (same shape as
 ## dialogue_ui.gd's `active`/builder.gd's `active`).
 var active := false
+## Phase 6: the shared modal mutual-exclusion registry (scripts/modal_gate.gd), assigned by
+## main.gd — open_store() refuses while any other modal surface is open (see dialogue_ui.gd's
+## matching comment; the dialogue→store handoff still works because dialogue_ui closes itself
+## BEFORE emitting store_requested).
+var modal_gate: RefCounted = null
 
 var _player: Node = null
 ## The catalog's item ids plus a trailing "" sentinel for the "Leave" row.
@@ -78,6 +83,8 @@ func bind(player: Node) -> void:
 ## stage there is only one store, so the catalog itself doesn't vary by npc).
 func open_store(_target_npc: Node) -> void:
 	if active or _player == null:
+		return
+	if modal_gate != null and modal_gate.is_any_open_except(self):
 		return
 	active = true
 	box.visible = true

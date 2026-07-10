@@ -327,10 +327,20 @@ economy loop is closed and verified end to end: harvest → ship overnight → C
 them at Marta's store.
 
 ### Phase 6 — First Playable Build & Stabilisation
-- [ ] All Year 1 systems integrated — farming, inventory, economy, NPCs, day/night, auto-save
-      work together without conflicts
-- [ ] Bug-fixing sprint — play through 5 in-game days end to end; fix crashes, edge cases,
-      broken tile interactions
+- [x] All Year 1 systems integrated — farming, inventory, economy, NPCs, day/night, auto-save
+      work together without conflicts. Found and fixed a real cross-system input conflict: none
+      of the four modal UIs (build mode, dialogue, store, shipping box) marked input as handled,
+      so pressing "B" mid-conversation could turn build mode on *underneath* an open dialogue,
+      after which a single keypress would double-drive both. New `scripts/modal_gate.gd` — a
+      shared per-scene mutual-exclusion registry, three lines to wire in per surface — closes it;
+      documented as reusable for future modal UIs (quest journal, pause menu, etc.).
+- [x] Bug-fixing sprint — play through 5 in-game days end to end; fix crashes, edge cases,
+      broken tile interactions. New `tools/soak_test.gd`: a continuous 6-day playthrough (not
+      per-feature isolation like `runtime_smoke.gd`) with genuinely concurrent systems — 3 crop
+      plots growing, 2 buildings under construction, 2 NPC conversations, a store purchase, 2
+      shipping sales, and a mid-session save/reload — confirming multiple `day_started`
+      subscribers (crop growth, construction completion, shipping sale) resolve correctly
+      together with no double-crediting or corrupted state.
 - [ ] Internal playtesting — 3–5 people play it; note confusion/breakage/fun; prioritise fixes
       for the next phase. **Blocked on real humans, not an agent task** — this needs Sarvesh (and
       4 others) actually playing the exported build above and giving feedback; flagged rather
@@ -349,6 +359,19 @@ them at Marta's store.
       end-to-end and is now a one-command operation for any future session — but this specific
       build predates the bug-fixing sprint and Art Pass 1 below, so re-export once those land
       before handing a build to actual playtesters.
+
+**Integration + bug-fixing sprint verified independently:** re-ran the full suite myself
+(187/187 unit tests, +10 new pinning `modal_gate.gd`'s pure `any_open()` logic including a test
+that reproduces the exact reported bug shape) and both `tools/runtime_smoke.gd` and the new
+`tools/soak_test.gd`, each passed cleanly twice in a row. Read through `modal_gate.gd` and its
+wiring into all 4 modal surfaces — a clean, minimal, correctly-reasoned fix (closing is never
+gated, only opening; the dialogue→store handoff still works because `dialogue_ui` closes itself
+before emitting `store_requested`, verified this ordering holds). Confirmed no other integration
+bugs beyond the one fixed — the HUD's inventory-grid toggle is correctly non-modal by design (not
+a bug), and a soak-test stage confirmed three concurrent `day_started` subscribers (crop growth,
+construction completion, shipping sale) resolve together with exact, non-double-counted state.
+Verified no reformatting noise, clean save-file hygiene. Visually confirmed via screenshots: "B"
+pressed mid-dialogue produces no build-mode overlay, dialogue box undisturbed.
 
 **Milestone (end of Year 1): Vertical slice demo complete.** Full farming loop, one town, 3 NPCs,
 auto-save, day/night cycle working.

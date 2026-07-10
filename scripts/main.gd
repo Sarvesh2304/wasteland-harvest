@@ -18,11 +18,17 @@ extends Node2D
 ## The day/night CanvasModulate and DayManager autoload run themselves.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
+const ModalGate := preload("res://scripts/modal_gate.gd")
 
 @onready var test_map: Node2D = $TestMap
 @onready var player: CharacterBody2D = $Player
 @onready var camera: Camera2D = $GameCamera
 @onready var hud: CanvasLayer = $HUD
+
+## Phase 6: the shared modal mutual-exclusion registry (see modal_gate.gd's class doc). Owned
+## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
+## Exposed as a plain field so the test tooling (tools/soak_test.gd) can inspect it.
+var modal_gate: ModalGate = ModalGate.new()
 
 
 func _ready() -> void:
@@ -65,6 +71,13 @@ func _ready() -> void:
 	player.shipping_box_requested.connect(shipping_ui.open_box)
 	player.shipping_ui = shipping_ui
 	structures.crops_sold.connect(player.add_credits)
+	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
+	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
+	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
+	# modal UIs like quest journals or pause menus).
+	for surface in [builder, dialogue_ui, store_ui, shipping_ui]:
+		modal_gate.register(surface)
+		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
 	# before this scene instantiates (see settlement_select.gd's resume path); an empty result
 	# means new game -> grant the one-time settlement starting bonus instead. Applied here, after

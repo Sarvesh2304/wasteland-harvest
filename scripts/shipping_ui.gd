@@ -48,6 +48,10 @@ const INFO_TEXT := "Crops ship overnight. Credits arrive in the morning — no t
 ## True while the UI is open — player.gd's _in_shipping() reads this directly (same shape as
 ## store_ui.gd's/dialogue_ui.gd's/builder.gd's `active`).
 var active := false
+## Phase 6: the shared modal mutual-exclusion registry (scripts/modal_gate.gd), assigned by
+## main.gd — open_box() refuses while any other modal surface is open (see dialogue_ui.gd's
+## matching comment for why this is explicit belt-and-suspenders, not a reachable-today gap).
+var modal_gate: RefCounted = null
 
 var _player: Node = null
 var _structures: Node = null
@@ -75,6 +79,8 @@ func bind(player: Node, structures: Node) -> void:
 
 func open_box() -> void:
 	if active or _player == null or _structures == null:
+		return
+	if modal_gate != null and modal_gate.is_any_open_except(self):
 		return
 	active = true
 	box.visible = true
