@@ -19,10 +19,16 @@ extends CharacterBody2D
 ## where two wander zones overlap, another NPC — bails out early exactly like player.gd's
 ## _process_step() does, instead of pushing through.
 ##
-## Sprite: a flat-color two-tone placeholder (body + darker head band), matching Phase 4's
-## flat-color placeholder buildings — deliberately no PixelLab generation this stage, since
-## Phase 6's "Art pass 1" checklist item explicitly covers proper pixel art for these exact
-## 3 NPCs; documented here the way structures.gd documents the same call for buildings.
+## Sprite (Phase 6 "Art pass 1"): a real AnimatedSprite2D driven by per-NPC PixelLab
+## SpriteFrames (NPC_FRAMES below) — the same idle_<facing>/walk_<facing> animation-name
+## convention scenes/player.tscn + scripts/player.gd established (see player.gd's _play()).
+## NPCs never use tools, so there is deliberately no tool_* set (see art/characters/README.md's
+## animation-scope note). `facing` is derived from each wander step's direction the way
+## player.gd derives it from input; since wander steps are always one cardinal cell
+## (npc_grid.gd's candidate_steps), the derivation is exact, never diagonal-ambiguous.
+## An npc_id with no NPC_FRAMES entry (a future roster addition whose art doesn't exist yet)
+## falls back to Phase 5's flat-color two-tone placeholder rect, so a new NPC is visible and
+## testable before its art pass.
 ##
 ## Save/load: NPC state is deliberately not serialised — positions are cosmetic wander noise
 ## with no gameplay meaning yet (schedules are Phase 7's), so a reload simply respawns each NPC
@@ -37,7 +43,23 @@ const WALK_SPEED := 24.0
 const IDLE_SECONDS_MIN := 2.0
 const IDLE_SECONDS_MAX := 6.0
 
-## Placeholder body fills per npc id — locked GDD.md §9 settlement-anchor hexes. Deliberately
+## Phase 6 Art pass 1: real PixelLab SpriteFrames per npc id (generated through the exact
+## pipeline art/characters/README.md documents for the player — 16px character, 24x24 canvas,
+## low top-down, 4 directions, idle + walk). Each design keeps its Phase 5 placeholder identity
+## color as its dominant costume tone (see NPC_COLORS below) so the mutual-contrast reasoning
+## that picked those colors still holds with real art.
+const NPC_FRAMES := {
+	"mayor_harlan": preload("res://art/characters/mayor_harlan/mayor_harlan_frames.tres"),
+	"marta": preload("res://art/characters/marta/marta_frames.tres"),
+	"scout_kael": preload("res://art/characters/scout_kael/scout_kael_frames.tres"),
+}
+## Matches player.tscn's Sprite offset: the 24x24 canvas is centered with feet toward the cell
+## center, so the sprite rides a little above the feet-box collision shape.
+const SPRITE_OFFSET := Vector2(0, -5)
+
+## Placeholder body fills per npc id — locked GDD.md §9 settlement-anchor hexes, kept as the
+## fallback for roster ids with no NPC_FRAMES art yet (and as each character's palette anchor:
+## real art keeps its placeholder identity color as the dominant costume tone). Deliberately
 ## NOT the same hex as each NPC's associated building (structures.gd's BUILDING_COLORS): an
 ## early pass echoed Harlan's scavenged-metal house / Marta's dusty-amber store / a leaf-green
 ## "scout" read directly, which sounded thematic on paper but visually camouflaged every NPC
@@ -60,12 +82,18 @@ var home := Vector2i.ZERO
 var wander_radius := 2
 ## Frozen mid-conversation (set via set_talking by scripts/dialogue_ui.gd).
 var talking := false
+## Which way the NPC faces, driving animation names ("idle_south" etc.) — same convention and
+## same retained-when-still rule as player.gd's facing. Updated only when a wander step begins
+## (steps are the only thing that moves an NPC), so idling keeps the last walked direction.
+var facing := "south"
 
 var _test_map: Node2D = null
 var _idle_left := 0.0
 var _stepping := false
 var _step_target := Vector2.ZERO
 var _rng := RandomNumberGenerator.new()
+## The real-art sprite (null when this npc_id has no NPC_FRAMES entry and uses the placeholder).
+var _sprite: AnimatedSprite2D = null
 
 
 ## Called by scripts/npcs.gd before add_child (so _ready sees everything set).
@@ -82,17 +110,19 @@ func _ready() -> void:
 	collision_mask = 1 | 2   # world + player: steps stop on contact rather than overlapping
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING  # same top-down mode as player.tscn
 	_build_collision_shape()
-	_build_placeholder_sprite()
+	_build_sprite()
 	_idle_left = _rng.randf_range(IDLE_SECONDS_MIN, IDLE_SECONDS_MAX)
 
 
 func _physics_process(_delta: float) -> void:
 	if talking:
 		velocity = Vector2.ZERO
+		_play("idle")
 		return
 	if _stepping:
 		_process_step()
 		return
+	_play("idle")
 	_idle_left -= get_physics_process_delta_time()
 	if _idle_left <= 0.0:
 		_begin_step()
@@ -127,7 +157,9 @@ func _begin_step() -> void:
 		func(cell: Vector2i) -> bool: return not _test_map.is_blocked_at(cell))
 	if candidates.is_empty():
 		return
-	_step_target = _test_map.cell_to_world_center(candidates[_rng.randi_range(0, candidates.size() - 1)])
+	var target_cell: Vector2i = candidates[_rng.randi_range(0, candidates.size() - 1)]
+	facing = facing_from_step(target_cell - current, facing)
+	_step_target = _test_map.cell_to_world_center(target_cell)
 	_stepping = true
 
 
@@ -141,6 +173,7 @@ func _process_step() -> void:
 		_stepping = false
 		return
 	velocity = to_target.normalized() * WALK_SPEED
+	_play("walk")
 	move_and_slide()
 	if get_slide_collision_count() > 0:
 		velocity = Vector2.ZERO
@@ -154,6 +187,42 @@ func _build_collision_shape() -> void:
 	shape.shape = rect
 	shape.position = Vector2(0, 2)
 	add_child(shape)
+
+
+## Real art when this npc_id has a NPC_FRAMES entry; Phase 5's flat-color placeholder otherwise
+## (see the class doc's sprite section for why the fallback is kept).
+func _build_sprite() -> void:
+	if NPC_FRAMES.has(npc_id):
+		_sprite = AnimatedSprite2D.new()
+		_sprite.sprite_frames = NPC_FRAMES[npc_id]
+		_sprite.position = SPRITE_OFFSET
+		add_child(_sprite)
+		_play("idle")
+		return
+	_build_placeholder_sprite()
+
+
+## Same animation-selection rule as player.gd's _play(): "<action>_<facing>", switched only when
+## it actually changes (so looping animations aren't restarted every physics frame), guarded on
+## the animation existing. No-op on the placeholder path (_sprite is null).
+func _play(action: String) -> void:
+	if _sprite == null:
+		return
+	var animation := "%s_%s" % [action, facing]
+	if _sprite.sprite_frames.has_animation(animation) \
+			and (_sprite.animation != animation or not _sprite.is_playing()):
+		_sprite.play(animation)
+
+
+## Pure facing rule for a one-cell cardinal wander step (headless-testable like player.gd's
+## facing_from_input, which it mirrors — horizontal wins ties, though npc_grid.gd's cardinal-only
+## steps can never actually produce one; Vector2i.ZERO keeps the current facing).
+static func facing_from_step(step: Vector2i, current: String) -> String:
+	if step == Vector2i.ZERO:
+		return current
+	if absi(step.x) >= absi(step.y) and step.x != 0:
+		return "east" if step.x > 0 else "west"
+	return "south" if step.y > 0 else "north"
 
 
 ## Two-tone flat-color stand-in (see class doc): a body rect in the NPC's identity color with a

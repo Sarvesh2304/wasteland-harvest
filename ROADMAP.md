@@ -346,7 +346,20 @@ them at Marta's store.
       4 others) actually playing the exported build above and giving feedback; flagged rather
       than silently skipped or faked. Nothing else in this phase depends on it landing first.
 - [ ] Art pass 1 — replace placeholder tiles with proper pixel art: ground tiles, farmland,
-      player character, 3 NPCs, basic buildings
+      player character, 3 NPCs, basic buildings. Ground tiles/farmland already had real PixelLab
+      art from Phase 1 (untouched, no known issues). **NPCs and the player character: done.**
+      Mayor Harlan, Marta, and Scout Kael each got a real PixelLab character (`create_character`
+      + `animate_character`, the exact player-character pipeline: 16px/24x24 canvas, 4
+      directions, low top-down, idle + walk only — no tool animation, since NPCs never use
+      tools) via `scripts/npc.gd`'s new `AnimatedSprite2D`/`NPC_FRAMES` wiring (facing tracked the
+      same way `player.gd` derives it, animation names `<action>_<facing>`); each NPC's
+      placeholder identity color was kept as its dominant costume tone but reassigned for mutual
+      contrast (the original 1:1 building-color mapping camouflaged every NPC against its own
+      building/the grass — caught via screenshot, not assumed). Also repaired: the player
+      character's north-view had actual face patches painted onto several idle/walk/tool frames
+      (worse than `art/characters/README.md` had originally flagged — a simple neck sliver), now
+      fixed frame-by-frame. **Basic buildings — not yet started**, separate follow-up stage via
+      PixelLab's `create_map_object`.
 - [x] First demo build exported (Windows). Godot 4.7's official Windows export templates
       installed (`~/Library/Application Support/Godot/export_templates/4.7.stable/`, downloaded
       from the official GitHub release, ~1.3GB), a hand-authored `export_presets.cfg` (Windows
