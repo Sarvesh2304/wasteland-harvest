@@ -6,7 +6,13 @@ ColorRect placeholder volumes, Phase 4), one generation per kind — every insta
 `_building_texture()`: real art when `art/buildings/<kind>.png` exists, flat-color fallback
 otherwise (same pattern as `farm.gd`'s `_crop_texture()`).
 
-## Generation parameters (all 10 objects)
+## Generation parameters (all 10 objects) — SUPERSEDED, see "Revision note" below
+
+**2026-07-10 update: the `view`/`shading` choices below read as too 3D/isometric in play and
+were replaced (`view: high top-down` + `shading: flat shading`) — see the "Revision note"
+section at the end of this file for what changed and why. This section is left as-is for
+historical record of the original Phase 6 pass; the shipped PNGs reflect the revision, not
+this section.**
 
 `mcp__pixellab__create_map_object`, **basic mode** (no `background_image`): this codebase
 renders buildings as separate sprites floating over the ground TileMapLayers, not painted into
@@ -76,3 +82,86 @@ shipped PNGs here are the only copies.
 
 **Palette note:** these were generated directly against the *boosted* (Phase 3-revised) GDD §9
 hex values, so unlike the Phase 1-2 art they need no retroactive HSV boost.
+
+## Revision note (2026-07-10, same session as Phase 6's first buildings pass): too 3D/isometric
+
+**The problem:** after playing the game, Sarvesh's exact feedback on
+`build/screenshots/shot_buildings_blueprint_vs_complete_4x.png` (Mayor Harlan's fortified house,
+the worst offender) was that the art "looks 3D, instead of top-down 2D with a little depth for
+3D-like effect of Stardew Valley." On inspection this was correct: the original pass's
+`view: low top-down` gave every building visible converging left-face/right-face/roof-face
+shading — a real rendered 3D box volume, reading as a small isometric diorama sitting on its own
+dirt-patch base, not Stardew's actual building convention (a flat front elevation with a bit of
+roof visible from above). This is the same class of problem `CLAUDE.md` explicitly chose plain
+top-down to avoid (learned the hard way in Blood Fields: Empires) — it had crept back in via an
+art-generation-parameter choice, not an engine/architecture one, since `low top-down` was
+originally chosen to match the *characters*, not because it suited architecture.
+
+**What was tested:** ran 7 candidates of `mayor_house` (the flagged offender) varying `view`
+(`low top-down` vs `high top-down`) and `shading` (`basic shading` vs `flat shading`), all at
+64x48, basic mode, before touching any other kind:
+
+| Candidate | view | shading | Verdict |
+|---|---|---|---|
+| A | high top-down | basic shading | Still a rendered 3D box (dark blue slate roof implies real volume) |
+| B | low top-down | basic shading | Same as the original shipped art — isometric diorama |
+| **C** | **high top-down** | **flat shading** | **Flat front-facing gable, no converging side faces — winner** |
+| D | low top-down | flat shading | Still shows a visible left wall + ground plinth |
+| E | high top-down | flat shading (verbose color prompt) | Still isometric — extra prompt detail didn't fix it, shading did |
+| F | high top-down | flat shading ("no side walls" prompt wording) | Still isometric — anti-3D prompt language alone doesn't work |
+| G | side | flat shading | Isometric corner view, worse than C |
+
+The deciding factor was **`shading: flat shading` combined with `view: high top-down`**, not
+elaborate anti-isometric prompt wording (E, F, G tried that and still came out isometric) — flat
+shading removes the per-face gradient that PixelLab uses to imply a 3D volume, and `high
+top-down` (the same flatter looking-straight-down angle already used for ground tiles) supplies
+a front elevation instead of a 3/4 character-style angle. `detail: low detail` and `outline:
+single color outline` were kept unchanged from the original pass (not the source of the
+problem).
+
+**What changed:** all 10 kinds regenerated with `view: high top-down`, `shading: flat shading`,
+`detail: low detail`, `outline: single color outline`, basic mode (no `background_image`) — the
+same recipe as candidate C above, applied uniformly. Per-kind `BUILDING_COLORS` identity-anchor
+hex, footprint pixel sizes, and canvas-vs-shipped sizing are all **unchanged** from the table
+above (still one generation per kind, same dimensions). The 5 kinds needing the 32x32-generate
+to 16x16-modal-block-downscale treatment (chest, bulletin_board, bed, shipping_box,
+shelter_tent) needed one extra prompt-wording round each after the first flat-shading pass still
+came out corner-view-y at that small a canvas (small square objects without an obvious "front"
+default to a 3/4 corner view even under flat shading) — adding explicit "flat front view... no
+corner angle" (chest, shipping_box) or "viewed straight from above... no perspective tilt" (bed)
+language to the description fixed it. `bulletin_board` and `shelter_tent` came out flat on the
+first flat-shading attempt with no extra wording needed. The modal-block downscale kernel
+(unchanged from the original pass, same alpha>=200 / most-frequent-color-per-2x2-block logic)
+was re-verified against the new flatter-style art and still reads well at 16x16 — the smaller
+canvas loses some fine detail (shelter_tent's tent shape gets a little mushy) but no worse than
+the original pass's downscale, and no kind's identity color got lost.
+
+**New object ids (all generated 2026-07-10, this revision):**
+
+| Kind | Object id | Recipe notes |
+|---|---|---|
+| `mayor_house` | `8198e633-3009-4e74-9251-ba2a73e3c324` | Candidate C, the winning recipe |
+| `store` | `78a51e4e-d630-4a6a-bf5e-8e19d96f11cc` | First attempt at winning recipe |
+| `farmhouse` | `6dd79dbb-da9c-49ba-bf4b-4073133036bd` | First attempt at winning recipe |
+| `shack` | `192ce50f-6560-4535-b611-6b7115e97aca` | Second attempt — added "dollhouse front, no corner angle" wording |
+| `storage_shed` | `167b1de0-3169-4198-be00-851888bef003` | Second attempt — same added wording |
+| `chest` | `8a2897d7-1c2b-4559-b2bd-fe7cfe5ea9ed` | Second attempt — added "flat front view...no corner angle" wording |
+| `bulletin_board` | `42a62c67-9ecc-4493-827e-73e9515d7f1d` | First attempt, no extra wording needed |
+| `bed` | `1e8e1c7b-5167-4882-b95c-4d4c5ab8d0d8` | Second attempt — added "viewed straight from above...no perspective tilt" wording |
+| `shipping_box` | `f5d92b6c-5fe4-451e-bf46-a1c37030757a` | Second attempt — same "flat front view" wording as chest |
+| `shelter_tent` | `7a5f1375-3b21-475f-8f45-a6dad7f230f4` | First attempt, no extra wording needed |
+
+Same 8-hour map-object auto-delete caveat as the original pass applies — these ids are
+historical provenance only, the shipped PNGs are the only copies. `scripts/structures.gd` was
+not touched; it already loads whatever PNG is at `art/buildings/<kind>.png`, so this was a pure
+asset swap.
+
+**Verification:** full test suite (196/196), `tools/runtime_smoke.gd`, and `tools/soak_test.gd`
+all re-run clean after the swap. Screenshots retaken with `tools/screenshot_buildings.gd`
+(unchanged) at `build/screenshots/` (same 4 filenames as before); the pre-revision versions were
+preserved at `build/screenshots_before_revision/` for direct side-by-side comparison, since
+`build/` is gitignored and has no git history to diff against otherwise. **Important operational
+note for future asset-swap sessions:** overwriting a PNG in place does not automatically
+invalidate Godot's `.import` cache — a `godot --headless --path . --import` pass (standing
+headless approval, not the GUI editor) was required before the windowed screenshot run actually
+picked up the new art; the first screenshot attempt silently rendered the stale cached texture.
