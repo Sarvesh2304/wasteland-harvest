@@ -572,6 +572,18 @@ they could be reconciled into the roadmap's phase checklists — which has since
    GDD adds a few other small human settlements reachable via trade routes and, later, player
    vehicles — visitable trading destinations with their own merchants and quest hooks. Reconciled
    into Phase 14 (world map / expanded world), alongside vehicle unlocks.
+3. **A Ranch/Sanctuary compound and NPC for the "Animals & pets" system (§8, "Animals & pets";
+   flagged 2026-07-12).** This GDD has designed a full livestock system (normal vs. mutated
+   animals, a yield-vs-hardiness tradeoff, mixed herds as strategy) since Phase 1, but
+   ROADMAP.md never assigned it a building type, an NPC, or a map location — Phase 8's building
+   list had a generic "Storage Barn" but nothing for housing or buying livestock specifically.
+   Reconciled: `MAPS.md` §3 sketches a dedicated Ranch/Sanctuary compound south of the farm
+   (studied against Marnie's Ranch's *structural* role only, see `docs/STARDEW_REFERENCE.md` —
+   a separate small compound, not a town-plaza building, where the player buys stock from a
+   keeper NPC rather than where the stock is housed), and Phase 8 gets new checklist items: the
+   compound and its keeper NPC, and splitting the generic "Storage Barn" into a distinct
+   Barn/Coop pair (matching the normal/mutated livestock split) the player builds on their own
+   farm to actually house what they buy.
 
 **Minor naming reconciliation, already done:** ROADMAP.md Phase 5 now names the currency
 **"Credits"** (with barter as the parallel non-currency economy), matching this GDD's §7

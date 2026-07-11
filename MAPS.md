@@ -159,7 +159,49 @@ as the starting farm's to-do item, never a threat vector into town.
 
 ---
 
-## 3. The Ruined City — Concept Sketch
+## 3. The Ranch/Sanctuary
+
+**Status (2026-07-12): new, added per `GDD.md` §11's newest scope-addition flag — reconciled
+into `ROADMAP.md` Phase 8.** `GDD.md`'s "Animals & pets" section already designed a full
+livestock system (normal vs. mutated animals, a yield-vs-hardiness tradeoff) but had never been
+given a building type, an NPC, or a place on the map. See `docs/STARDEW_REFERENCE.md` for the
+structural reference this section is built from (Marnie's Ranch, studied for its function and
+layout logic only — not its specific art).
+
+**One shared template, same reasoning as the town core (§2 above):** rather than three bespoke
+ranches, all three starting maps get the same Ranch/Sanctuary compound, re-dressed lightly by
+surrounding terrain, positioned **south of the farm** — a separate small map area, outside the
+town-core's perimeter fence, reached by its own short path off the farm-to-plaza route. It is
+*not* a building slotted into the town plaza: the whole point (per the structural reference) is
+that it reads as its own place, with its own atmosphere, distinct from both farm and town.
+
+**Lore blurb.** Before the war, this land was somebody's smallholding — a working farm that
+kept livestock going back generations. The settlement's founders found the fences half-standing
+and the stock gone feral or dead, except for one stubborn line of animals a lone survivor had
+kept alive through the worst years by force of habit and defiance. That survivor is the
+Sanctuary's keeper now: a rancher who never asked to run the settlement's second economy but
+does it anyway, mixing salvaged pre-war stock with the hardier mutant lines because pure
+bloodlines don't survive on their own out here, not without help.
+
+**Layout sketch.** A fenced compound smaller than the town core: a weathered ranch house/shop
+at its center (the keeper's home and storefront in one, matching the store/home combination
+`GDD.md`'s NPC conventions already use elsewhere), fronted by a small yard. Around it, irregular
+fenced pastures — patched wire and salvaged planks, never one uniform enclosure — holding the
+keeper's own visible stock: a mix of normal (rarer, calmer) and mutant (stranger-looking, more
+numerous) animals wandering in view, so the compound reads as alive and working before the
+player has bought anything. A modest barn/coop pair on-site houses the keeper's own animals
+overnight, visually establishing the building shapes the player will later construct on their
+own farm. The path in from the farm is short and safe (inside the same general safe-zone
+logic as the town, `GDD.md` §4) but the compound itself sits slightly apart — close enough for
+a daily supply run, far enough to feel like its own small world.
+
+**The mechanical split (see `docs/STARDEW_REFERENCE.md`):** the Sanctuary is where the player
+*buys* starting livestock and feed from the keeper; the player's *own* Barn/Coop (built via the
+Phase 8 building-grid system, on the player's own farm) is where bought animals actually live
+and produce. The Sanctuary itself is never the player's storage — it stays the keeper's place,
+a recurring social/economic destination, not a mechanic the player takes over.
+
+## 4. The Ruined City — Concept Sketch
 
 The nearest pre-war city, a manageable travel from the settlement (on foot early;
 trivialized by the scrap buggy later, `GDD.md` §8). Phase 9 builds it as 2–3 hand-crafted

@@ -469,9 +469,22 @@ relationship with them.
       settlers add to population and unlock dialogue/economy options
 - [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
       functioning shop
+- [ ] **Ranch/Sanctuary compound (added per `GDD.md` §8/§11, `MAPS.md` §3)** — a dedicated small
+      map area south of the farm, outside the town-core fence, one shared template across all 3
+      starts (same reasoning as the town core). Houses a rancher-keeper NPC and their own visible
+      mixed herd (normal + mutant stock), reachable via a short safe path from the farm.
+- [ ] **Rancher NPC + livestock shop (added per `GDD.md` §8/§11)** — sells starting normal and
+      mutant animals plus feed/supplies; the purchase point for livestock, not where the player's
+      own animals live (see the Barn/Coop split below). Gets full dialogue/schedule treatment
+      like Phase 5/7's other NPCs once those systems reach this character.
+- [ ] **Barn/Coop building split (added per `GDD.md` §8/§11)** — the generic "Storage Barn" above
+      is resource storage only; add distinct **Barn** (cows/goats/pigs) and **Coop** (chickens)
+      building types the player constructs on their own farm via the building-grid system above,
+      sized/tiered to the yield-vs-hardiness axis (`GDD.md` §8's "Animals & pets"). This is where
+      animals bought from the Ranch/Sanctuary actually live and produce.
 
 **Milestone:** Settlement can grow — buildings, fences, and settlers all function together as a
-real base-building loop.
+real base-building loop, and the player can buy and house their first livestock.
 
 ### Phase 9 — Expedition System: Ruined City & Combat
 - [ ] Ruined city map(s) — 2–3 distinct zones: Downtown Ruins, Industrial Quarter, Residential
