@@ -1,18 +1,23 @@
 extends Control
 ## Day-progress dial (playtest feedback, 2026-07-11 HUD redesign session): a small clock-face
-## meter parked beside the day/clock plaque, showing how far the player is through the current
-## in-game day. Fills clockwise from empty (6:00 AM, the day's start per DayManager) back to
-## empty as DayManager.minutes_into_day advances, then snaps back to empty the instant a new day
-## starts — day_progress_fraction() below is a plain wrap (fposmod), so it never needs its own
-## "day changed" signal wiring; hud.gd just re-derives it from time_changed every tick like the
-## rest of the clock display.
+## meter showing how far the player is through the current in-game day. Fills clockwise from
+## empty (6:00 AM, the day's start per DayManager) back to empty as DayManager.minutes_into_day
+## advances, then snaps back to empty the instant a new day starts — day_progress_fraction()
+## below is a plain wrap (fposmod), so it never needs its own "day changed" signal wiring;
+## hud.gd just re-derives it from time_changed every tick like the rest of the clock display.
 ##
-## Drawn procedurally via _draw() rather than as a new PixelLab plaque bitmap: a vector arc is
-## exactly crisp at any control size (no nearest-neighbor integer-scale concerns at all, unlike
-## the plaque textures or the pixel font — see art/ui/README.md), and reuses the HUD's already-
-## established palette (GDD.md §9: scavenged metal ring, warm near-black backing, lamplight gold
-## fill, the same gold as EnergyBar's fill and the plaque's cracked-glass highlights) so it reads
-## as part of the same corner cluster rather than a new, unrelated visual language.
+## Hosting (second 2026-07-11 pass, Stardew-fusion follow-up): originally a standalone Control
+## parked beside the old ClockPanel plaque; now a child of hud.tscn's DaySign TextureRect
+## (art/ui/hud_day_sign.png — a fused dial+signpost graphic, see art/ui/README.md), sized and
+## positioned to sit exactly on the bitmap's welded dial bezel. The rendering below is unchanged
+## by that move and is still fully procedural (_draw(), vector arcs — exactly crisp at any size,
+## no nearest-neighbor integer-scale concerns unlike the plaque textures or the pixel font): the
+## backing disc deliberately covers the bitmap's baked glass face, so the bitmap contributes the
+## welded metal bezel AROUND the dial while this control owns everything INSIDE it — guaranteed
+## contrast for the fill regardless of what the generated glass texture looked like. Palette is
+## the HUD's established set (GDD.md §9: scavenged metal ring, warm near-black backing,
+## lamplight gold fill, the same gold as EnergyBar's fill) so vector and bitmap read as one
+## object, not an overlay.
 
 const RING_COLOR := Color("#9d9180")          # scavenged metal — GDD.md §9
 const BACKING_COLOR := Color("#281a0b", 0.85) # warm near-black, matches plaque/label outlines

@@ -34,6 +34,22 @@ extends CanvasLayer
 ## added the day-progress dial (%DayDial, scripts/day_dial.gd) beside the clock plaque — see
 ## _on_time_changed below for its wiring.
 ##
+## Stardew-fusion pass (2026-07-11, second HUD session, from a real Stardew screenshot Sarvesh
+## shared): the separate ClockPanel plaque + standalone DayDial were replaced by ONE fused
+## graphic — DaySign (art/ui/hud_day_sign.png, a salvaged-metal dial welded onto a scrap-wood
+## sign), with %DayLabel/%ClockLabel rendering inside the sign's glass window and %DayDial now a
+## child Control aligned to the bitmap's dial bezel (its vector fill math/rendering unchanged —
+## see scripts/day_dial.gd's hosting note). No weather/season slots on the sign: DayManager has
+## neither system yet, and the established convention (see art/ui/README.md's deferred
+## season-icon note) is not to fake a system that doesn't exist. Matching Stardew's actual
+## layout, the EnergyBar also left the top-right column: it now sits bottom-right, its base
+## aligned with the Hotbar's, so the "spend energy using the tool in your hand" readout lives
+## next to the hand instead of across the screen. CreditsPlaque keeps hud_plaque.png but now
+## draws at an exact half-scale 51x24 with native-8px text (was: native 102x48 with 16px text,
+## which screenshot review showed reading BIGGER than the new day sign — backwards from the
+## Stardew reference, where gold is the smaller matching sign below; see art/ui/README.md's
+## Stardew-fusion section for the integer-scale caveat on that rect).
+##
 ## HUD shrink note (2026-07-11, same session): "shrink ~10%" was applied to panel/plaque
 ## graphics, gaps, and the energy bar frame — NOT to any font_size or a blanket Control.scale.
 ## art/ui/README.md's pixel font is only crisp at its native 8px or exact integer multiples

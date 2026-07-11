@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b12pixu32q355" path="res://scripts/hud.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://dv417hi35hixd" path="res://art/ui/hud_plaque.png" id="2_plaque"]
+[ext_resource type="Texture2D" uid="uid://bi4h5ei0dmf3e" path="res://art/ui/hud_day_sign.png" id="5_daysign"]
 [ext_resource type="Texture2D" uid="uid://ba3levq4ypbix" path="res://art/ui/energy_bar_frame.png" id="3_barframe"]
 [ext_resource type="Script" path="res://scripts/day_dial.gd" id="4_daydial"]
 
@@ -26,30 +27,30 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ClockPanel" type="TextureRect" parent="Root" unique_id=846710134]
+[node name="DaySign" type="TextureRect" parent="Root" unique_id=846710134]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -105.0
+offset_left = -125.0
 offset_top = 3.0
 offset_right = -3.0
-offset_bottom = 46.0
+offset_bottom = 40.0
 grow_horizontal = 0
 mouse_filter = 2
-texture = ExtResource("2_plaque")
+texture = ExtResource("5_daysign")
 stretch_mode = 3
 
-[node name="DayLabel" type="Label" parent="Root/ClockPanel" unique_id=1473986878]
+[node name="DayLabel" type="Label" parent="Root/DaySign" unique_id=1473986878]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = 5.0
-offset_right = -24.0
-offset_bottom = -27.0
+offset_left = 51.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -19.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(1, 0.929412, 0.694118, 1)
@@ -59,16 +60,16 @@ text = "Day 1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ClockLabel" type="Label" parent="Root/ClockPanel" unique_id=288122361]
+[node name="ClockLabel" type="Label" parent="Root/DaySign" unique_id=288122361]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = 15.0
-offset_right = -24.0
-offset_bottom = -17.0
+offset_left = 51.0
+offset_top = 18.0
+offset_right = -10.0
+offset_bottom = -11.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(1, 0.929412, 0.694118, 1)
@@ -78,19 +79,30 @@ text = "6:00 AM"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="DayDial" type="Control" parent="Root/DaySign" unique_id=846710136]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 0
+offset_left = 4.0
+offset_top = 3.0
+offset_right = 34.0
+offset_bottom = 33.0
+mouse_filter = 2
+script = ExtResource("4_daydial")
+
 [node name="CreditsPlaque" type="TextureRect" parent="Root" unique_id=846710135]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -89.0
-offset_top = 49.0
+offset_left = -54.0
+offset_top = 43.0
 offset_right = -3.0
-offset_bottom = 83.0
+offset_bottom = 67.0
 grow_horizontal = 0
 mouse_filter = 2
 texture = ExtResource("2_plaque")
-stretch_mode = 3
+expand_mode = 1
 
 [node name="CreditsLabel" type="Label" parent="Root/CreditsPlaque" unique_id=1473986879]
 unique_name_in_owner = true
@@ -98,44 +110,32 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 6.0
-offset_right = -16.0
-offset_bottom = -6.0
+offset_left = 6.0
+offset_top = 1.0
+offset_right = -6.0
+offset_bottom = -7.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(1, 0.929412, 0.694118, 1)
 theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 16
 text = "0 Cr"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="DayDial" type="Control" parent="Root" unique_id=846710136]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -138.0
-offset_top = 10.0
-offset_right = -108.0
-offset_bottom = 40.0
-grow_horizontal = 0
-mouse_filter = 2
-script = ExtResource("4_daydial")
-
 [node name="EnergyBar" type="Control" parent="Root" unique_id=326996762]
 layout_mode = 1
-anchors_preset = 1
+anchors_preset = 3
 anchor_left = 1.0
+anchor_top = 1.0
 anchor_right = 1.0
+anchor_bottom = 1.0
 offset_left = -15.0
-offset_top = 86.0
+offset_top = -60.0
 offset_right = -3.0
-offset_bottom = 144.0
+offset_bottom = -2.0
 grow_horizontal = 0
+grow_vertical = 0
 mouse_filter = 2
 
 [node name="Frame" type="TextureRect" parent="Root/EnergyBar" unique_id=252243193]

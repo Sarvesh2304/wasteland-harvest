@@ -89,6 +89,55 @@ Three changes, no new PixelLab assets:
   than an unrelated new visual language. A season icon was explicitly requested but deferred — no
   season system exists in `DayManager` yet, and faking one wasn't wanted.
 
+## Stardew-fusion pass (2026-07-11, second HUD session)
+
+Sarvesh shared an actual Stardew Valley HUD screenshot: its day/time widget is a circular
+day/night dial fused **into** a hanging signpost as one seamless graphic, with the gold counter
+as a matching-but-separate smaller sign below — not several separate plaques side by side,
+which is what the first redesign session had shipped. One new PixelLab asset replaces the
+separate ClockPanel plaque + standalone vector dial:
+
+- `hud_day_sign.png` — fused day-sign widget (top-right). Asset id
+  `2a454c70-6066-41db-aab3-2b0e877ad09e` ("wasteland_day_sign_dial_fused", 512x192 canvas,
+  seed 7), generated with an explicit two-`pieces` shape template — a circle (dial, virtual
+  coords x=88 y=96 r=84) overlapping a rounded rect (sign, x=150 y=36 w=354 h=120) by ~22
+  virtual px so the generator drew them as one welded object, not two neighbors. Prompted as
+  "salvaged riveted metal gauge dial with a plain dark glass face, welded onto a scrap-wood /
+  patched-corrugated-metal hanging sign with one plain dark cracked-glass window, no text",
+  palette pinned to the GDD §9 settlement-anchor hexes (so no post-hoc HSV boost needed,
+  unlike the Phase 2 assets — this one was generated against the already-revised palette).
+  Content-cropped (full-scale box x 10..498, y 22..170) then downscaled 4x nearest-neighbor
+  to **122x37**. The heavier-than-plaque downscale (4x vs 2x) matches the energy bar frame's
+  8x precedent; the slight speckle it leaves reads as scavenged patina, verified legible in
+  the screenshot pass.
+- **Region map** (final 122x37 texture coords, measured off the bitmap, for anyone moving
+  the overlay nodes in `scenes/hud.tscn`): dial bezel outer circle center ≈ (19, 18),
+  outer radius ≈ 18.5; sign glass window x 50..112, y 11..25. `%DayDial` (30x30, offsets
+  4,3 → 34,33 inside DaySign) is sized so its own vector backing disc (r 15) covers the
+  bitmap's baked glass face exactly, leaving the bitmap's welded bezel visible around it —
+  the bitmap owns the frame, the vector owns the readout (see `scripts/day_dial.gd`'s
+  hosting note; its fill math and rendering are unchanged). `%DayLabel`/`%ClockLabel` are
+  two zero-gap 8px lines centered on the window (boxes y 10..18 and 18..26 — native-8px
+  pixel-font ink lands inside the glass; the window's 61px content width exceeds the 54px
+  the old plaque proved fits "6:00 AM").
+- **No weather/season slots** on the sign, even as placeholders — Stardew's sign has both,
+  but `DayManager` has neither system yet, and the first redesign session's deferred
+  season-icon call (above) already established "don't fake a system that doesn't exist."
+- **EnergyBar relocated** (no new art): out of the top-right column to **bottom-right**,
+  base-aligned with the Hotbar (Stardew keeps energy by the toolbar, not with the clock).
+- **CreditsPlaque touched up, no new art**: same `hud_plaque.png` texture (a regeneration
+  would have spent generations to arrive at the same family read), but now displayed at an
+  exact **half-scale 51x24** (`stretch_mode` SCALE into a rect precisely half the 102x48
+  texture — a 2:1 integer downscale, so nearest-neighbor stays crisp; do NOT resize this
+  rect to a non-half-multiple or it will mush silently) with the credits text dropped from
+  16px to the font's native 8px. Rationale: screenshot review showed the old KEEP_CENTERED
+  plaque actually drew at its full native 102x48 regardless of its 86x34 rect, which made
+  the money sign visibly *bigger and heavier* than the new 122x37 day sign it hangs under —
+  backwards from the Stardew reference, where gold is the *smaller* matching sign below.
+  Half-scale + uniform 8px text makes it clearly subordinate, and shrinks the baked garbled
+  nameplate (which the new day sign deliberately lacks) to unobtrusive texture noise. It
+  hangs 3px under the sign (top 49 → 43), right-aligned.
+
 ## Revision note (Phase 3): palette boosted
 
 `hud_plaque.png` and `energy_bar_frame.png` both had their pixel colors brightened/saturated
