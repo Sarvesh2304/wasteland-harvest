@@ -58,6 +58,37 @@ pixels); larger text uses exact integer multiples only — **16px** for titles/n
 settlement name on the select screen). Never use non-multiple sizes (6/7/11 etc.) — bitmap
 glyphs only scale cleanly at integer multiples of their design size.
 
+## HUD redesign (2026-07-11 playtest feedback session)
+
+Three changes, no new PixelLab assets:
+
+- **Credits relocated.** The Credits readout moved from its own top-left plaque to a second,
+  shorter `hud_plaque.png` instance stacked directly below the day/clock plaque, top-right —
+  matching Stardew's own corner cluster (day/season/gold stacked in one spot) per direct
+  feedback. Same texture, same font/color treatment, just a smaller box (86x34 vs the clock
+  plaque's 102x43) and a new position; no new art.
+- **HUD shrunk ~10%,** applied to plaque/bar-frame **graphics and gaps**, never to `font_size` —
+  see `scripts/hud.gd`'s "HUD shrink note" for the exact numbers. The short version: the clock
+  plaque's width (102, unchanged) stayed put because it's what the widest string this HUD renders
+  ("6:00 AM") is proven to fit at the existing 24px margins; its height dropped ~10% instead,
+  since the bottom third of the plaque bitmap is decorative baked nameplate art the day/clock text
+  never rendered into anyway. The energy bar frame shrank ~10% on both axes since it has no text
+  to protect. All `theme_override_font_sizes` stayed at their existing sanctioned values (8 native
+  / 16 for the Credits/save-notice/sleepy-cue text) — this project's pixel font only stays crisp
+  at those exact sizes (see above), and a fractional `Control.scale` or font_size change was
+  exactly the blur bug this convention exists to prevent, so it wasn't used here even though it
+  would have been the simplest way to hit a literal "10% smaller" everywhere.
+- **Day-progress dial added** (`scripts/day_dial.gd`, `%DayDial` in `hud.tscn`, beside the clock
+  plaque): a small clock-face meter that fills clockwise as `DayManager.minutes_into_day` advances
+  through the current (6 AM-to-6 AM) gameplay day and resets to empty the instant a new day
+  starts. Drawn procedurally via `_draw()` (a vector arc: `draw_circle`/`draw_arc`, no bitmap)
+  rather than as a new PixelLab plaque — a vector arc is exactly crisp at any control size, so it
+  sidesteps the pixel-font/pixel-art integer-scale concerns entirely, while still reusing the
+  established palette (scavenged metal ring, warm near-black backing, lamplight gold fill — the
+  same lamplight gold as the energy bar's own fill) so it reads as part of the same cluster rather
+  than an unrelated new visual language. A season icon was explicitly requested but deferred — no
+  season system exists in `DayManager` yet, and faking one wasn't wanted.
+
 ## Revision note (Phase 3): palette boosted
 
 `hud_plaque.png` and `energy_bar_frame.png` both had their pixel colors brightened/saturated

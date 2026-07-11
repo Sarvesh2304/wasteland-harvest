@@ -8,6 +8,7 @@ export.cfg
 # friction for zero benefit. The actual build output below is what's regenerable/binary and
 # should never be committed.
 build/
+screenshots/
 
 # OS
 .DS_Store

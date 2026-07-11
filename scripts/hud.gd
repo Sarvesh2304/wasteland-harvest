@@ -23,13 +23,36 @@ extends CanvasLayer
 ## note and avoids inventing new input conventions this codebase doesn't have yet (no mouse
 ## drag-and-drop exists anywhere else in the UI).
 ##
-## Phase 5 Stage 2 adds a small Credits plaque (top-left, mirroring the day/clock plaque's own
-## top-right positioning) bound to the player's credits_changed signal — the same bind-a-signal-
-## to-a-label shape as the energy bar, just without a fill/bar (a plain number reads fine for a
-## value this small; a full bar would over-dramatize what's usually a two-digit balance).
+## Phase 5 Stage 2 added a small Credits plaque bound to the player's credits_changed signal — the
+## same bind-a-signal-to-a-label shape as the energy bar, just without a fill/bar (a plain number
+## reads fine for a value this small; a full bar would over-dramatize what's usually a two/three-
+## digit balance). It originally lived top-left, mirroring the day/clock plaque's top-right
+## positioning; a 2026-07-11 HUD redesign session (playtest feedback: "arrange credits the way
+## Stardew shows gold — stacked under the clock, top-right; drop the top-left panel; the HUD
+## takes too much space") moved it to stack directly below the clock plaque instead (see
+## scenes/hud.tscn's CreditsPlaque node) and shrank the whole corner cluster. That same session
+## added the day-progress dial (%DayDial, scripts/day_dial.gd) beside the clock plaque — see
+## _on_time_changed below for its wiring.
+##
+## HUD shrink note (2026-07-11, same session): "shrink ~10%" was applied to panel/plaque
+## graphics, gaps, and the energy bar frame — NOT to any font_size or a blanket Control.scale.
+## art/ui/README.md's pixel font is only crisp at its native 8px or exact integer multiples
+## (16px); a fractional scale on text would reintroduce the exact blur bug that convention exists
+## to prevent. Concretely: the clock plaque's WIDTH stayed at 102 (proven to fit "6:00 AM" at the
+## existing 24px margins — the widest string this HUD renders) while its HEIGHT dropped ~10%
+## (48->43), since the plaque's lower third is baked decorative nameplate art the day/clock text
+## never actually used (see art/ui/README.md's provenance note) — free vertical space to reclaim
+## without touching anything text-critical. The energy bar frame shrank ~10% on both axes
+## (13x64 -> 12x58; no text to protect there). The new Credits plaque is genuinely smaller in
+## area than the old top-left one (86x34 vs 102x48) but keeps the same 54px text content width
+## the old one already proved fits "999 Cr"-scale balances at font_size 16 — only its height
+## shrank, since it now holds one line instead of a taller two-line layout. Inter-element gaps
+## tightened 4px -> 3px throughout. Verified visually via tools/screenshot_hud_credits.gd
+## (before/after) — text reads exactly as crisp in the "after" shot at every size.
 
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
+const DayDial := preload("res://scripts/day_dial.gd")
 
 const HOTBAR_SIZE := Inventory.HOTBAR_SIZE
 const SLOT_SIZE := 14.0
@@ -50,6 +73,7 @@ const CHEST_CLOSE_DISTANCE := 3.0 * CELL_SIZE
 
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
+@onready var day_dial: Control = %DayDial
 @onready var energy_fill: ProgressBar = %EnergyFill
 @onready var credits_label: Label = %CreditsLabel
 @onready var sleepy_label: Label = %SleepyLabel
@@ -301,6 +325,11 @@ func _on_time_changed(day: int, minutes_into_day: float) -> void:
 	var sleepy := DayManager.is_late_night(minutes_into_day)
 	if sleepy_label.visible != sleepy:
 		sleepy_label.visible = sleepy
+	# Day-progress dial (2026-07-11 HUD redesign): re-derived every tick straight from the clock,
+	# same as day_label/clock_label above — no separate "day changed" wiring needed since the
+	# fraction naturally wraps back to 0 the instant a new day's minutes_into_day resets.
+	day_dial.set_fraction(DayDial.day_progress_fraction(
+		minutes_into_day, DayManager.MINUTES_PER_DAY, DayManager.DAY_START_MINUTES))
 
 
 func _on_energy_changed(current: float, max_energy: float) -> void:
