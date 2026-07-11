@@ -11,8 +11,11 @@ extends RefCounted
 ##
 ## ## Roster (ROADMAP: "Marta sells seeds/basic tools/food")
 ## - All 4 Phase 3 seeds — the entire seed catalog, so every crop is plantable from day one.
-## - Both food items (Preserved Rations, Wasteland Stew) — a quick-energy purchase alternative
-##   to cooking/foraging, matching Stardew's general store selling some prepared food too.
+## - Both EVERYDAY food items (Preserved Rations, Wasteland Stew) — a quick-energy purchase
+##   alternative to cooking/foraging, matching Stardew's general store selling some prepared
+##   food too. Scav-Brew Coffee (2026-07-11 forced-sleep session) is deliberately NOT stocked:
+##   GDD.md §4 specifies stay-awake items as RARE, and "buy one every morning at Marta's" would
+##   gut the 2 AM rule — it has no acquisition path at all yet (see items.json's _comment).
 ## - The 4 tools that actually wear out and can break: hoe, watering_can, axe, pickaxe. Sold as
 ##   REPLACEMENTS for a broken tool — player.gd's `_give_starting_loadout()` already grants one
 ##   of each for free at game start, and no repair system exists yet (see player.gd's own

@@ -45,3 +45,18 @@ func test_walking_away_is_out_of_range() -> void:
 func test_custom_max_distance_is_respected() -> void:
 	assert_true(HudScript.chest_out_of_range(CHEST_CENTER + Vector2(20, 0), CHEST, 16.0),
 		"an explicit tighter threshold overrides the default")
+
+
+## -- 2026-07-11 forced-sleep session: the sleepy cue's pure pulse curve --
+
+func test_sleepy_pulse_stays_visible_and_in_alpha_range() -> void:
+	var lowest := 1.0
+	var highest := 0.0
+	for i in 100:  # sweep well past one full ~1.25s cycle
+		var alpha := HudScript.sleepy_pulse_alpha(i * 0.02)
+		lowest = minf(lowest, alpha)
+		highest = maxf(highest, alpha)
+		assert_true(alpha >= 0.0 and alpha <= 1.0, "alpha stays a valid modulate value")
+	assert_true(lowest >= 0.0999, "the trough never fully hides the cue (min ~0.1)")
+	assert_true(highest > 0.95, "the peak reaches full visibility")
+	assert_true(highest - lowest > 0.5, "the pulse actually breathes rather than sitting still")

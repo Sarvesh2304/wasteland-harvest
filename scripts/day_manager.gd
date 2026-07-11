@@ -9,13 +9,23 @@ extends Node
 
 signal time_changed(day: int, minutes_into_day: float)
 signal day_started(day: int)
+## Lived-through clock movement ONLY (2026-07-11 forced-sleep rules): emitted by
+## advance_minutes() — the path real frames drive — and never by skip_to_next_morning() or a
+## direct minutes_into_day teleport (save-loads, test tooling). player.gd's night rules
+## (post-midnight sleepy drain, the 2 AM forced pass-out) ride THIS signal, not time_changed,
+## precisely because a sleep transition's backwards jump to 6 AM and a save-restore are not
+## time the player spent awake: integrating them would drain phantom energy or re-trigger a
+## pass-out mid-transition. prev/new can wrap midnight (new < prev) — advance_minutes only ever
+## moves forward, so a receiver can trust any wrap is a genuine midnight crossing.
+signal time_advanced(prev_minutes: float, new_minutes: float)
 
 ## 1 in-game minute passes per real second (ROADMAP Phase 2's suggested rate).
 const GAME_MINUTES_PER_REAL_SECOND := 1.0
 const MINUTES_PER_DAY := 24 * 60
 ## Each day begins at 6:00 AM, Stardew-style. (Judgment call: the day *counter* still rolls
-## over at midnight for Phase 2 simplicity; Stardew's 2 AM pass-out rule belongs to Phase 3's
-## energy system.)
+## over at midnight for Phase 2 simplicity. Stardew's 2 AM pass-out rule, deferred since then,
+## landed 2026-07-11 from direct playtest feedback — it lives in player.gd's forced-sleep
+## rules, riding this clock's time_advanced signal; see player.gd's "night rules" section.)
 const DAY_START_MINUTES := 6 * 60
 
 ## Sky gradient keyframes: [hour (0-24), CanvasModulate color]. Piecewise-linearly
@@ -50,26 +60,48 @@ func _process(delta: float) -> void:
 
 ## Advance the clock by a number of in-game minutes, rolling the day counter over at midnight.
 func advance_minutes(game_minutes: float) -> void:
+	var prev_minutes := minutes_into_day
 	minutes_into_day += game_minutes
 	while minutes_into_day >= MINUTES_PER_DAY:
 		minutes_into_day -= MINUTES_PER_DAY
 		day += 1
 		day_started.emit(day)
 	time_changed.emit(day, minutes_into_day)
+	# After time_changed on purpose: if a night-rules receiver ends the day (the 2 AM forced
+	# pass-out calls skip_to_next_morning() synchronously from inside this emission), the HUD
+	# has already seen this tick's honest clock value first, and skip's own time_changed then
+	# reports the 6 AM wake-up as a second, later update.
+	time_advanced.emit(prev_minutes, minutes_into_day)
 
 
 ## End-the-day-now transition: jumps straight to next morning rather than advancing
-## minute-by-minute through the rest of the night. Two callers in player.gd: Phase 3's
-## "pass out at zero energy" rule (_pass_out) and Phase 4 Stage 3's real bed/sleep interaction
-## (_sleep_in_bed, which additionally auto-saves). Deliberately reuses day_started (rather than
-## a separate signal) so every system that already reacts to a new day — crop growth and
-## construction completion in particular — behaves identically whether the day changed by a
-## natural midnight rollover, a collapse at 2 PM, or an early night in bed. The caller restores
-## the player's energy to full itself (waking up rested is the whole point of the rule).
+## minute-by-minute through the rest of the night. Three callers in player.gd: Phase 3's
+## "pass out at zero energy" rule, the 2 AM forced pass-out (2026-07-11 forced-sleep rules),
+## and Phase 4 Stage 3's real bed/sleep interaction — all via player._end_day(), which
+## auto-saves. Deliberately reuses day_started (rather than a separate signal) so every system
+## that already reacts to a new day — crop growth and construction completion in particular —
+## behaves identically whether the day changed by a natural midnight rollover, a collapse at
+## 2 PM, or an early night in bed. The caller restores the player's energy to full itself
+## (waking up rested is the whole point of the rule).
+##
+## After-midnight fix (2026-07-11, landed with the forced-sleep rules that made this path hot):
+## because the day counter already rolls — and day_started already fires — at the natural
+## midnight rollover, ending a night AFTER midnight (a 1 AM bed sleep, the 2 AM forced
+## pass-out, a late-night zero-energy collapse) must NOT increment the day or re-emit
+## day_started: the player wakes at 6 AM of the calendar day that already started at midnight,
+## and crops/construction/shipping must not tick a second time for the same night. Before this
+## fix an after-midnight sleep silently skipped a whole day and double-advanced every
+## day_started subscriber — latent since Phase 3 (reachable only by staying up past midnight,
+## which nothing exercised), guaranteed-hot once the 2 AM rule made after-midnight endings the
+## norm. The pure rule is morning_skip_adds_day() below.
 func skip_to_next_morning() -> void:
-	day += 1
+	if morning_skip_adds_day(minutes_into_day):
+		day += 1
+		minutes_into_day = float(DAY_START_MINUTES)
+		day_started.emit(day)
+		time_changed.emit(day, minutes_into_day)
+		return
 	minutes_into_day = float(DAY_START_MINUTES)
-	day_started.emit(day)
 	time_changed.emit(day, minutes_into_day)
 
 
@@ -79,6 +111,26 @@ func clock_text() -> String:
 
 func current_sky_color() -> Color:
 	return sky_color(minutes_into_day)
+
+
+## Pure rule for skip_to_next_morning() (headless-testable): a skip called at/after 6 AM ends a
+## night whose midnight hasn't rolled yet, so the counter advances and day_started fires; a skip
+## called between midnight and 6 AM (minutes 0..DAY_START, reachable only by staying up past
+## midnight — the natural rollover already incremented the day and emitted day_started) just
+## moves the clock forward to 6 AM of the already-started day. Exactly 6:00 AM counts as the
+## former: minutes_into_day only ever sits at DAY_START_MINUTES right after waking, and a
+## same-instant re-sleep should behave like any other daytime sleep.
+static func morning_skip_adds_day(minutes: float) -> bool:
+	return minutes >= float(DAY_START_MINUTES)
+
+
+## The midnight-to-6-AM window (pure, wraps whole days for safety): true while the player is up
+## past midnight. Drives player.gd's sleepy energy drain / 2 AM forced pass-out and hud.gd's
+## pulsing "GETTING SLEEPY..." cue (2026-07-11 forced-sleep rules). This window is only
+## reachable awake — every sleep/pass-out transition lands exactly AT 6 AM (DAY_START_MINUTES,
+## excluded), and save files are only written at that same instant.
+static func is_late_night(minutes: float) -> bool:
+	return fposmod(minutes, float(MINUTES_PER_DAY)) < float(DAY_START_MINUTES)
 
 
 ## "6:00 AM" / "12:07 PM" style 12-hour clock for the HUD.

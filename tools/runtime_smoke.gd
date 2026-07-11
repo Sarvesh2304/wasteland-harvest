@@ -330,6 +330,12 @@ func _physics_process(_delta: float) -> bool:
 				_check(day_night.color.is_equal_approx(night),
 					"midnight tints the world to night (color %s, expected %s)" % [day_night.color, night])
 				day_manager.minutes_into_day = 720.0  # noon for the rest
+				# Re-baseline energy for the exact per-action ledger stages 11-13 assert: the
+				# ~half-a-game-minute this stage idled at the teleported midnight sat inside the
+				# forced-sleep rules' sleepy window (2026-07-11), correctly draining a fraction
+				# of energy — real behaviour, artificial clock position. (Can't pause instead:
+				# main.gd's _process re-derives time_paused from the modal gate every frame.)
+				player.set_energy(player.max_energy)
 				player.global_position = spawn
 				player.velocity = Vector2.ZERO
 				Input.action_press("move_right")
@@ -442,12 +448,19 @@ func _physics_process(_delta: float) -> bool:
 					"cell stays tilled (replantable) after harvest, doesn't revert to grass")
 				# -- Pass-out-at-zero-energy check --
 				var day_before: int = day_manager.day
+				_check(not game_state.has_save(), "no save file exists before the pass-out")
 				player.set_energy(3.0)
 				player.set_energy(-50.0)  # crosses from positive to <=0 -> should pass out
 				_check(day_manager.day == day_before + 1,
 					"energy hitting zero triggered a day skip (day %d -> %d)" % [day_before, day_manager.day])
 				_check(day_manager.clock_text() == "6:00 AM", "woke up at 6:00 AM")
 				_check(player.energy == player.max_energy, "waking up restores full energy")
+				# 2026-07-11 forced-sleep spec: progress saves when the player falls asleep OR
+				# passes out — the zero-energy collapse must now auto-save like the bed does.
+				_check(game_state.has_save(), "the zero-energy pass-out auto-saved")
+				# Clean it up so stage 20's "the bed writes the save" check still starts from a
+				# provably save-free state.
+				game_state.delete_save()
 				_enter_stage(50)
 		50:
 			# -- Phase 5 Stage 1: approach Mayor Harlan and open the dialogue box (see class doc's

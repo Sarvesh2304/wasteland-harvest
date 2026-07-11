@@ -37,6 +37,7 @@ extends CharacterBody2D
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
+const DayManagerScript := preload("res://scripts/day_manager.gd")
 
 signal energy_changed(current: float, max_energy: float)
 ## Phase 5 Stage 1: fired instead of handling the interaction locally (see use_tool()'s priority
@@ -80,6 +81,34 @@ const ENERGY_MINE := 1.5
 ## rather than a per-tile repeated action, so it shouldn't dominate the day's energy budget.
 const ENERGY_BUILD := 1.25
 
+## -- Night rules (2026-07-11, Stardew-style forced sleep — direct playtest feedback from
+##    Sarvesh, new scope beyond ROADMAP Phase 3's original energy entry; see GDD.md §4 "The
+##    night rules" and ROADMAP.md Phase 3's enhancement note) --
+##
+## The day counter rolls at midnight (day_manager.gd), so "up past midnight" reads as
+## minutes_into_day in [0, DAY_START_MINUTES) — a range every sleep transition skips over
+## (they land exactly AT 6 AM), making it reachable only by staying awake.
+##
+## 1. From midnight, the player is getting sleepy: a passive energy drain ticks alongside the
+##    clock (late_night_drain below), on top of the per-action costs — the energy bar visibly
+##    slides even while standing still, paired with hud.gd's pulsing "GETTING SLEEPY..." cue.
+## 2. At 2:00 AM the player passes out where they stand REGARDLESS of remaining energy
+##    (should_force_passout below) — a second, independent trigger from Phase 3's
+##    zero-energy rule, keyed on time-of-day, not the energy value.
+## 3. A stay-awake consumable (items.json's "coffee", the one item with "stay_awake": true)
+##    suppresses that night's 2 AM cutoff. The charge lasts exactly one night: it's consumed
+##    by surviving to 6 AM awake (survived_night below) and cleared by any sleep/pass-out, so
+##    a full-24-hours-awake run still collapses at the NEXT 2 AM, per the spec. The passive
+##    drain continues regardless — coffee beats the clock, not the fatigue.
+##
+## FORCED_PASSOUT_MINUTES: 2:00 AM as minutes_into_day. SLEEPY_DRAIN_PER_GAME_MINUTE: tuned so
+## the midnight-to-2-AM stretch costs 18 energy (120 game-minutes x 0.15 = 18% of the 100 bar)
+## — clearly visible on the HUD bar over the 2 real minutes that window lasts, a real price for
+## late-night work, but never lethal by itself from a healthy evening's reserve (the 2 AM rule,
+## not the drain, is what ends the night).
+const FORCED_PASSOUT_MINUTES := 2.0 * 60.0
+const SLEEPY_DRAIN_PER_GAME_MINUTE := 0.15
+
 const FACINGS := ["south", "north", "east", "west"]
 const FACING_VECTORS := {
 	"south": Vector2(0, 1),
@@ -99,6 +128,13 @@ var energy := max_energy
 ## lands. See add_credits()/set_credits() below for Stage 3's hook to credit a sale.
 var credits := 0
 var using_tool := false
+
+## Night rules: true after drinking coffee (or any future "stay_awake" item) — suppresses
+## tonight's 2 AM forced pass-out. See the night-rules const block above for the full lifecycle
+## (consumed at 6 AM awake, cleared by any sleep/pass-out). Deliberately NOT saved: every save
+## is written by _end_day(), which has just cleared it — a save can never legitimately carry a
+## live charge.
+var stay_awake_tonight := false
 
 ## Press-edge latch for use_tool()'s instant interactions (see class doc). True means the next
 ## poll frame that finds the button down may fire an instant interaction; consumed (set false)
@@ -149,6 +185,17 @@ func _ready() -> void:
 	sprite.animation_finished.connect(_on_sprite_animation_finished)
 	_play("idle")
 	_give_starting_loadout()
+	# Night rules: ride the clock's lived-time signal (time_advanced — see its doc in
+	# day_manager.gd for why NOT time_changed: sleep transitions and save-loads teleport the
+	# clock without emitting it, so they can never read as time spent awake) rather than polling
+	# in _physics_process. The drain/2 AM checks inherit time_paused's semantics for free — a
+	# paused clock (dialogue/store/shipping open, per main.gd's _process poll) advances nothing
+	# and emits nothing, so 2 AM literally cannot arrive mid-conversation. (Those are the same
+	# question: the cutoff is a fact about the clock, and the clock is frozen.) Build mode
+	# doesn't pause time, so the night catches a player who ignores it while placing blueprints
+	# — same as it always could via the zero-energy rule when a placement's ENERGY_BUILD landed
+	# on an empty bar.
+	DayManager.time_advanced.connect(_on_time_advanced)
 
 
 func _physics_process(_delta: float) -> void:
@@ -304,27 +351,67 @@ func set_energy(value: float) -> void:
 		_pass_out()
 
 
-## Stardew's "passing out at zero energy loses the rest of the day" rule (ROADMAP Phase 3),
-## via DayManager's skip_to_next_morning(). Waking up restores full energy, same as collapsing
-## in Stardew. Distinct from _sleep_in_bed() below (Phase 4's real bed): collapsing does NOT
-## auto-save — only deliberately going to bed does, per the Stage 3 checklist item.
+## Night-rules driver, connected to DayManager.time_advanced in _ready() (see the comment there
+## for why that signal, not time_changed or a poll). Runs the pure rules below against exactly
+## the interval the clock lived through: applies the post-midnight sleepy drain, fires the 2 AM
+## forced pass-out, and retires a spent stay-awake charge at 6 AM.
+func _on_time_advanced(prev_minutes: float, new_minutes: float) -> void:
+	var drained := late_night_drain(prev_minutes, new_minutes, SLEEPY_DRAIN_PER_GAME_MINUTE)
+	if drained > 0.0:
+		# May itself hit zero and fire the zero-energy pass-out, which jumps the clock to 6 AM
+		# — hence re-reading the LIVE clock below rather than trusting this emission's
+		# new_minutes: after such a pass-out the live value reads 6:00 AM (outside the band)
+		# and the 2 AM check correctly stands down instead of double-firing.
+		set_energy(energy - drained)
+	var now: float = DayManager.minutes_into_day
+	if should_force_passout(now, stay_awake_tonight):
+		_pass_out()
+	elif stay_awake_tonight and survived_night(prev_minutes, now):
+		stay_awake_tonight = false  # the charge bought exactly one night — see the const block
+
+
+## Stardew's "passing out loses the rest of the day" rule, now with two independent triggers:
+## energy hitting zero at any hour (ROADMAP Phase 3, via set_energy's crossing check) and the
+## clock reaching 2 AM with the player still awake (2026-07-11 forced-sleep rules, via
+## _on_time_changed above) — the latter fires REGARDLESS of the energy value. Waking up
+## restores full energy, same as collapsing in Stardew.
+##
+## Save-on-pass-out (2026-07-11): collapsing now auto-saves exactly like the bed does, per
+## Sarvesh's explicit forced-sleep spec ("all progress saved when the player falls asleep OR
+## passes out"). The old no-save behaviour was a deliberate, documented Phase 4 Stage 3 choice
+## (only the checklist's bed interaction was to auto-save), not an oversight — but the spec
+## supersedes it: with a nightly 2 AM collapse in the game, "passed out past midnight, lost the
+## whole session's progress" would be brutal, and Stardew itself saves on collapse too.
 func _pass_out() -> void:
-	DayManager.skip_to_next_morning()
-	energy = max_energy
-	energy_changed.emit(energy, max_energy)
+	_end_day()
 
 
-## Phase 4 Stage 3: sleeping in the farmhouse bed (structures.is_bed_at). Ends the day through
-## the same skip_to_next_morning() signal path pass-out uses (so crop growth, construction
-## completion, etc. all fire identically), restores full energy ("waking up rested", matching
-## _pass_out's rule), THEN auto-saves — deliberately after the day advance, so the save captures
-## the fresh morning the player will wake into on reload, not the stale end of the old day.
-## GameState.save_game emits game_saved on success, which the HUD's "WORLD SAVED" notice rides.
+## Phase 4 Stage 3: sleeping in the farmhouse bed (structures.is_bed_at). Deliberately
+## indistinguishable from _pass_out() since the save-on-pass-out change above — both are
+## "the night ends here"; only the trigger differs. Kept as separate named methods so call
+## sites keep reading correctly (use_tool's bed branch vs. the two pass-out rules).
 func _sleep_in_bed() -> void:
+	_end_day()
+
+
+## The one way a day ends, whatever ended it: jump to 6 AM through the same day_started signal
+## path (crop growth, construction completion, shipping sales all fire identically — and
+## skip_to_next_morning() itself knows an after-midnight ending must not double-tick them),
+## restore full energy ("waking up rested"), retire any stay-awake charge, THEN auto-save —
+## after the day advance, so the save captures the fresh morning the player wakes into on
+## reload, not the stale end of the old night. GameState.save_game emits game_saved on success,
+## which the HUD's "WORLD SAVED" notice rides. The world-refs guard keeps this node
+## instance-testable without a bound world (bind_world is main.gd's job), matching
+## _interact()'s own farm/test_map guard. Note there is deliberately no re-entrancy guard:
+## skip_to_next_morning() emits time_changed (HUD-facing) but never time_advanced, so the
+## sleep jump itself can't land back in _on_time_advanced as phantom lived time.
+func _end_day() -> void:
+	stay_awake_tonight = false
 	DayManager.skip_to_next_morning()
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
-	GameState.save_game(self, test_map, farm, structures)
+	if test_map != null and farm != null and structures != null:
+		GameState.save_game(self, test_map, farm, structures)
 
 
 ## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs
@@ -394,6 +481,30 @@ func _interact(cell: Vector2i) -> void:
 				if farm.plant(cell, crop_id):
 					inventory.remove_item(item_id, 1)
 					set_energy(energy - ENERGY_PLANT)
+			elif ItemDB.is_edible(item_id):
+				# Eating (2026-07-11, built as the general case the coffee mechanic hangs off):
+				# a selected food item + use_tool consumes one for its effect, the same shape as
+				# planting a seed above — items.json's energy_restored field had sat unused
+				# since Phase 3 with no way to eat anything. Costs no energy (it GRANTS energy),
+				# plays the same shared swing (an "eating" animation is Phase 6-art-pass scope,
+				# not worth a new PixelLab call for this session). Note the priority order the
+				# dispatch already imposes: facing a mature crop harvests instead (Stardew-
+				# faithful "harvest isn't tool-gated" wins) — step off the crop row to snack.
+				_consume_food(item_id)
+
+
+## Consumes one of the selected food item for its effects: energy_restored lands via
+## set_energy's clamp (eating at a nearly-full bar wastes the overflow, Stardew-style), and a
+## "stay_awake" item (coffee) arms tonight's 2 AM suppression. Effects apply only if the
+## removal actually happened — an inventory desync must never grant a free meal.
+func _consume_food(item_id: String) -> void:
+	if inventory.remove_item(item_id, 1) != 1:
+		return
+	if ItemDB.grants_stay_awake(item_id):
+		stay_awake_tonight = true
+	var restored := ItemDB.energy_restored(item_id)
+	if restored > 0:
+		set_energy(energy + float(restored))
 
 
 ## -- Credits (Phase 5 Stage 2) --
@@ -448,6 +559,9 @@ func load_state(data: Dictionary) -> void:
 	if inventory_data is Dictionary and not (inventory_data as Dictionary).is_empty():
 		var decoded := SaveData.decode_inventory(inventory_data)
 		inventory.restore(decoded["slots"], int(decoded["selected_hotbar_index"]))
+	# Note for the night rules: main.gd's _apply_save teleports DayManager's clock directly
+	# (no advance_minutes), so a resume never emits time_advanced for the jump — no phantom
+	# sleepy drain on the first tick after a load, with zero bookkeeping needed here.
 	_play("idle")
 
 
@@ -502,6 +616,42 @@ static func apply_energy_delta(current: float, max_energy_value: float, delta: f
 	var new_energy := clampf(current + delta, 0.0, max_energy_value)
 	var passed_out := current > 0.0 and new_energy <= 0.0
 	return {"energy": new_energy, "passed_out": passed_out}
+
+
+## -- Night rules, pure parts (testable headlessly — see the const block up top for design) --
+
+## Sleepy-drain integration: how much energy one clock tick from prev_minutes to new_minutes
+## costs, i.e. `rate` per game-minute of overlap between the tick's traversal and the
+## midnight-to-6-AM window [0, DAY_START_MINUTES). Handles the tick that wraps midnight
+## (new < prev: only the post-midnight portion is in the window — the pre-midnight remainder of
+## the old day never is, since the window starts AT the wrap). A tick spanning multiple whole
+## days isn't integrated beyond one window's worth; real play advances ~0.017 minutes per frame
+## and only test tooling ever jumps further.
+static func late_night_drain(prev_minutes: float, new_minutes: float, rate: float) -> float:
+	var window_end := float(DayManagerScript.DAY_START_MINUTES)
+	if new_minutes >= prev_minutes:
+		return maxf(0.0, minf(new_minutes, window_end) - minf(prev_minutes, window_end)) * rate
+	return minf(new_minutes, window_end) * rate
+
+
+## The 2 AM rule: whether a clock reading, seen while the player is awake, forces a pass-out.
+## A state check, not an edge check, on purpose: the [2 AM, 6 AM) band is unreachable except by
+## being awake in it (every sleep transition lands exactly AT 6 AM, and saves are only written
+## there), so "the awake clock reads 2-something" IS the violation — no crossing bookkeeping,
+## and it self-heals if a tick somehow lands past 2 AM without touching 120.0 exactly.
+static func should_force_passout(minutes: float, stay_awake: bool) -> bool:
+	return not stay_awake \
+		and minutes >= FORCED_PASSOUT_MINUTES \
+		and minutes < float(DayManagerScript.DAY_START_MINUTES)
+
+
+## Whether a tick crossed 6 AM from the late-night side while awake — the moment a stay-awake
+## charge is spent (it bought THIS night; the next 2 AM must collapse the player again unless
+## they drink another). Never true across a sleep transition: _end_day clears the flag anyway,
+## and sleep jumps don't emit time_advanced, so this only ever sees lived-through time.
+static func survived_night(prev_minutes: float, new_minutes: float) -> bool:
+	return prev_minutes < float(DayManagerScript.DAY_START_MINUTES) \
+		and new_minutes >= float(DayManagerScript.DAY_START_MINUTES)
 
 
 func _play(action: String) -> void:

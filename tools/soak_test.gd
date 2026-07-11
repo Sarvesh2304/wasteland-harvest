@@ -25,10 +25,13 @@ extends SceneTree
 ##          placed through the real build-mode input path — during which the REVERSE exclusion
 ##          is checked (dialogue/shipping open attempts refused while build mode is active) —
 ##          and the day ends with a real bed sleep (auto-save #1).
-##   Day 2: water everything, chop a tree, then cross midnight NATURALLY via advance_minutes()
-##          (the same API DayManager._process drives with summed frame deltas — a legitimate
+##   Day 2: water everything, chop a tree, then stay up ALL NIGHT via 1-minute advance_minutes()
+##          ticks (the same API DayManager._process drives with frame deltas — a legitimate
 ##          acceleration of the real path, not a test-only fork; every other day ends through
-##          skip_to_next_morning(), the bed/pass-out path, so both day-rollover routes get soaked).
+##          the bed path, so both day-rollover routes get soaked). Crossing midnight exercises
+##          the natural rollover; staying up past it exercises the 2026-07-11 night rules end
+##          to end — sleepy HUD cue, exact passive-drain arithmetic, and the 2 AM forced
+##          pass-out with its auto-save and its no-double-growth/no-skipped-day guarantees.
 ##   Day 3: water, full conversation with Mayor Harlan, then a MID-SESSION save + full teardown/
 ##          reboot through the real resume path — with crops mid-growth, a completed player
 ##          building standing, and the save file's JSON re-parsed to prove it isn't corrupt.
@@ -242,7 +245,16 @@ func _physics_process(_delta: float) -> bool:
 						"plot %s advanced to stage 1, watered flag consumed" % cell)
 				_enter_stage(5)
 		5:
-			# -- Day 2: water, gather wood, then cross midnight NATURALLY via advance_minutes --
+			# -- Day 2: water, gather wood, then stay up ALL NIGHT: cross midnight naturally via
+			#    1-minute advance_minutes() ticks (the same API DayManager._process feeds with
+			#    frame deltas) and run head-first into the 2026-07-11 night rules — the
+			#    post-midnight sleepy drain, the HUD cue, and the 2 AM forced pass-out (with
+			#    auto-save) end this night for us. Replaces the original single 1440-minute
+			#    jump: that teleported clean over the [midnight, 6 AM) window in one emission
+			#    (which real frame-driven play can never do), and with the night rules live the
+			#    honest version of "cross midnight awake" IS a 2 AM collapse — so the soak now
+			#    proves the new rules fire correctly mid-playthrough with every other system
+			#    (crops mid-growth, completed shed, live save file) running alongside.
 			if ticks < 5:
 				return false
 			if ticks == 5:
@@ -256,13 +268,49 @@ func _physics_process(_delta: float) -> bool:
 				_check(farm.can_chop(TREE_CELL), "treeline tree standing")
 				player.use_tool()
 				_check(player.inventory.count_of("wood") == 6, "chop granted 3 wood (3 -> 6)")
-				# The natural midnight rollover: one full day of minutes through the exact same
-				# advance_minutes() API DayManager._process feeds with frame deltas.
-				day_manager.advance_minutes(float(day_manager.MINUTES_PER_DAY))
+				_check(player.energy == 95.5,
+					"day-2 ledger before the all-nighter (100 - 3 water - 1.5 chop = 95.5)")
+				# Prove the pass-out itself writes a save: start provably save-free (the bed's
+				# stage-4 save would otherwise mask it).
+				game_state.delete_save()
+				var sleepy_label: Label = hud.get_node("%SleepyLabel")
+				_check(not sleepy_label.visible, "no sleepy cue during the day-2 evening")
+				var guard := 0
+				# Stay up to midnight: the rollover ticks growth exactly once...
+				while day_manager.day < 3 and guard < 2000:
+					day_manager.advance_minutes(1.0)
+					guard += 1
 				_check(day_manager.day == 3, "natural midnight rollover reached day 3")
 				for cell in POTATO_CELLS:
 					_check(int(farm.get_plot(cell).get("stage", -1)) == 2,
 						"plot %s advanced to stage 2 on the natural rollover" % cell)
+				_check(sleepy_label.visible, "the GETTING SLEEPY cue is up past midnight")
+				# ...on to ~1 AM: the passive drain must match the lived-through minutes exactly
+				# (0.15/game-minute from the moment midnight struck — nothing before it).
+				while day_manager.minutes_into_day < 60.0 and guard < 2000:
+					day_manager.advance_minutes(1.0)
+					guard += 1
+				var expected: float = 95.5 \
+					- day_manager.minutes_into_day * player.SLEEPY_DRAIN_PER_GAME_MINUTE
+				_check(absf(player.energy - expected) < 0.001,
+					"sleepy drain integrates exactly (expected %.3f, got %.3f)"
+						% [expected, player.energy])
+				# ...and into the 2 AM wall: the forced pass-out ends the night regardless of
+				# the ~77 energy still in the bar.
+				while day_manager.day == 3 and guard < 2000 \
+						and day_manager.minutes_into_day < float(day_manager.DAY_START_MINUTES):
+					day_manager.advance_minutes(1.0)
+					guard += 1
+				_check(day_manager.day == 3,
+					"the 2 AM pass-out wakes on the SAME day 3 — no skipped calendar day")
+				_check(day_manager.clock_text() == "6:00 AM", "woke at 6:00 AM")
+				_check(player.energy == player.max_energy,
+					"woke rested despite collapsing with energy left")
+				_check(game_state.has_save(), "the 2 AM forced pass-out auto-saved")
+				_check(not sleepy_label.visible, "the sleepy cue cleared on waking")
+				for cell in POTATO_CELLS:
+					_check(int(farm.get_plot(cell).get("stage", -1)) == 2,
+						"plot %s did NOT double-advance for the one night" % cell)
 				_enter_stage(6)
 		6:
 			# -- Day 3: water, talk to Harlan, then the mid-sim save with everything in flight --
@@ -318,8 +366,9 @@ func _physics_process(_delta: float) -> bool:
 			_fetch_world_nodes()
 			_check(day_manager.day == 3, "day 3 restored")
 			_check(game_state.chosen_settlement_id == "forest_edge", "settlement restored")
-			_check(player.energy == 92.5,
-				"mid-day energy restored exactly (92.5, got %.2f)" % player.energy)
+			# 97 = full 100 on waking from the 2 AM pass-out, minus day-3's 3 watering passes.
+			_check(player.energy == 97.0,
+				"mid-day energy restored exactly (97, got %.2f)" % player.energy)
 			_check(player.credits == 0, "no phantom Credits appeared across the reload")
 			for cell in POTATO_CELLS:
 				var plot: Dictionary = farm.get_plot(cell)

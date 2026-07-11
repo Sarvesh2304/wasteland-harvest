@@ -103,6 +103,28 @@ headless verification suggests a problem.
       replacing Phase 2's flat placeholder); passing out at zero energy triggers
       `DayManager.skip_to_next_morning()` + full refill (a "black out, wake at 6 AM" stand-in
       until a real bed/sleep interaction exists in Phase 4).
+      **Enhanced 2026-07-11 (post-Phase 6, direct playtest feedback from Sarvesh — new scope,
+      not an original checklist item; design record in `GDD.md` §4 "The night rules"):**
+      Stardew-style forced sleep. (1) From midnight, a passive sleepy drain (0.15 energy/game-
+      minute — 18 over the midnight-to-2-AM window) plus a pulsing HUD "GETTING SLEEPY..." cue
+      (`player.gd` night rules riding a new `DayManager.time_advanced` lived-time-only signal;
+      `hud.gd`/`hud.tscn` `%SleepyLabel`). (2) At 2 AM a *second, energy-independent* pass-out
+      trigger fires regardless of the bar. (3) Rare stay-awake consumable: Scav-Brew Coffee
+      (`items.json` `"coffee"`, 75 Cr, `stay_awake: true`) suppresses exactly one night's
+      cutoff; deliberately NOT in Marta's stock and with **no acquisition path yet** (the
+      `bottle_caps`/`cloth_scrap` exists-ahead-of-its-system precedent — source it from a later
+      caravan/rare-vendor phase). (4) Pass-outs now auto-save like the bed (superseding Phase 4
+      Stage 3's deliberate bed-only-save choice, per the explicit new spec "saved when the
+      player falls asleep OR passes out"). Landed alongside: general food-eating (hotbar-select
+      + `use_tool` consumes any `food` item for its until-now-dead `energy_restored` — the
+      plumbing coffee needed anyway, item count now 21), and a latent-bug fix in
+      `skip_to_next_morning()` — an *after-midnight* night ending no longer skips a calendar
+      day or double-fires `day_started` (crops/construction/sales ticked twice per night;
+      unreachable before, guaranteed-hot once 2 AM endings became the norm). Verified:
+      209/209 unit tests, `tools/sleep_smoke.gd` (new: onset drain+cue, energy-independent 2 AM
+      cutoff+save, coffee night incl. next-night collapse, zero-energy save, 2-AM-can't-arrive-
+      mid-dialogue), soak stage 5 reworked into a real stay-up-all-nighter, screenshots of the
+      cue + forced pass-out.
 - [x] First 20 items defined (`data/items.json`): 4 seeds, 4 crop-produce, 5 resources (incl.
       bottle caps, cloth scrap), 2 food, 5 tools. `data/crops.json` for the 4 crops' growth/
       yield data. Real PixelLab icons for 7 items (4 crop produce + wood/stone/scrap); the

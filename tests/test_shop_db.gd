@@ -17,6 +17,9 @@ func test_stock_ids_cover_all_4_seeds_both_foods_and_4_breakable_tools() -> void
 	for tool_id in ["hoe", "watering_can", "axe", "pickaxe"]:
 		assert_true(tool_id in stock, "%s is stocked" % tool_id)
 	assert_false("bag" in stock, "the unbreakable Scavenger's Bag is deliberately not stocked")
+	assert_false("coffee" in stock,
+		"Scav-Brew Coffee is deliberately not stocked — GDD.md §4 calls stay-awake items RARE, "
+		+ "and a store-shelf supply would gut the 2 AM forced-sleep rule (2026-07-11)")
 	assert_eq(stock.size(), 10, "exactly 10 stocked items this stage")
 
 

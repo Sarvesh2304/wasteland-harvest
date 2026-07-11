@@ -118,3 +118,72 @@ func test_skip_to_next_morning() -> void:
 	assert_eq(dm.clock_text(), "6:00 AM", "wakes at 6:00 AM regardless of when blackout happened")
 	assert_eq(days_started, [2], "day_started fires so growth/other daily systems still tick")
 	dm.free()
+
+
+## -- 2026-07-11 forced-sleep session: the after-midnight morning-skip fix + the late-night
+##    window (see skip_to_next_morning's doc comment for the double-tick bug this pins) --
+
+func test_skip_after_midnight_does_not_add_a_second_day() -> void:
+	# Stay up past midnight (the natural rollover increments the day and fires day_started),
+	# then end the night at 1:00 AM: the player wakes at 6 AM of the day that ALREADY started —
+	# no second increment, and critically no second day_started (crops must not grow twice for
+	# one night).
+	var dm = _make_dm()
+	var days_started: Array[int] = []
+	dm.day_started.connect(func(d: int) -> void: days_started.append(d))
+	dm.advance_minutes(19 * 60)  # 6:00 AM day 1 -> 1:00 AM day 2
+	assert_eq(dm.day, 2, "midnight rollover reached day 2")
+	assert_eq(days_started, [2], "the rollover itself fired day_started")
+	dm.skip_to_next_morning()
+	assert_eq(dm.day, 2, "an after-midnight sleep wakes on the SAME calendar day")
+	assert_eq(dm.clock_text(), "6:00 AM", "at 6:00 AM")
+	assert_eq(days_started, [2], "day_started did NOT fire a second time for the same night")
+	dm.free()
+
+
+func test_morning_skip_adds_day_boundaries() -> void:
+	assert_false(DayManagerScript.morning_skip_adds_day(0.0),
+		"a midnight ending is after the rollover — no extra day")
+	assert_false(DayManagerScript.morning_skip_adds_day(2 * 60.0),
+		"the 2 AM forced pass-out must not skip a day")
+	assert_false(DayManagerScript.morning_skip_adds_day(359.9),
+		"just before 6 AM still belongs to the already-rolled night")
+	assert_true(DayManagerScript.morning_skip_adds_day(float(DayManagerScript.DAY_START_MINUTES)),
+		"exactly 6:00 AM (a just-woken clock) sleeps into a NEW day")
+	assert_true(DayManagerScript.morning_skip_adds_day(14 * 60.0),
+		"an afternoon blackout sleeps into a new day, as always")
+	assert_true(DayManagerScript.morning_skip_adds_day(23.9 * 60.0),
+		"just before midnight sleeps into a new day, as always")
+
+
+func test_time_advanced_emitted_only_for_lived_time() -> void:
+	# The night rules (player.gd) ride time_advanced precisely because sleep transitions and
+	# teleports must never read as time spent awake — pin the emission contract both ways.
+	var dm = _make_dm()
+	var emissions: Array = []
+	dm.time_advanced.connect(func(prev: float, new: float) -> void:
+		emissions.append([prev, new]))
+	dm.advance_minutes(30.0)
+	assert_eq(emissions.size(), 1, "advance_minutes emits time_advanced")
+	assert_eq(emissions[0], [360.0, 390.0], "with the exact lived-through interval")
+	dm.skip_to_next_morning()
+	assert_eq(emissions.size(), 1,
+		"skip_to_next_morning is a transition, not lived time — no time_advanced")
+	dm.minutes_into_day = 100.0  # a direct teleport (save-load shape) emits nothing either
+	assert_eq(emissions.size(), 1, "teleporting the clock emits no time_advanced")
+	dm.advance_minutes(1.0)
+	assert_eq(emissions[1], [100.0, 101.0],
+		"the next lived tick integrates from the teleported position")
+	dm.free()
+
+
+func test_is_late_night_window() -> void:
+	assert_true(DayManagerScript.is_late_night(0.0), "midnight opens the sleepy window")
+	assert_true(DayManagerScript.is_late_night(2 * 60.0), "2 AM is late night")
+	assert_true(DayManagerScript.is_late_night(359.9), "just before 6 AM is still late night")
+	assert_false(DayManagerScript.is_late_night(float(DayManagerScript.DAY_START_MINUTES)),
+		"6:00 AM exactly is morning — every sleep transition lands here, outside the window")
+	assert_false(DayManagerScript.is_late_night(720.0), "noon is not late night")
+	assert_false(DayManagerScript.is_late_night(1439.9), "11:59 PM is not yet late night")
+	assert_true(DayManagerScript.is_late_night(1440.0 + 60.0),
+		"whole-day wraps resolve into the window (1 AM plus a full day)")

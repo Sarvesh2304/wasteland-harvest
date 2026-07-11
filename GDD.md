@@ -151,6 +151,22 @@ Key beats, all consistent with the systems already enumerated in `ROADMAP.md`:
 - **Foraging & fishing** — gathering in the safe-ish wilds around the settlement, plus the
   dock/water-body fishing minigame. (Note: mechanically, fishing is a sub-activity of the
   Foraging skill — see §8.)
+- **The night rules (added 2026-07-11, direct playtest feedback from Sarvesh — implemented
+  same-day, see ROADMAP.md Phase 3's energy-system note).** Stardew-faithful forced sleep
+  shapes every day's ending: from **midnight** the player is getting sleepy — a passive energy
+  drain ticks on top of per-action costs, alongside a pulsing on-screen cue — and at **2 AM**
+  they pass out where they stand *regardless of remaining energy*, waking at 6 AM. The only
+  way past the 2 AM wall is a rare stay-awake consumable (**Scav-Brew Coffee** — deliberately
+  NOT sold in Marta's everyday stock and priced far above everyday goods; its acquisition path
+  is an open design slot for the caravan/rare-vendor economy, §7). One cup protects exactly
+  one night: a player can push through a full 24 hours awake, but the *next* 2 AM drops them
+  regardless, exactly per the spec. **Progress auto-saves on every night ending** — going to
+  bed, collapsing at zero energy, or the 2 AM pass-out alike — so a lost evening is never a
+  lost session. This is a pacing rule, not a survival mechanic: it protects the day-loop
+  rhythm (wake → work → sleep → morning report) without breaching the cozy contract below —
+  passing out costs the rest of the night and nothing else. Eating also became real with this
+  change: any `food`-type item is consumable from the hotbar for its energy value (coffee is
+  simply the one whose effect is the night itself).
 
 **The cozy contract:** the settlement is a hard safe zone (ROADMAP.md Phase 9 already
 specifies zombies cannot enter the boundary). Nothing on the settlement side should ever feel

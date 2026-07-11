@@ -52,6 +52,7 @@ const CHEST_CLOSE_DISTANCE := 3.0 * CELL_SIZE
 @onready var clock_label: Label = %ClockLabel
 @onready var energy_fill: ProgressBar = %EnergyFill
 @onready var credits_label: Label = %CreditsLabel
+@onready var sleepy_label: Label = %SleepyLabel
 @onready var hotbar_row: HBoxContainer = %Hotbar
 @onready var inventory_grid: GridContainer = %InventoryGrid
 @onready var chest_grid: GridContainer = %ChestGrid
@@ -103,11 +104,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Walk-away auto-close for the chest/storage grid (see CHEST_CLOSE_DISTANCE's comment): checked
 ## continuously while it's open, since nothing freezes the player while a chest is open (it's a
-## passive overlay, not a modal surface).
+## passive overlay, not a modal surface). Also pulses the late-night sleepy cue's alpha while
+## it's up (visibility itself is time-driven — see _on_time_changed).
 func _process(_delta: float) -> void:
 	if chest_grid.visible and _player != null \
 			and chest_out_of_range(_player.global_position, _chest_cell):
 		chest_grid.visible = false
+	if sleepy_label.visible:
+		sleepy_label.modulate.a = sleepy_pulse_alpha(Time.get_ticks_msec() / 1000.0)
+
+
+## Pure pulse curve for the "GETTING SLEEPY..." cue (headless-testable): a slow ~0.8 Hz
+## breathing fade between barely-there and fully opaque — animated enough to read as a state,
+## not a stuck caption, without strobing the 320x192 screen. Never fully vanishes mid-cycle
+## (min alpha 0.1) so the cue can't be missed by glancing up during the trough.
+static func sleepy_pulse_alpha(seconds: float) -> float:
+	return 0.55 + 0.45 * sin(seconds * TAU * 0.8)
 
 
 ## Pure distance rule for the walk-away close (headless-testable, no scene required): whether
@@ -282,6 +294,13 @@ func _on_time_changed(day: int, minutes_into_day: float) -> void:
 	var clock := DayManager.format_clock(minutes_into_day)
 	if clock_label.text != clock:
 		clock_label.text = clock
+	# Night rules (2026-07-11): the pulsing sleepy cue tracks the same midnight-to-6-AM window
+	# player.gd's passive drain uses, so the on-screen warning and the sliding energy bar always
+	# tell one story. Time-driven (not player-state-driven) on purpose: the cue is about the
+	# hour, and it disappears the instant any sleep/pass-out lands the clock back on 6 AM.
+	var sleepy := DayManager.is_late_night(minutes_into_day)
+	if sleepy_label.visible != sleepy:
+		sleepy_label.visible = sleepy
 
 
 func _on_energy_changed(current: float, max_energy: float) -> void:

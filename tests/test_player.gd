@@ -81,6 +81,65 @@ func test_instant_latch_disarms_while_modal_open() -> void:
 		"a press held while a modal is open belongs to that modal, not the world")
 
 
+## -- 2026-07-11 forced-sleep night rules — the pure parts of _on_time_changed. The live wiring
+##    (time_changed signal, _pass_out with save, coffee via the real consume path) needs a scene
+##    and is covered by tools/sleep_smoke.gd + the soak test's stay-up-all-night stage. --
+
+func test_late_night_drain_outside_window_is_free() -> void:
+	assert_eq(PlayerScript.late_night_drain(720.0, 721.0, 0.15), 0.0,
+		"a daytime tick drains nothing")
+	assert_eq(PlayerScript.late_night_drain(1400.0, 1439.9, 0.15), 0.0,
+		"late evening up to (not across) midnight drains nothing")
+	assert_eq(PlayerScript.late_night_drain(360.0, 400.0, 0.15), 0.0,
+		"the tick leaving 6 AM drains nothing (window is exclusive at DAY_START)")
+
+
+func test_late_night_drain_is_proportional_inside_window() -> void:
+	assert_true(absf(PlayerScript.late_night_drain(30.0, 31.0, 0.15) - 0.15) < 0.0001,
+		"one game-minute past midnight costs exactly the per-minute rate")
+	assert_true(absf(PlayerScript.late_night_drain(0.0, 120.0, 0.15) - 18.0) < 0.0001,
+		"the full midnight-to-2-AM stretch costs 18 energy at the shipped 0.15 rate")
+
+
+func test_late_night_drain_clips_partial_overlaps() -> void:
+	# The tick that wraps midnight: only the post-midnight sliver is in the window.
+	assert_true(absf(PlayerScript.late_night_drain(1439.5, 0.5, 0.15) - 0.5 * 0.15) < 0.0001,
+		"a midnight-wrapping tick charges only its post-midnight portion")
+	# A (coffee-extended) tick crossing 6 AM: only the pre-6-AM portion is in the window.
+	assert_true(absf(PlayerScript.late_night_drain(350.0, 370.0, 0.15) - 10.0 * 0.15) < 0.0001,
+		"a tick crossing 6 AM charges only its late-night portion")
+
+
+func test_should_force_passout_is_the_2am_band_check() -> void:
+	assert_false(PlayerScript.should_force_passout(119.9, false),
+		"1:59 AM is sleepy but not yet the cutoff")
+	assert_true(PlayerScript.should_force_passout(120.0, false),
+		"2:00 AM exactly forces the pass-out")
+	assert_true(PlayerScript.should_force_passout(200.0, false),
+		"anywhere inside [2 AM, 6 AM) forces it — a state check, not a crossing edge")
+	assert_false(PlayerScript.should_force_passout(360.0, false),
+		"6:00 AM exactly is morning (where every sleep transition lands) — never a trigger")
+	assert_false(PlayerScript.should_force_passout(720.0, false), "daytime never triggers")
+
+
+func test_stay_awake_suppresses_the_forced_passout() -> void:
+	assert_false(PlayerScript.should_force_passout(120.0, true),
+		"a live coffee charge lets the player push past 2 AM")
+	assert_false(PlayerScript.should_force_passout(300.0, true),
+		"...all the way through the night")
+
+
+func test_survived_night_crossing_spends_the_charge() -> void:
+	assert_true(PlayerScript.survived_night(359.0, 361.0),
+		"crossing 6 AM awake ends the protected night")
+	assert_false(PlayerScript.survived_night(361.0, 362.0),
+		"a morning tick after the crossing is not a second crossing")
+	assert_false(PlayerScript.survived_night(1439.0, 0.5),
+		"wrapping midnight is entering the night, not surviving it")
+	assert_false(PlayerScript.survived_night(100.0, 119.0),
+		"still inside the night — charge stays live")
+
+
 func test_instant_latch_disarms_on_frame_after_modal_closed() -> void:
 	# The reported reopen bugs' exact shape: the press that closed a dialogue/store/shipping UI
 	# is dispatched to _unhandled_input between physics frames, so the poll first sees it on the

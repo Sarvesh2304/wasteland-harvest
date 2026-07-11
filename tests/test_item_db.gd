@@ -5,8 +5,9 @@ extends "res://tests/test_case.gd"
 const ItemDBScript := preload("res://scripts/item_db.gd")
 
 
-func test_loads_exactly_twenty_items() -> void:
-	assert_eq(ItemDBScript.all_items().size(), 20, "ROADMAP Phase 3 calls for the first 20 items")
+func test_loads_exactly_twenty_one_items() -> void:
+	assert_eq(ItemDBScript.all_items().size(), 21,
+		"ROADMAP Phase 3's first 20 items + the forced-sleep session's coffee (2026-07-11)")
 
 
 func test_known_items_resolve() -> void:
@@ -35,6 +36,36 @@ func test_seeds_link_to_a_valid_crop() -> void:
 		if ItemDBScript.is_seed(item_id):
 			var crop_id := String(ItemDBScript.get_item(item_id).get("crop_id", ""))
 			assert_true(CropDBScript.has_crop(crop_id), "%s points at an unknown crop" % item_id)
+
+
+## -- 2026-07-11 forced-sleep session: edibility + the rare stay-awake coffee --
+
+func test_edibility_follows_the_food_type() -> void:
+	for food_id in ["preserved_food", "cooked_meal", "coffee"]:
+		assert_true(ItemDBScript.is_edible(food_id), "%s is edible" % food_id)
+		assert_true(ItemDBScript.energy_restored(food_id) > 0,
+			"%s restores energy when eaten" % food_id)
+	for other_id in ["mutant_potato", "wood", "hoe", "seed_dustwheat"]:
+		assert_false(ItemDBScript.is_edible(other_id),
+			"%s is not directly edible (crops must be cooked/shipped, not snacked raw)" % other_id)
+		assert_eq(ItemDBScript.energy_restored(other_id), 0,
+			"%s grants no energy" % other_id)
+
+
+func test_coffee_is_the_rare_stay_awake_item() -> void:
+	assert_true(ItemDBScript.grants_stay_awake("coffee"),
+		"coffee arms the stay-awake-tonight charge")
+	for other_id in ["preserved_food", "cooked_meal", "mutant_potato", "hoe"]:
+		assert_false(ItemDBScript.grants_stay_awake(other_id),
+			"%s must not suppress the 2 AM rule" % other_id)
+	# "Rare" must be enforceable in data: meaningfully pricier than every everyday item (all of
+	# which sit on the 1-30 Credits scale — see items.json's _comment).
+	var coffee_value := int(ItemDBScript.get_item("coffee").get("value", 0))
+	for item_id in ItemDBScript.all_items():
+		if item_id == "coffee":
+			continue
+		assert_true(coffee_value >= 2 * int(ItemDBScript.get_item(item_id).get("value", 0)),
+			"coffee (%d Cr) is at least twice %s's price" % [coffee_value, item_id])
 
 
 func test_icon_or_placeholder_present() -> void:

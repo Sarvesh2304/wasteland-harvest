@@ -60,6 +60,25 @@ static func is_seed(item_id: String) -> bool:
 	return String(get_item(item_id).get("type", "")) == "seed"
 
 
+## -- Eating (2026-07-11 forced-sleep session — see player.gd's _consume_food) --
+
+## Anything type "food" can be eaten via the hotbar-select + use_tool consume branch.
+static func is_edible(item_id: String) -> bool:
+	return String(get_item(item_id).get("type", "")) == "food"
+
+
+## Energy granted on eating (items.json's energy_restored — dead data from Phase 3 until the
+## consume branch landed). 0 for items without the field.
+static func energy_restored(item_id: String) -> int:
+	return int(get_item(item_id).get("energy_restored", 0))
+
+
+## Whether eating this arms the player's stay-awake-tonight charge (suppresses the 2 AM forced
+## pass-out for one night) — items.json's rare "stay_awake" flag, currently coffee only.
+static func grants_stay_awake(item_id: String) -> bool:
+	return bool(get_item(item_id).get("stay_awake", false))
+
+
 static func durability_max(item_id: String) -> int:
 	return int(get_item(item_id).get("durability_max", 0))
 
