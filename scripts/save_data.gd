@@ -20,6 +20,10 @@ extends RefCounted
 ##   "version": 1,
 ##   "settlement_id": "forest_edge",           # which map_layouts/*.gd this playthrough uses
 ##   "day": 5, "minutes_into_day": 360.0,      # DayManager clock
+##   "saved_unix": 1783728000,                 # OPTIONAL wall-clock write stamp (2026-07-11,
+##                                             # multi-slot) — Load-screen ordering only, never
+##                                             # world state; absent in older saves (treated 0)
+##                                             # so SAVE_VERSION deliberately did NOT bump
 ##   "player": {"x": ..., "y": ..., "facing": "south", "energy": 100.0,
 ##              "inventory": {"slots": [...], "selected_hotbar_index": 0}},
 ##   "map": {"tilled": ["x,y", ...]},          # player-hoed cells (test_map.gd's overlay)

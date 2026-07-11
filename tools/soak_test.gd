@@ -49,9 +49,11 @@ extends SceneTree
 ##          walks away under real held input (the "never stuck" check); final save-file hygiene.
 ## Day counter: 1 -> 7 = six full in-game days end to end (the checklist asks for 5).
 ##
-## Uses a test-only save filename, deleted before and after (same hard requirement as
-## runtime_smoke.gd — repeated runs must never inherit stale state, and a real playthrough's
-## save at the default path must never be touched).
+## Uses a test-only saves directory (game_state.saves_dir + a slot-file save_path inside it,
+## with legacy_save_path redirected too — the 2026-07-11 multi-slot analogue of the old
+## test-only filename), wiped before and after (same hard requirement as runtime_smoke.gd —
+## repeated runs must never inherit stale state, and a real playthrough's slots/legacy save
+## must never be touched).
 
 const CropDB := preload("res://scripts/crop_db.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -90,14 +92,22 @@ var stage_started_at := 0
 var failures: Array[String] = []
 ## Snapshot for the final "player can still walk" held-input check.
 var _walk_start_pos := Vector2.ZERO
+## The title screen instance the day-3 reboot creates (stage 7) and drives (stage 8).
+var _title: Control = null
 
 
 func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
-	# Test-only save path, cleared up front (see class doc / runtime_smoke.gd's identical rule).
-	game_state.save_path = "user://soak_test_save.json"
-	game_state.delete_save()
+	# Test-only saves DIRECTORY, wiped up front (see class doc / runtime_smoke.gd's identical
+	# rule, extended for the 2026-07-11 multi-slot system): save_path is pinned to a slot file
+	# INSIDE it so the day-3 reboot's title-screen Load list (stage 8) can find the save, and
+	# legacy_save_path is redirected so the title screen's migration step can never touch a
+	# real playthrough's user://savegame.json during a test run.
+	game_state.saves_dir = "user://soak_test_saves"
+	game_state.legacy_save_path = "user://soak_test_saves/legacy.json"
+	game_state.save_path = "user://soak_test_saves/slot_1.json"
+	_delete_test_saves()
 	# Direct main.tscn boot with a pinned settlement: the picker's own flow is runtime_smoke.gd's
 	# job; the soak needs Forest Edge specifically (its starting bonus affords the day-1 shed).
 	game_state.chosen_settlement_id = "forest_edge"
@@ -116,8 +126,23 @@ func _enter_stage(next: int) -> void:
 	stage_started_at = Engine.get_physics_frames()
 
 
+## Watchdog (2026-07-11, ported from the same fix in tools/runtime_smoke.gd after a real
+## incident there — a duplicate match-arm stage number hijacked a transition and the run
+## looped silently for 12+ minutes at near-zero CPU before being caught by hand). Comfortably
+## above the longest legitimate in-stage tick wait in this file (90) so it never fires on a
+## healthy run, but guarantees a future stall fails LOUDLY with the exact stuck stage.
+const MAX_TICKS_PER_STAGE := 1800
+var _watchdog_tripped := false
+
+
 func _physics_process(_delta: float) -> bool:
 	var ticks := int(Engine.get_physics_frames()) - stage_started_at
+	if ticks > MAX_TICKS_PER_STAGE and not _watchdog_tripped:
+		_watchdog_tripped = true
+		push_error("soak_test watchdog: stuck in stage %d for %d ticks" % [stage, ticks])
+		_check(false, "TIMED OUT after %d ticks with no stage transition (watchdog)" % ticks)
+		_finish()
+		return true
 	match stage:
 		0:
 			# -- Boot: world up, gate wired, Forest Edge bonus granted --
@@ -341,7 +366,9 @@ func _physics_process(_delta: float) -> bool:
 				_check(not parsed.is_empty(), "the save file re-parses cleanly (not corrupt)")
 				_enter_stage(7)
 		7:
-			# -- Full teardown + reboot through the real resume path (runtime_smoke's shape) --
+			# -- Full teardown + reboot through the real resume path (runtime_smoke's shape):
+			#    since the 2026-07-11 multi-slot system that path is the title screen's
+			#    explicit menu -> Load -> slot flow, driven through its real input handler --
 			if ticks < 5:
 				return false
 			main.queue_free()
@@ -349,17 +376,28 @@ func _physics_process(_delta: float) -> bool:
 			game_state.chosen_settlement_id = "open_plains"  # save must restore forest_edge
 			day_manager.day = 1                              # save must restore day 3
 			day_manager.minutes_into_day = 400.0
-			var select: Control = (load("res://scenes/settlement_select.tscn") as PackedScene) \
-				.instantiate()
-			root.add_child(select)
-			current_scene = select
+			_title = (load("res://scenes/title_screen.tscn") as PackedScene).instantiate()
+			root.add_child(_title)
+			current_scene = _title
 			_enter_stage(8)
 		8:
-			# -- Restored mid-soak: verify, then sleep into day 4 --
-			if ticks < 20:  # let the deferred resume scene change complete
+			# -- Restored mid-soak: drive the title Load flow, verify, then sleep into day 4 --
+			if ticks == 10:  # title _ready has run; drive menu -> Load -> confirm the slot
+				_check(_title._menu_entries == ["New Game", "Load Game", "Exit"],
+					"the mid-soak save's slot puts Load Game on the title menu")
+				_drive(_title, "move_down")  # New Game -> Load Game
+				_drive(_title, "use_tool")
+				_check(_title.mode == _title.Mode.LOAD, "Load panel opened")
+				_check(_title._slots.size() == 1 and int(_title._slots[0]["day"]) == 3 \
+						and String(_title._slots[0]["settlement_id"]) == "forest_edge",
+					"the one soak slot is listed as Forest Edge day 3 (got %s)" \
+						% str(_title._slots))
+				_drive(_title, "use_tool")  # confirm -> load + boot main.tscn
+				return false
+			if ticks < 30:  # let the load's change_scene_to_file complete
 				return false
 			main = current_scene
-			_check(main != null and main.name == "Main", "resume path rebooted main.tscn")
+			_check(main != null and main.name == "Main", "loading the slot rebooted main.tscn")
 			if main == null or main.name != "Main":
 				_finish()
 				return true
@@ -558,7 +596,7 @@ func _physics_process(_delta: float) -> bool:
 				Input.action_release("move_left")
 				_check(player.global_position.x < _walk_start_pos.x - 8.0,
 					"the player walks normally after 6 soaked days (never stuck)")
-				game_state.delete_save()
+				_delete_test_saves()
 				_check(not game_state.has_save(), "test save file cleaned up")
 				_finish()
 				return true
@@ -609,6 +647,17 @@ func _drive(node: Node, action: String) -> void:
 	event.action = action
 	event.pressed = true
 	node._unhandled_input(event)
+
+
+## Wipes the test-only saves directory (every file, then the directory itself) — the
+## multi-slot analogue of the old single-file delete_save() hygiene. Safe on a missing dir.
+func _delete_test_saves() -> void:
+	var abs_dir := ProjectSettings.globalize_path(String(game_state.saves_dir))
+	if not DirAccess.dir_exists_absolute(abs_dir):
+		return
+	for file_name in DirAccess.get_files_at(abs_dir):
+		DirAccess.remove_absolute(abs_dir.path_join(file_name))
+	DirAccess.remove_absolute(abs_dir)
 
 
 func _hotbar_index_of(item_id: String) -> int:

@@ -84,8 +84,9 @@ func _ready() -> void:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
-	# before this scene instantiates (see settlement_select.gd's resume path); an empty result
-	# means new game -> grant the one-time settlement starting bonus instead. Applied here, after
+	# before this scene instantiates (via the title screen's Load flow — title_screen.gd's
+	# _confirm_slot, since 2026-07-11; previously settlement_select.gd's auto-resume); an empty
+	# result means new game -> grant the one-time settlement starting bonus instead. Applied here, after
 	# every bind above, so restored state flows through the already-connected signals (inventory
 	# UI, energy bar) exactly like live changes would.
 	var save_data := GameState.take_pending_save()

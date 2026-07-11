@@ -1,13 +1,14 @@
 extends Control
-## Settlement selection screen (ROADMAP.md Phase 4) — the run/main_scene per project.godot.
-## Since Stage 3's save system, this screen only actually appears for a genuinely NEW game:
-## _ready() first asks the GameState autoload whether a valid save exists (has_save() +
-## load_save_from_disk()), and if so skips straight to scenes/main.tscn, which restores the
-## loaded state — the "resume" path. A missing, corrupt, or unknown-settlement save file falls
-## through to the picker exactly like a first launch. For a new game, this presents
-## SettlementDB's 3 starts (name + lore blurb + resource lean) and, on confirm, stores the
-## choice in the GameState autoload and transitions to scenes/main.tscn, which reads it back
-## via scripts/test_map.gd's layout selection.
+## Settlement selection screen (ROADMAP.md Phase 4) — since the 2026-07-11 title screen
+## (scenes/title_screen.tscn, the run/main_scene now), this scene is reachable ONLY via the
+## title menu's "New Game", so it always shows the picker: the resume-vs-new fork this screen's
+## _ready() used to own (has_save() + load_save_from_disk() skipping straight to main.tscn)
+## moved wholesale to the title screen's menu/Load flow. This presents SettlementDB's 3 starts
+## (name + lore blurb + resource lean) and, on confirm, stores the choice in the GameState
+## autoload, claims a FRESH save slot for the new playthrough (GameState.start_new_slot() —
+## so auto-saves know their file from minute one, without touching any existing slot), and
+## transitions to scenes/main.tscn, which reads the choice back via scripts/test_map.gd's
+## layout selection.
 ##
 ## Keyboard-only, reusing existing input actions rather than adding new ones to project.godot's
 ## [input] section (this screen is a separate scene from gameplay, so reusing action names here
@@ -36,15 +37,6 @@ var _dot_rects: Array[ColorRect] = []
 
 
 func _ready() -> void:
-	# Resume path (Phase 4 Stage 3, see class doc): a valid save exists -> load it and go
-	# straight to the game; the picker is for new games only. load_save_from_disk() has already
-	# set GameState.chosen_settlement_id by the time main.tscn instantiates (test_map.gd needs
-	# it in _enter_tree()). change_scene is deferred (required during _ready), and input handling
-	# is dropped immediately so a fast keypress can't confirm a settlement over the pending load.
-	if GameState.has_save() and GameState.load_save_from_disk():
-		set_process_unhandled_input(false)
-		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
-		return
 	_settlements = SettlementDB.list()
 	for i in _settlements.size():
 		var dot := ColorRect.new()
@@ -79,6 +71,10 @@ func _confirm(index: int) -> void:
 		return
 	current_index = index
 	GameState.choose_settlement(String(_settlements[index]["id"]))
+	# Claim the new playthrough's save slot NOW (eager id/path, lazy file — see
+	# game_state.gd's start_new_slot doc), so the first bed sleep's auto-save already knows
+	# exactly which slot file it owns and can never write over another playthrough's.
+	GameState.start_new_slot()
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 

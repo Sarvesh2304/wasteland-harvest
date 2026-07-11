@@ -1,12 +1,13 @@
 extends SceneTree
 ## Headless runtime smoke test (separate from tests/run_tests.gd, which is for pure-logic unit
-## tests): boots the real game start-to-finish and drives the actual game loop — Phase 4 adds a
-## first pass through scenes/settlement_select.tscn (verifying the default display, then
-## confirming a non-default start so the whole GameState -> layout-selection wire is genuinely
-## exercised rather than assumed), landmark/collision checks on the resulting map, and the new
-## chest UI — before re-running Phase 2/3's original movement/camera/day-night/tool-use/farming-
-## loop/pass-out checks against that same map. Simulated input/direct calls only; no display
-## needed.
+## tests): boots the real game start-to-finish and drives the actual game loop — starting from
+## scenes/title_screen.tscn (the run/main_scene since the 2026-07-11 multi-slot save system;
+## stages 40-41 verify the no-slots menu and its New Game hop into the picker), then Phase 4's
+## pass through scenes/settlement_select.tscn (verifying the default display, then confirming a
+## non-default start so the whole GameState -> layout-selection wire is genuinely exercised
+## rather than assumed), landmark/collision checks on the resulting map, and the chest UI —
+## before re-running Phase 2/3's original movement/camera/day-night/tool-use/farming-loop/
+## pass-out checks against that same map. Simulated input/direct calls only; no display needed.
 ##
 ## Phase 4 Stage 2 (stages 16-19): drives the new building-placement mode end-to-end — enter
 ## build mode via the real input handler, cycle the catalog, place a Storage Shed blueprint from
@@ -20,13 +21,18 @@ extends SceneTree
 ## above, the player sleeps in the farmhouse bed via the real use_tool interaction (day advances,
 ## energy refills, "WORLD SAVED" notice appears, save file written), then a fresh boot is
 ## simulated: the whole main scene is torn down, GameState/DayManager are deliberately reset to
-## wrong values, and scenes/settlement_select.tscn is instantiated again exactly as a real launch
-## would — its Stage 3 resume path must skip the picker, reload the save, and restore crops,
-## tilled soil, chopped-resource removals, inventory (incl. tool durability + hotbar selection),
-## player position/facing/energy, both player-built structures with their storage contents, the
-## chest contents, the day/clock, and the chosen settlement. Uses a test-only save filename
-## (game_state.save_path) deleted both before and after, so repeated runs never inherit stale
-## state — a hard requirement, not hygiene theater.
+## wrong values, and scenes/title_screen.tscn is instantiated exactly as a real launch would —
+## since the 2026-07-11 multi-slot save system, resuming is no longer an auto-skip in the picker
+## but an explicit title-menu flow, so stages 22/25 drive the REAL title UI (menu shows Load
+## Game because the bed save's slot exists -> cycle to it -> confirm -> the Load panel lists
+## exactly the one slot with the right settlement/day -> confirm it) into main.tscn, which must
+## restore crops, tilled soil, chopped-resource removals, inventory (incl. tool durability +
+## hotbar selection), player position/facing/energy, both player-built structures with their
+## storage contents, the chest contents, the day/clock, and the chosen settlement. Uses a
+## test-only saves DIRECTORY (game_state.saves_dir, the multi-slot analogue of the old
+## test-only save_path) wiped both before and after, so repeated runs never inherit stale state
+## — a hard requirement, not hygiene theater — and the real user://saves slots (and the real
+## legacy user://savegame.json, via a redirected game_state.legacy_save_path) are never touched.
 ##
 ## Run: godot --headless --path . --script res://tools/runtime_smoke.gd
 ##
@@ -103,6 +109,9 @@ var _other_layout_map: Node2D = null
 var _other_layout_index := 0
 
 var game_state: Node
+## The title screen instance (scenes/title_screen.tscn) whichever boot most recently created it
+## — the first launch (stage 40) and both simulated fresh boots (stages 21/82) drive it.
+var title: Control
 var select: Control
 var main: Node
 var player: CharacterBody2D
@@ -150,16 +159,23 @@ func _initialize() -> void:
 	# instantiation, not in this top-level --script entry file itself — hence root.get_node().
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
-	# Stage 3 test hygiene (hard requirement, see class doc): point the save system at a
-	# test-only filename and clear any stale copy a previous crashed run may have left, BEFORE
-	# the selection screen's _ready() runs its has_save() resume check — otherwise this run
-	# could inherit another run's world (or worse, a real playthrough's save at the default
-	# path could hijack the picker this test drives).
-	game_state.save_path = "user://runtime_smoke_save.json"
-	game_state.delete_save()
-	select = (load("res://scenes/settlement_select.tscn") as PackedScene).instantiate()
-	root.add_child(select)
-	current_scene = select
+	# Stage 3 test hygiene (hard requirement, see class doc): point the whole save system —
+	# slot directory, legacy-migration source, and the pre-allocation save_path — at test-only
+	# locations and wipe any stale slots a previous crashed run may have left. Redirecting
+	# saves_dir means the slot the picker's confirm allocates (and every save/list/load after
+	# it) stays inside the test directory; redirecting legacy_save_path means the title
+	# screen's migration step can never move (and this run's cleanup can never delete) a real
+	# playthrough's user://savegame.json.
+	game_state.saves_dir = "user://runtime_smoke_saves"
+	game_state.legacy_save_path = "user://runtime_smoke_saves/legacy.json"
+	game_state.save_path = "user://runtime_smoke_saves/preboot.json"  # inert until stage 0's confirm
+	_delete_test_saves()
+	# Boot from the very top of the real flow: the title screen (run/main_scene since
+	# 2026-07-11), whose New Game option is what reaches the settlement picker now.
+	title = (load("res://scenes/title_screen.tscn") as PackedScene).instantiate()
+	root.add_child(title)
+	current_scene = title
+	stage = 40  # stages 40-41: title menu -> New Game -> picker; then the historical flow at 0
 	# NOTE: node _ready callbacks have NOT run yet here — in --script mode they fire on the
 	# first main-loop iteration, so all state inspection happens in the staged checks below.
 
@@ -174,15 +190,55 @@ func _enter_stage(next: int) -> void:
 	stage_started_at = Engine.get_physics_frames()
 
 
+## Watchdog (added after a real incident — see stage 26's note): a stage whose advance
+## condition depends on something other than a plain tick count can spin forever if that
+## condition never becomes true, burning near-zero CPU one frame at a time — indistinguishable
+## from "still working" without watching the process directly (exactly what happened here: a
+## duplicate match-arm number hijacked a transition, and the run looped silently for 12+
+## minutes before it was caught by hand). MAX_TICKS_PER_STAGE is comfortably above the longest
+## legitimate in-stage wait anywhere in this file (600 ticks) so it never fires on a healthy
+## run, but guarantees any future stall now fails LOUDLY with the exact stuck stage instead of
+## hanging the whole process indefinitely.
+const MAX_TICKS_PER_STAGE := 1800
+var _watchdog_tripped := false
+
+
 func _physics_process(_delta: float) -> bool:
 	var ticks := int(Engine.get_physics_frames()) - stage_started_at
+	if ticks > MAX_TICKS_PER_STAGE and not _watchdog_tripped:
+		_watchdog_tripped = true
+		push_error("runtime_smoke watchdog: stuck in stage %d for %d ticks" % [stage, ticks])
+		_check(false, "TIMED OUT after %d ticks with no stage transition (watchdog)" % ticks)
+		_finish()
+		return true
 	match stage:
+		40:
+			# -- First launch: the title screen with NO slots — New Game + Exit only --
+			if ticks < 5:
+				return false
+			_check(title.mode == title.Mode.MENU, "title screen boots on its main menu")
+			_check(title._menu_entries == ["New Game", "Exit"],
+				"with no slots, the menu hides Load Game entirely (got %s)" \
+					% str(title._menu_entries))
+			_check(title._menu_index == 0, "New Game is pre-highlighted")
+			_drive_title_action("use_tool")  # confirm New Game -> the settlement picker
+			_enter_stage(41)
+		41:
+			if ticks < 15:  # let the change_scene_to_file complete
+				return false
+			select = current_scene
+			_check(select != null and select.name == "SettlementSelect",
+				"New Game transitioned to the settlement picker")
+			if select == null or select.name != "SettlementSelect":
+				_finish()
+				return true
+			_enter_stage(0)
 		0:
 			# Wait past startup so the selection screen's _ready() has run.
 			if ticks < 5:
 				return false
 			_check(not game_state.has_save(),
-				"no save exists at the test path, so the picker (not the resume path) showed")
+				"no save exists at the test save_path before a settlement is confirmed")
 			_check(game_state.chosen_settlement_id == "open_plains",
 				"selection screen boots with the default settlement pre-selected (got '%s')" \
 					% game_state.chosen_settlement_id)
@@ -207,6 +263,13 @@ func _physics_process(_delta: float) -> bool:
 			_check(main != null and main.name == "Main", "confirming transitions to scenes/main.tscn")
 			_check(game_state.chosen_settlement_id == "forest_edge",
 				"confirming Forest Edge set GameState.chosen_settlement_id")
+			# Multi-slot (2026-07-11): confirming a settlement claims a fresh slot PATH inside
+			# the (redirected) saves dir — id 1, since the test dir starts empty — but the FILE
+			# stays lazy until the first auto-save (see game_state.start_new_slot's doc).
+			_check(game_state.save_path == "user://runtime_smoke_saves/slot_1.json",
+				"confirm allocated fresh slot 1's path (got %s)" % game_state.save_path)
+			_check(not game_state.has_save(),
+				"the new slot's file is not created until the first save")
 			if main == null or main.name != "Main":
 				_finish()
 				return true
@@ -997,17 +1060,49 @@ func _physics_process(_delta: float) -> bool:
 			game_state.chosen_settlement_id = "open_plains"  # save must restore forest_edge
 			day_manager.day = 1                              # save must restore saved_day
 			day_manager.minutes_into_day = 400.0
-			select = (load("res://scenes/settlement_select.tscn") as PackedScene).instantiate()
-			root.add_child(select)
-			current_scene = select
+			title = (load("res://scenes/title_screen.tscn") as PackedScene).instantiate()
+			root.add_child(title)
+			current_scene = title
 			_enter_stage(22)
 		22:
-			# -- The fresh boot's resume path must skip the picker straight into main.tscn --
-			if ticks < 20:  # let select._ready's deferred change_scene_to_file complete
+			# -- The fresh boot lands on the title screen; resuming is the explicit Load flow
+			#    now (2026-07-11 multi-slot), so drive it through the REAL menu input path --
+			if ticks < 10:
+				return false
+			_check(title.mode == title.Mode.MENU, "fresh boot shows the title menu")
+			_check(title._menu_entries == ["New Game", "Load Game", "Exit"],
+				"the bed save's slot makes Load Game appear on the menu (got %s)" \
+					% str(title._menu_entries))
+			_drive_title_action("move_down")  # New Game -> Load Game
+			_check(title._menu_index == 1, "cycled to Load Game")
+			_drive_title_action("use_tool")
+			_check(title.mode == title.Mode.LOAD, "Load panel opened")
+			_check(title._slots.size() == 1,
+				"exactly the one bed-save slot is listed (got %d)" % title._slots.size())
+			if title._slots.size() == 1:
+				_check(int(title._slots[0]["slot_id"]) == 1, "listed slot is slot 1")
+				_check(String(title._slots[0]["settlement_id"]) == "forest_edge",
+					"listed slot names the saved settlement")
+				_check(int(title._slots[0]["day"]) == saved_day,
+					"listed slot shows the saved day (%d)" % saved_day)
+			_drive_title_action("use_tool")  # confirm the slot -> load + boot main.tscn
+			_enter_stage(26)
+		26:
+			# NOTE: 26, not 25 — stage 24 below (pre-existing, the OTHER_LAYOUT_CHECKS loop)
+			# already ends its own iteration with `_enter_stage(25)`, and GDScript's `match`
+			# resolves duplicate literal arms to whichever appears FIRST in source order. An
+			# earlier version of this stage was numbered 25 and silently stole every one of
+			# stage 24's end-of-loop transitions: the back half of this whole test (stages
+			# 23/80/81/82/83/84) re-ran a second time, eventually driving
+			# `_other_layout_index` past OTHER_LAYOUT_CHECKS' bounds and crashing every frame
+			# forever (an infinite, near-zero-CPU "hang" — see git history for the incident).
+			# Stage numbers in this file are NOT auto-checked for uniqueness — grep
+			# `^\s*[0-9]+:\s*$` for the existing set before ever reusing one.
+			if ticks < 20:  # let the load's change_scene_to_file complete
 				return false
 			main = current_scene
 			_check(main != null and main.name == "Main",
-				"resume path skipped the picker and booted main.tscn")
+				"confirming the listed slot booted main.tscn")
 			if main == null or main.name != "Main":
 				_finish()
 				return true
@@ -1171,16 +1266,28 @@ func _physics_process(_delta: float) -> bool:
 			game_state.chosen_settlement_id = "open_plains"
 			day_manager.day = 1
 			day_manager.minutes_into_day = 400.0
-			select = (load("res://scenes/settlement_select.tscn") as PackedScene).instantiate()
-			root.add_child(select)
-			current_scene = select
+			title = (load("res://scenes/title_screen.tscn") as PackedScene).instantiate()
+			root.add_child(title)
+			current_scene = title
 			_enter_stage(83)
 		83:
-			if ticks < 20:  # let select._ready's deferred change_scene_to_file complete
+			# Same real title -> Load -> slot drive as stage 22 (lighter checks — the listing
+			# itself was verified there; this run is about the pending-box save's content).
+			if ticks < 10:
+				return false
+			_drive_title_action("move_down")
+			_drive_title_action("use_tool")
+			_check(title.mode == title.Mode.LOAD, "Load panel opened for the pending-box save")
+			_check(title._slots.size() == 1 and int(title._slots[0]["day"]) == saved_day,
+				"the mid-session save's slot is listed with its day")
+			_drive_title_action("use_tool")
+			_enter_stage(85)
+		85:
+			if ticks < 20:  # let the load's change_scene_to_file complete
 				return false
 			main = current_scene
 			_check(main != null and main.name == "Main",
-				"resume path booted main.tscn again for the pending-box save")
+				"loading the slot booted main.tscn again for the pending-box save")
 			if main == null or main.name != "Main":
 				_finish()
 				return true
@@ -1221,9 +1328,11 @@ func _physics_process(_delta: float) -> bool:
 					_check(int(sale["day"]) == day_manager.day and sale["items"] == {"sunbloom": 2} \
 							and int(sale["total"]) == 60,
 						"second entry itemizes the sunbloom sale (got %s)" % str(sale))
-				# Final test hygiene: the sleep re-saved; remove it so repeated runs start clean.
-				game_state.delete_save()
+				# Final test hygiene: the sleep re-saved; wipe the whole test saves dir so
+				# repeated runs start clean.
+				_delete_test_saves()
 				_check(not game_state.has_save(), "test save file cleaned up (final)")
+				_check(game_state.list_slots().is_empty(), "no test slots left behind (final)")
 				_enter_stage(24)
 		24:
 			# -- The other 2 starts also load and paint correctly (not just Forest Edge above) --
@@ -1288,6 +1397,26 @@ func _drive_dialogue_action(action: String) -> void:
 	event.action = action
 	event.pressed = true
 	dialogue_ui._unhandled_input(event)
+
+
+## Same idea, for the title screen's real _unhandled_input (2026-07-11 multi-slot title/Load
+## flow, stages 40/22/83) — menu and Load-panel navigation both route through it.
+func _drive_title_action(action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	title._unhandled_input(event)
+
+
+## Wipes the test-only saves directory (every file, then the directory itself) — the
+## multi-slot analogue of the old single-file delete_save() hygiene. Safe on a missing dir.
+func _delete_test_saves() -> void:
+	var abs_dir := ProjectSettings.globalize_path(String(game_state.saves_dir))
+	if not DirAccess.dir_exists_absolute(abs_dir):
+		return
+	for file_name in DirAccess.get_files_at(abs_dir):
+		DirAccess.remove_absolute(abs_dir.path_join(file_name))
+	DirAccess.remove_absolute(abs_dir)
 
 
 ## Same idea again, for store_ui.gd's real _unhandled_input (Phase 5 Stage 2) — drives
