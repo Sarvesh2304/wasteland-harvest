@@ -85,6 +85,7 @@ var npcs: Node
 var dialogue_ui: Node
 var store_ui: Node
 var shipping_ui: Node
+var menu_screen: Node
 var hud: CanvasLayer
 
 var stage := 0
@@ -153,7 +154,7 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.inventory.count_of("seed_mutant_potato") == 5, "5 starting potato seeds")
 			_check(player.inventory.count_of("wood") == 15, "Forest Edge bonus wood granted")
 			_check(main.modal_gate != null, "main.gd owns a modal gate")
-			for surface in [builder, dialogue_ui, store_ui, shipping_ui]:
+			for surface in [builder, dialogue_ui, store_ui, shipping_ui, menu_screen]:
 				_check(surface.modal_gate == main.modal_gate,
 					"%s is wired to the shared modal gate" % surface.name)
 			_enter_stage(1)
@@ -207,15 +208,14 @@ func _physics_process(_delta: float) -> bool:
 					"...and placed no blueprint")
 				_check(player.inventory.count_of("wood") == wood_before,
 					"...and spent no resources")
-				# The HUD's "I" inventory grid is a passive overlay, deliberately NOT modal — it
-				# must still toggle mid-dialogue without disturbing the conversation.
-				var grid: Control = hud.get_node("%InventoryGrid")
-				var grid_was_visible: bool = grid.visible
-				_drive(hud, "toggle_inventory")
-				_check(grid.visible != grid_was_visible,
-					"the I-key inventory grid still toggles mid-dialogue (passive, not modal)")
-				_check(dialogue_ui.active, "...without closing the dialogue")
-				_drive(hud, "toggle_inventory")  # restore
+				# 2026-07-12: "toggle_inventory" now opens the tabbed in-game menu
+				# (scripts/menu_screen.gd), a TRUE modal — unlike the passive grid it replaced,
+				# it must be REFUSED mid-dialogue, exactly like build_toggle above.
+				_drive(menu_screen, "toggle_inventory")
+				_check(not menu_screen.active,
+					"the in-game menu is REFUSED while a dialogue is open (modal, unlike the " \
+						+ "passive grid it replaced)")
+				_check(dialogue_ui.active, "...and the refusal didn't disturb the dialogue")
 				# Finish Kael's chain (bounded, per the smoke test's convention).
 				var guard := 0
 				while dialogue_ui.active and guard < 20:
@@ -616,6 +616,7 @@ func _fetch_world_nodes() -> void:
 	dialogue_ui = main.get_node("DialogueUI")
 	store_ui = main.get_node("StoreUI")
 	shipping_ui = main.get_node("ShippingUI")
+	menu_screen = main.get_node("MenuScreen")
 	hud = main.get_node("HUD")
 
 

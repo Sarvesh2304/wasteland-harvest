@@ -76,11 +76,18 @@ func _ready() -> void:
 	player.shipping_box_requested.connect(shipping_ui.open_box)
 	player.shipping_ui = shipping_ui
 	structures.crops_sold.connect(player.add_credits)
+	# 2026-07-12: the in-game tabbed menu (scripts/menu_screen.gd) — bound both ways like the
+	# three UIs above. bind() also ADOPTS the HUD's %InventoryGrid as the menu's Inventory-tab
+	# content (after bind_inventory above built its widgets), so the grid logic stays in hud.gd
+	# while "toggle_inventory" now opens the full menu instead of a bare overlay.
+	var menu_screen: Node = $MenuScreen
+	menu_screen.bind(player, hud.inventory_grid)
+	player.menu_screen = menu_screen
 	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
 	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
 	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
-	# modal UIs like quest journals or pause menus).
-	for surface in [builder, dialogue_ui, store_ui, shipping_ui]:
+	# modal UIs like quest journals or pause menus — the recipe the menu above just followed).
+	for surface in [builder, dialogue_ui, store_ui, shipping_ui, menu_screen]:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data

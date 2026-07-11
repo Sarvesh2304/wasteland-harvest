@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/dialogue_ui.tscn" id="8_dialogue"]
 [ext_resource type="PackedScene" path="res://scenes/store_ui.tscn" id="9_store"]
 [ext_resource type="PackedScene" path="res://scenes/shipping_ui.tscn" id="10_shipping"]
+[ext_resource type="PackedScene" path="res://scenes/menu_screen.tscn" id="11_menu"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -34,3 +35,5 @@ script = ExtResource("5_daynight")
 [node name="StoreUI" parent="." instance=ExtResource("9_store")]
 
 [node name="ShippingUI" parent="." instance=ExtResource("10_shipping")]
+
+[node name="MenuScreen" parent="." instance=ExtResource("11_menu")]

@@ -87,6 +87,18 @@ extends SceneTree
 ## precisely what this check must avoid — survives a second full teardown/reload with its pending
 ## contents intact, and still sells correctly (+60 Cr, second history entry) on the next real bed
 ## sleep after the reload.
+##
+## 2026-07-12 in-game tabbed menu (stages 100-101, spliced between the tent build (stage 19) and
+## the shipping-box load (stage 70) — after stage 19 the inventory sits at exactly 0 wood, so the
+## Build tab's affordability rows have a known, assertable state): opens scripts/menu_screen.gd
+## through its real "toggle_inventory" input path, confirms it lands on the Inventory tab hosting
+## the HUD's actual reparented backpack grid, that a held movement key is genuinely ignored and
+## the clock pauses while it's open (main.gd's modal-gate poll), that "B"/build_toggle is REFUSED
+## while the menu is open (the modal gate), cycles all three tabs with "build_cycle"/Q (checking
+## the Build tab's rows carry builder.gd's exact cost strings + the missing-materials flag, and
+## the Controls tab rendered its reference list), arms/disarms the Save & Return footer, closes
+## with Esc, then proves the reverse exclusion: build mode works again after closing, the menu is
+## refused while build mode is active, and Tab re-opens/re-closes it once nothing else is open.
 
 const CropDB := preload("res://scripts/crop_db.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -130,6 +142,8 @@ var dialogue_ui: Node
 var store_ui: Node
 ## Phase 5 Stage 3: the shipping box's crop-loading UI, fetched alongside store_ui above.
 var shipping_ui: Node
+## 2026-07-12: the in-game tabbed menu, fetched alongside shipping_ui above (stages 100-101).
+var menu_screen: Node
 ## Wander-check snapshot (stage 60): each NPC's cell recorded once, compared after simulated time.
 var _wander_start_cells: Dictionary = {}
 ## Position snapshot for stage 95's post-store movement check (see that stage).
@@ -283,6 +297,7 @@ func _physics_process(_delta: float) -> bool:
 			dialogue_ui = main.get_node("DialogueUI")
 			store_ui = main.get_node("StoreUI")
 			shipping_ui = main.get_node("ShippingUI")
+			menu_screen = main.get_node("MenuScreen")
 			hud = main.get_node("HUD")
 			_enter_stage(2)
 		2:
@@ -938,6 +953,101 @@ func _physics_process(_delta: float) -> bool:
 					"both player-built structures completed")
 				_check(not structures.is_chest_at(Vector2i(30, 21)), "tent is not storage")
 				_check(not farm.can_till(Vector2i(30, 21)), "completed tent cell stays untillable")
+				_enter_stage(100)
+		100:
+			# -- 2026-07-12 in-game tabbed menu, part 1 (see class doc): open via the real
+			#    "toggle_inventory" input path, frozen player + paused clock, B refused while
+			#    open, tab cycling with exact Build-tab affordability rows (0 wood here, so both
+			#    catalog entries are assertably unaffordable), quit-footer arm/disarm, Esc close.
+			if ticks < 5:
+				return false
+			if ticks == 5:
+				_check(not menu_screen.active, "the menu starts closed")
+				_check(not menu_screen.get_node("%Box").visible, "menu panel starts hidden")
+				_drive_menu_action("toggle_inventory")
+				_check(menu_screen.active, "Tab (toggle_inventory) opens the menu")
+				_check(menu_screen.get_node("%Box").visible, "the menu panel is visible")
+				_check(menu_screen.tab_index == menu_screen.TAB_INVENTORY,
+					"the menu always opens on the Inventory tab")
+				_check(hud.inventory_grid.get_parent() == menu_screen.inventory_tab,
+					"the HUD's backpack grid was reparented into the Inventory tab (re-hosted)")
+				_check(hud.inventory_grid.visible and menu_screen.inventory_tab.visible,
+					"the re-hosted backpack grid is showing")
+				Input.action_press("move_right")
+				return false
+			if ticks < 12:
+				return false
+			if ticks == 12:
+				_check(player.velocity == Vector2.ZERO,
+					"player stays frozen while the menu is open despite a held movement key")
+				Input.action_release("move_right")
+				_check(day_manager.time_paused, "an open menu pauses the clock (true modal)")
+				# THE gate check this session's feature demands: B must NOT engage build mode
+				# underneath the open menu — driven through builder.gd's real input handler.
+				_drive_builder_action("build_toggle")
+				_check(not builder.active,
+					"build_toggle is REFUSED while the menu is open (modal gate)")
+				# -- Tab cycling (build_cycle/Q): Inventory -> Build, with live catalog rows --
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_BUILD,
+					"Q cycles Inventory -> Build")
+				_check(menu_screen.build_tab.visible and not menu_screen.inventory_tab.visible,
+					"only the Build tab's content is showing")
+				_check(menu_screen._build_row_labels.size() == 2,
+					"one Build row per catalog entry (2)")
+				_check(menu_screen._build_row_labels[0].text
+						== "Shelter Tent — 6 Wood  — missing materials",
+					"tent row: builder.gd's exact cost string + the missing-materials flag " \
+						+ "(0 wood after the tent build), got '%s'" \
+						% menu_screen._build_row_labels[0].text)
+				_check(menu_screen._build_row_labels[1].text
+						== "Storage Shed — 12 Wood, 4 Stone, 2 Scrap Metal  — missing materials",
+					"shed row: exact cost string + missing-materials flag, got '%s'" \
+						% menu_screen._build_row_labels[1].text)
+				# -- Build -> Controls --
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_CONTROLS,
+					"Q cycles Build -> Controls")
+				_check(menu_screen.controls_rows.get_child_count()
+						== menu_screen.CONTROLS_REFERENCE.size(),
+					"Controls tab rendered one row per reference entry")
+				# -- Controls wraps back to Inventory --
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_INVENTORY,
+					"Q wraps Controls -> Inventory")
+				# -- Save & Return footer: first Space arms, a tab cycle disarms --
+				_check(not menu_screen._quit_armed, "quit footer starts disarmed")
+				_drive_menu_action("use_tool")
+				_check(menu_screen._quit_armed, "first Space arms the Save & Return confirm")
+				_check(menu_screen.get_node("%QuitLabel").text.find("AGAIN") != -1,
+					"the armed footer reads as a press-again confirm")
+				_drive_menu_action("build_cycle")
+				_check(not menu_screen._quit_armed, "cycling tabs disarms the pending quit")
+				# -- Esc closes (per every other modal's convention) --
+				_drive_menu_action("ui_cancel")
+				_check(not menu_screen.active, "Esc closes the menu")
+				_check(not menu_screen.get_node("%Box").visible, "the menu panel hid again")
+				_enter_stage(101)
+		101:
+			# -- Menu part 2: the clock resumes, build mode works again after closing, and the
+			#    reverse exclusion holds (menu refused while build mode is active) --
+			if ticks < 3:  # a frame so main.gd's per-frame poll re-derived time_paused
+				return false
+			if ticks == 3:
+				_check(not day_manager.time_paused, "closing the menu unpauses the clock")
+				_drive_builder_action("build_toggle")
+				_check(builder.active,
+					"build mode engages normally again once the menu is closed")
+				_drive_menu_action("toggle_inventory")
+				_check(not menu_screen.active,
+					"the menu is REFUSED while build mode is active (reverse exclusion)")
+				_drive_builder_action("build_toggle")
+				_check(not builder.active, "left build mode")
+				# Tab both opens AND closes it (the same key toggles, like the old grid did).
+				_drive_menu_action("toggle_inventory")
+				_check(menu_screen.active, "Tab re-opens the menu once nothing else is open")
+				_drive_menu_action("toggle_inventory")
+				_check(not menu_screen.active, "Tab closes the open menu again")
 				_enter_stage(70)
 		70:
 			# -- Phase 5 Stage 3: load the stage-15 harvested potato into the shipping box via
@@ -1427,6 +1537,16 @@ func _drive_store_action(action: String) -> void:
 	event.action = action
 	event.pressed = true
 	store_ui._unhandled_input(event)
+
+
+## Same idea once more, for menu_screen.gd's real _unhandled_input (2026-07-12 in-game tabbed
+## menu, stages 100-101) — drives "toggle_inventory"/"build_cycle"/"use_tool"/"ui_cancel"
+## through the actual handler rather than calling open_menu()/close() directly.
+func _drive_menu_action(action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	menu_screen._unhandled_input(event)
 
 
 ## Same idea once more, for shipping_ui.gd's real _unhandled_input (Phase 5 Stage 3) — drives

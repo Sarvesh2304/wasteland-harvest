@@ -20,12 +20,14 @@ extends SceneTree
 ##       reopened with _index back at 0) -> stage 5, same shape, asserts it stays closed.
 ##
 ## The session's UX additions:
-##   - Esc (ui_cancel) closes dialogue/store/shipping and the HUD's inventory/chest grids
-##     (stage 6, through each node's real _unhandled_input).
+##   - Esc (ui_cancel) closes dialogue/store/shipping, the in-game tabbed menu (which owns
+##     "toggle_inventory" since 2026-07-12 — see scripts/menu_screen.gd), and the HUD's chest
+##     grid (stage 6, through each node's real _unhandled_input).
 ##   - The chest/storage grid auto-closes when the player walks beyond hud.gd's
 ##     CHEST_CLOSE_DISTANCE, and NOT when merely shuffling beside the chest (stage 7).
 ##   - Time pauses while a modal UI is open, resumes on close, and deliberately does NOT pause
-##     for build mode or the HUD's passive grids (stage 8).
+##     for build mode; the in-game menu is a true modal, so it DOES pause (stage 8 — before the
+##     2026-07-12 menu this slot checked the old passive backpack grid, which didn't).
 ##
 ## Run: godot --headless --path . --script res://tools/held_input_smoke.gd
 ##
@@ -54,6 +56,7 @@ var npcs: Node
 var dialogue_ui: Node
 var store_ui: Node
 var shipping_ui: Node
+var menu_screen: Node
 var hud: CanvasLayer
 
 var stage := 0
@@ -100,6 +103,7 @@ func _physics_process(_delta: float) -> bool:
 			dialogue_ui = main.get_node("DialogueUI")
 			store_ui = main.get_node("StoreUI")
 			shipping_ui = main.get_node("ShippingUI")
+			menu_screen = main.get_node("MenuScreen")
 			hud = main.get_node("HUD")
 			_enter_stage(1)
 		1:
@@ -253,11 +257,13 @@ func _physics_process(_delta: float) -> bool:
 				_check(shipping_ui.active, "shipping UI open for the Esc check")
 				_drive(shipping_ui, "ui_cancel")
 				_check(not shipping_ui.active, "Esc closes the shipping UI")
-				var inventory_grid: Control = hud.get_node("%InventoryGrid")
-				_drive(hud, "toggle_inventory")
-				_check(inventory_grid.visible, "I-key opened the inventory grid")
-				_drive(hud, "ui_cancel")
-				_check(not inventory_grid.visible, "Esc closes the inventory grid")
+				# 2026-07-12: "toggle_inventory" opens the tabbed in-game menu now (which hosts
+				# the backpack grid as its Inventory tab); Esc must close it per the same
+				# back-out convention as the three UIs above.
+				_drive(menu_screen, "toggle_inventory")
+				_check(menu_screen.active, "Tab opened the in-game menu")
+				_drive(menu_screen, "ui_cancel")
+				_check(not menu_screen.active, "Esc closes the in-game menu")
 				_stand(CHEST_STAND, "north")
 				player.use_tool()
 				_check(hud.get_node("%ChestGrid").visible, "chest grid open for the Esc check")
@@ -324,12 +330,18 @@ func _physics_process(_delta: float) -> bool:
 					"the clock kept running through build mode")
 				_drive(builder, "build_toggle")
 				_check(not builder.active, "left build mode")
-				_drive(hud, "toggle_inventory")
+				# 2026-07-12: the in-game menu is a TRUE modal (unlike the passive backpack
+				# grid that used to own this key) — opening it must pause time.
+				_drive(menu_screen, "toggle_inventory")
+				_check(menu_screen.active, "in-game menu opened for the pause check")
 				return false
 			if ticks == 110:
-				_check(not day_manager.time_paused,
-					"the passive inventory grid does NOT pause time")
-				_drive(hud, "toggle_inventory")
+				_check(day_manager.time_paused, "the in-game menu DOES pause time (modal)")
+				_drive(menu_screen, "toggle_inventory")
+				_check(not menu_screen.active, "Tab closed the menu again")
+				return false
+			if ticks == 115:
+				_check(not day_manager.time_paused, "closing the menu unpauses time")
 				# Final hygiene: the two bed sleeps auto-saved to the test-only path.
 				game_state.delete_save()
 				_check(not game_state.has_save(), "test save file cleaned up")

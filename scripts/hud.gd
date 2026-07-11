@@ -1,9 +1,18 @@
 extends CanvasLayer
 ## HUD: day number, in-game clock, energy bar (Phase 2), plus Phase 3's hotbar (always visible,
-## bottom-center — the 9 slots number keys 1-9 select) and a toggleable full-inventory grid
-## (the "I" key, showing the remaining 18 backpack slots above the hotbar). Phase 4 adds a
-## second, independently-toggled grid for the farmland storage chest's own Inventory instance
-## (see scripts/structures.gd) — walking up to the chest and interacting opens/closes it.
+## bottom-center — the 9 slots number keys 1-9 select) and the 18-slot backpack grid. Phase 4
+## adds a second, independently-toggled grid for the farmland storage chest's own Inventory
+## instance (see scripts/structures.gd) — walking up to the chest and interacting opens/closes
+## it.
+##
+## Backpack-grid hosting note (2026-07-12 in-game menu session): %InventoryGrid is authored in
+## hud.tscn and its slot widgets are still built/painted HERE (bind_inventory below, driven by
+## Inventory's signals), but at runtime main.gd hands the node to scripts/menu_screen.gd's
+## bind(), which REPARENTS it into the tabbed menu's Inventory tab — the "toggle_inventory"
+## key now opens that full menu rather than flipping a bare grid. This script keeps working
+## through its captured @onready reference, which survives the reparent; only don't look the
+## node up again via hud.get_node("%InventoryGrid") after _ready, since unique-name lookup
+## stops resolving once the node leaves this scene's subtree.
 ##
 ## Lives on a CanvasLayer so the day/night CanvasModulate in main.tscn never darkens it.
 ## Listens to the DayManager autoload for time, and to the player's energy_changed signal
@@ -130,15 +139,13 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("toggle_inventory"):
-		inventory_grid.visible = not inventory_grid.visible
-	# Esc closes the HUD's toggleable grids too (playtest UX gap, 2026-07-10 — the same
-	# Stardew "Esc backs out of whatever menu you're in" convention dialogue/store/shipping
-	# now follow). Both at once if both are open: these are passive overlays, and "Esc clears
-	# whatever panels are up" is the predictable read. The existing toggles ("I" key,
-	# re-interacting with the chest) keep working unchanged.
-	elif event.is_action_pressed("ui_cancel"):
-		inventory_grid.visible = false
+	# Esc closes the chest grid (playtest UX gap, 2026-07-10 — the same Stardew "Esc backs out
+	# of whatever menu you're in" convention dialogue/store/shipping follow). The backpack grid
+	# is no longer toggled here at all: since the 2026-07-12 in-game menu, "toggle_inventory"
+	# belongs to scripts/menu_screen.gd, which re-hosts %InventoryGrid as its Inventory tab
+	# (see bind()'s note below) and does its own Esc handling. The chest grid stays a passive
+	# HUD overlay, opened by re-interacting with the chest, exactly as before.
+	if event.is_action_pressed("ui_cancel"):
 		chest_grid.visible = false
 
 
@@ -280,8 +287,8 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 
 ## Called by main.gd (wired to scripts/structures.gd's chest_toggled signal) whenever the player
 ## interacts with the chest. Re-interacting while it's already open closes it again (a simple
-## toggle, matching the "I" key's inventory_grid behaviour above) rather than needing a separate
-## close affordance.
+## toggle, the same shape the backpack grid's old "I"-key toggle had before the 2026-07-12 menu
+## adopted it) rather than needing a separate close affordance.
 func toggle_chest_ui(inv: Inventory, cell: Vector2i) -> void:
 	# The interacted cell anchors the walk-away distance check (see _process above). For a 2x2
 	# shed this is whichever footprint cell was targeted — measuring from the side the player

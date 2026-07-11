@@ -176,6 +176,10 @@ var store_ui: Node = null
 ## Phase 5 Stage 3: the shipping box's crop-loading UI (scripts/shipping_ui.gd), bound DIRECTLY
 ## by main.gd exactly like store_ui above, with the identical freeze rule (see _in_shipping()).
 var shipping_ui: Node = null
+## 2026-07-12: the in-game tabbed menu (scripts/menu_screen.gd), bound DIRECTLY by main.gd
+## exactly like the three UIs above, with the identical freeze rule (see _in_menu()) — the menu
+## owns "toggle_inventory"/"build_cycle"/"use_tool"/"ui_cancel" itself while open.
+var menu_screen: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -202,7 +206,8 @@ func _physics_process(_delta: float) -> void:
 	# The instant-interaction press-edge latch runs before every early return below, so it
 	# tracks the button across swing-lock frames and modal-frozen frames alike (a release+press
 	# during a swing still arms; a press held into/through a modal never does).
-	var modal_open := _in_dialogue() or _in_store() or _in_shipping() or _in_build_mode()
+	var modal_open := _in_dialogue() or _in_store() or _in_shipping() or _in_build_mode() \
+		or _in_menu()
 	_instant_armed = instant_armed_next(_instant_armed,
 		Input.is_action_pressed("use_tool"), modal_open, _modal_open_last_frame)
 	_modal_open_last_frame = modal_open
@@ -227,6 +232,12 @@ func _physics_process(_delta: float) -> void:
 		return
 	# Phase 5 Stage 3: loading the shipping box, same freeze rule as the store/dialogue above.
 	if _in_shipping():
+		velocity = Vector2.ZERO
+		return
+	# 2026-07-12: the tabbed in-game menu, same freeze rule again — menu_screen.gd owns
+	# "use_tool" (Save & Return confirm) and "build_cycle" (tab switch) while it's open, so
+	# this loop must stand down completely.
+	if _in_menu():
 		velocity = Vector2.ZERO
 		return
 	if _stepping:
@@ -433,6 +444,11 @@ func _in_store() -> bool:
 ## True while scripts/shipping_ui.gd's box is open — see _physics_process's early-return.
 func _in_shipping() -> bool:
 	return shipping_ui != null and bool(shipping_ui.active)
+
+
+## True while scripts/menu_screen.gd's tabbed menu is open — see _physics_process's early-return.
+func _in_menu() -> bool:
+	return menu_screen != null and bool(menu_screen.active)
 
 
 ## The logical cell directly ahead of the player, in the current facing direction.

@@ -116,7 +116,7 @@ func _process(_delta: float) -> void:
 	_preview.size = Vector2(footprint_size) * CELL_SIZE
 	_preview.color = VALID_COLOR if _placement_ok(id, top_left, footprint_size) else INVALID_COLOR
 	_label.text = "%s — %s\n[Space] place  [Q] next  [B] cancel" \
-		% [BuildingDB.display_name(id), _cost_text(id)]
+		% [BuildingDB.display_name(id), cost_text(id)]
 	_label.position = _preview.position + Vector2(0, -20)
 
 
@@ -142,8 +142,11 @@ func _can_afford(id: String) -> bool:
 	return BuildGrid.can_afford(have, cost)
 
 
-## "12 Wood, 4 Stone, 2 Scrap Metal" from the catalog cost + item display names.
-func _cost_text(id: String) -> String:
+## "12 Wood, 4 Stone, 2 Scrap Metal" from the catalog cost + item display names. Static (and
+## public) since 2026-07-12: the in-game menu's Build tab (scripts/menu_screen.gd) shows the
+## same cost strings, and one formatter drifting from the other would show the player two
+## different prices for one building.
+static func cost_text(id: String) -> String:
 	var parts: Array[String] = []
 	var cost: Dictionary = BuildingDB.cost(id)
 	for item_id in cost:
