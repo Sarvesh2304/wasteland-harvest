@@ -33,6 +33,19 @@ Same model as Blood Fields: Empires, carried over because it worked well there:
 - **Sonnet** (orchestrating session) reviews Fable 5's output independently before trusting it
   (re-run tests yourself, re-check diffs — don't just relay Fable's own summary), runs
   tests/builds, verifies milestones, handles git operations, and gates anything risky.
+- **Fable-unavailable fallback:** Fable 5 has a separate weekly usage limit from the rest of
+  this plan; when it's hit mid-week, don't block on it waiting for reset — the builder seat is
+  just a `model:` parameter to the `Agent` tool, so swapping it is mechanical, not a workflow
+  change. Split by task size rather than picking one universal substitute: route substantial
+  multi-file builds, new systems, and art-direction-heavy work (the kind of task Fable would
+  normally take) to **Opus** (`Agent` tool, `model: "opus"`), with every other convention in
+  this section unchanged — same prompt-writing discipline, same independent Sonnet review
+  (re-run tests, re-read the diff, don't trust the builder's own summary, regardless of which
+  model produced it). For small, quick fixes (a one/two-line bug, a doc-comment update, a
+  config tweak) Sonnet edits directly instead of spinning up an agent at all — there's rarely
+  enough surface area there for a second pair of eyes to meaningfully add anything. Switch
+  back to routing new work to Fable as soon as its limit resets; this is a temporary detour
+  around a quota, not a reconsideration of Fable as the primary builder.
 - **Gate before acting, every session, no standing approval:** opening/driving the Godot **GUI
   editor** itself, `git push`, and creating/modifying anything in `~/Projects/shared-assets`
   (a second project, Blood Fields: Empires, already depends on it) all require explicit
