@@ -44,6 +44,25 @@ const ROWS: Array[String] = [
 	"F..........................WWWWW...F",
 	"F..........................WWWWW...F",
 	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	# -- Ranch/Sanctuary southern extension (MAPS.md §3) — shared verbatim by all 3 starts; see
+	#    open_plains_layout.gd for the annotated version of this block. --
+	"F..................................F",
+	"F..................................F",
+	"F..................................F",
+	"F....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
+	"F....F........................F....F",
+	"F....F......N.................F....F",
+	"F....F........................F....F",
+	"F....F........................F....F",
+	"F....FY..................P....F....F",
+	"F....F........................F....F",
+	"F....F........................F....F",
+	"F....F.....F.........F......F.F....F",
+	"F....F.....F.........F......F.F....F",
+	"F....FFFFFFF.........FFFFFFFF.F....F",
+	"F....FFFFFFFFFFFFFFFFFFFFFFFFFF....F",
+	"F..................................F",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 const BUILDINGS: Array[Dictionary] = [
@@ -64,6 +83,11 @@ const BUILDINGS: Array[Dictionary] = [
 	# spawn cell directly below it, matching Stardew's bin-beside-the-farmhouse placement. Load
 	# harvested crops in, sleep, and the sale's Credits arrive next morning — see structures.gd.
 	{"id": "shipping_box", "kind": "shipping_box", "top_left": Vector2i(17, 4), "size": Vector2i(1, 1)},
+	# Ranch/Sanctuary scenery buildings (MAPS.md §3) — shared verbatim by all 3 starts (see
+	# open_plains_layout.gd). Markers N/Y/P in ROWS; art at art/buildings/<kind>.png.
+	{"id": "ranch_house", "kind": "ranch_house", "top_left": Vector2i(12, 37), "size": Vector2i(3, 2)},
+	{"id": "ranch_barn", "kind": "ranch_barn", "top_left": Vector2i(6, 40), "size": Vector2i(4, 3)},
+	{"id": "ranch_coop", "kind": "ranch_coop", "top_left": Vector2i(25, 40), "size": Vector2i(2, 2)},
 ]
 
 
@@ -110,7 +134,13 @@ static func buildings() -> Array[Dictionary]:
 ## Phase 5 Stage 1: the shared town-core NPC roster (see LayoutCommon.TOWN_NPCS's doc for the
 ## positions and why they're common to all 3 starts).
 static func npcs() -> Array[Dictionary]:
-	return LayoutCommon.TOWN_NPCS
+	return LayoutCommon.all_npcs()
+
+
+## Ranch/Sanctuary decorative animal props (MAPS.md §3) — shared across all 3 starts, spawned as
+## static non-collidable Sprite2D critters by scripts/props.gd (no animal-entity system yet).
+static func decor_props() -> Array[Dictionary]:
+	return LayoutCommon.RANCH_DECOR
 
 
 static func building_at(x: int, y: int) -> Dictionary:

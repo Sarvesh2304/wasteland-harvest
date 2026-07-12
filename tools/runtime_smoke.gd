@@ -111,11 +111,17 @@ const NpcGrid := preload("res://scripts/npc_grid.gd")
 ## loads" for whichever start was picked, not just the one driven through the full selection ->
 ## main.tscn flow above). Each entry: settlement id, expected layout script, and the exact
 ## painted-cell counts computed from that layout's ROWS (ground is always (w+1)*(h+1)).
+## Counts updated for the MAPS.md §3 Ranch/Sanctuary southern extension: every map grew from 36x32
+## to 36x49 (ground (36+1)*(49+1)=37*50), gained the shared ranch fencing (+158 F cells on the
+## F-west starts, +141 on Riverside whose extension west column is river not fence), the 17 extra
+## river cells down Riverside's west edge (water 32 -> 49), and the 3 ranch scenery buildings
+## (11 -> 14). Dock/decor plank count (3) is unchanged — the animal props are their own Props node,
+## not Decor-layer cells.
 const OTHER_LAYOUT_CHECKS := [
-	{"id": "open_plains", "layout": OpenPlainsLayout, "ground": 37 * 33, "obstacles": 0,
-		"fence": 129, "water": 20, "decor": 3, "buildings": 11},
-	{"id": "riverside", "layout": RiversideLayout, "ground": 37 * 33, "obstacles": 0,
-		"fence": 97, "water": 32, "decor": 3, "buildings": 11},
+	{"id": "open_plains", "layout": OpenPlainsLayout, "ground": 37 * 50, "obstacles": 0,
+		"fence": 287, "water": 20, "decor": 3, "buildings": 14},
+	{"id": "riverside", "layout": RiversideLayout, "ground": 37 * 50, "obstacles": 0,
+		"fence": 238, "water": 49, "decor": 3, "buildings": 14},
 ]
 var _other_layout_map: Node2D = null
 var _other_layout_index := 0
@@ -310,7 +316,8 @@ func _physics_process(_delta: float) -> bool:
 			_check(spawn == test_map.get_spawn_position(), "player starts on the spawn cell")
 			_check(spawn == ForestEdgeLayout.cell_center(Vector2i(17, 5)),
 				"spawn position matches Forest Edge's authored spawn cell (17,5)")
-			_check(test_map.get_map_rect() == Rect2(0, 0, 576, 512), "Forest Edge map bounds are 36x32 cells")
+			_check(test_map.get_map_rect() == Rect2(0, 0, 576, 784),
+				"Forest Edge map bounds are 36x49 cells (grew south for the ranch, MAPS.md §3)")
 			_check(hud.get_node("%DayLabel").text == "Day 1", "HUD day label bound")
 			_check(hud.get_node("%EnergyFill").value == 100.0, "energy bar full")
 			_check(player.farm == farm and player.test_map == test_map and player.structures == structures,
@@ -324,26 +331,26 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.inventory.count_of("scrap_metal") == 8, "Forest Edge bonus: 8 scrap metal granted")
 			_check(player.inventory.count_of("stone") == 8, "Forest Edge bonus: 8 stone granted")
 			# -- The map was actually painted correctly from Forest Edge's layout data --
-			_check(test_map.get_node("Ground").get_used_cells().size() == 37 * 33,
-				"dual-grid ground fully painted (37x33 visual tiles)")
+			_check(test_map.get_node("Ground").get_used_cells().size() == 37 * 50,
+				"dual-grid ground fully painted (37x50 visual tiles after the ranch extension)")
 			_check(test_map.get_node("Obstacles").get_used_cells().size() == 2,
 				"the 2 salvage-rubble '#' cells painted onto Obstacles")
-			_check(test_map.get_node("Fence").get_used_cells().size() == 129,
-				"all 129 perimeter fence cells painted")
+			_check(test_map.get_node("Fence").get_used_cells().size() == 287,
+				"all 287 fence cells painted (129 town perimeter + 158 ranch-extension fencing)")
 			_check(test_map.get_node("Water").get_used_cells().size() == 29,
 				"all 29 water cells (SW creek + town pool) painted")
 			_check(test_map.get_node("Decor").get_used_cells().size() == 3,
 				"all 3 dock plank cells painted")
 			# -- Town-core + farmland landmarks exist, positioned sensibly --
 			var buildings: Array[Dictionary] = ForestEdgeLayout.buildings()
-			_check(buildings.size() == 11,
-				"11 buildings defined (farmhouse, chest, bed, shipping box, mayor, store, board, 4 shacks)")
-			_check(structures.get_child_count() == 11, "Structures spawned one body per building")
+			_check(buildings.size() == 14,
+				"14 buildings defined (11 town + ranch house/barn/coop)")
+			_check(structures.get_child_count() == 14, "Structures spawned one body per building")
 			var kinds := {}
 			for b in buildings:
 				kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
 			for required in ["farmhouse", "chest", "bed", "shipping_box", "mayor_house", "store",
-					"bulletin_board"]:
+					"bulletin_board", "ranch_house", "ranch_barn", "ranch_coop"]:
 				_check(kinds.get(required, 0) == 1, "exactly one %s" % required)
 			_check(kinds.get("shack", 0) == 4, "4 settler shacks")
 			var farmhouse: Dictionary = ForestEdgeLayout.building_at(16, 2)
@@ -351,8 +358,8 @@ func _physics_process(_delta: float) -> bool:
 			var mayor: Dictionary = ForestEdgeLayout.building_at(8, 16)
 			_check(String(mayor.get("kind", "")) == "mayor_house", "mayor's house sits in the town-core region")
 			_check(structures.is_chest_at(Vector2i(16, 4)), "chest is at its authored cell")
-			# -- Phase 5 Stage 1: the 3 town-core NPCs spawned at their authored home cells --
-			_check(npcs.npcs().size() == 3, "3 NPCs spawned")
+			# -- Phase 5 Stage 1 + MAPS.md §3: the 3 town-core NPCs plus the ranch keeper --
+			_check(npcs.npcs().size() == 4, "4 NPCs spawned (town core + ranch keeper)")
 			for entry in ForestEdgeLayout.npcs():
 				var npc: Node = _npc_by_id(String(entry["id"]))
 				_check(npc != null, "npc '%s' exists" % entry["id"])
@@ -432,8 +439,9 @@ func _physics_process(_delta: float) -> bool:
 				_check(x > 400.0 and x < fence_face_x,
 					"border fence stopped the player (x=%.1f, wall face at %.1f)" % [x, fence_face_x])
 				Input.action_release("move_right")
-				# Camera clamp: map is 576x512, view is 320x192 -> half=(160,96);
-				# max center x = 576 - 160 = 416.
+				# Camera clamp: map is 576x784 (36x49 after the ranch extension), view is
+				# 320x192 -> half=(160,96); max center x = 576 - 160 = 416. The player is up at the
+				# spawn walking east, so camera y stays clamped near the top (~96) here.
 				_check(absf(camera.global_position.x - 416.0) < 1.0,
 					"camera clamped at east limit (x=%.1f)" % camera.global_position.x)
 				_check(camera.global_position.y >= 96.0 and camera.global_position.y <= 416.0,
@@ -825,7 +833,54 @@ func _physics_process(_delta: float) -> bool:
 						"%s's wander stayed within its authorized zone (at %s, home %s)" % [id, cell, home])
 					_check(not test_map.is_blocked_at(cell),
 						"%s never wandered onto solid/blocked terrain (at %s)" % [id, cell])
-				_check(any_moved, "at least one of the 3 NPCs actually wandered over ~10s")
+				_check(any_moved, "at least one NPC actually wandered over ~10s")
+				_enter_stage(62)
+		62:
+			# -- MAPS.md §3: visit the Ranch/Sanctuary compound and open the keeper's dialogue
+			#    through the real facing+use_tool path (same shape as stages 50/54/57). Silas
+			#    lives in the southern compound, well below the town — assert that too, so this
+			#    genuinely exercises the extended map, not a mis-placed NPC up in town. --
+			if ticks < 5:
+				var npc: Node = _npc_by_id("rancher_silas")
+				_check(npc != null, "the ranch keeper spawned")
+				if npc == null:
+					_finish()
+					return true
+				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
+				_check(npc_cell.y >= 36,
+					"Silas is down in the southern ranch compound (cell %s)" % npc_cell)
+				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.velocity = Vector2.ZERO
+				player.facing = "north"
+				return false
+			if ticks == 5:
+				var npc: Node = _npc_by_id("rancher_silas")
+				var energy_before: float = player.energy
+				player.use_tool()
+				_check(dialogue_ui.active and dialogue_ui.npc == npc,
+					"interacting with Silas opens HIS dialogue")
+				_check(dialogue_ui.get_node("%NameLabel").text == "Silas", "name plate shows Silas")
+				_check(player.energy == energy_before, "ranch dialogue costs no energy (like the town NPCs)")
+				# Drive to the branch, take the "can I buy stock" option (index 0), and confirm
+				# its honest "not yet" follow-up (the Marta-Stage-1 precedent: no livestock shop
+				# wired this pass) before the box closes.
+				_drive_dialogue_action("use_tool")  # reveal greet
+				_drive_dialogue_action("use_tool")  # advance greet -> stock
+				_drive_dialogue_action("use_tool")  # reveal stock
+				_drive_dialogue_action("use_tool")  # advance stock -> offer (branch)
+				_check(dialogue_ui._node_id == "offer", "reached Silas's branch point")
+				_drive_dialogue_action("use_tool")  # reveal the branch prompt
+				_check(dialogue_ui.get_node("%ChoicesBox").visible, "Silas's branch choices appear")
+				_drive_dialogue_action("use_tool")  # confirm choice 0 -> not_yet
+				_check(dialogue_ui._node_id == "not_yet",
+					"the 'buy stock' option led to the honest not-open-yet line")
+				var not_yet_text: String = dialogue_ui._full_text
+				_check(not_yet_text.find("barn") != -1 or not_yet_text.find("coop") != -1,
+					"the not-yet line points the player at building a barn/coop first")
+				_drive_dialogue_action("use_tool")  # reveal not_yet
+				_drive_dialogue_action("use_tool")  # terminal -> close
+				_check(not dialogue_ui.active, "Silas's conversation closes cleanly")
+				_check(not player.using_tool, "no stray tool-swing lock from the ranch visit")
 				_enter_stage(16)
 		16:
 			# -- Phase 4 Stage 2: building placement, end to end (see class doc) --

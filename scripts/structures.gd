@@ -64,6 +64,11 @@ const BUILDING_COLORS := {
 	# authored 1x1 interactable in the farmhouse's service row (chest / box / bed):
 	"shipping_box": "#c5520f",    # rust red — a scrap-metal shipping crate, distinct from the
 	                              # chest's gold and the bed's pink at a glance
+	# Ranch/Sanctuary scenery buildings (MAPS.md §3): the keeper's home/shop, barn, and coop in
+	# the southern compound. Fallback fills only — real PixelLab art ships at art/buildings/<kind>.png.
+	"ranch_house": "#9c5a3c",     # weathered timber ranch house/shop
+	"ranch_barn": "#a23a2a",      # faded barn red
+	"ranch_coop": "#c9a24b",      # straw/wood coop
 }
 
 ## Under-construction fill for a placed blueprint: the GDD §9 rain-sky blue-grey at ~half alpha,

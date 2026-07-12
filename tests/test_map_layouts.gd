@@ -10,7 +10,8 @@ const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
 
-const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G", "g"]
+const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G", "g",
+	"N", "Y", "P"]  # Ranch/Sanctuary markers (MAPS.md §3): raNch house, barn (Y), cooP
 const REQUIRED_BUILDING_KINDS := ["farmhouse", "chest", "bed", "shipping_box", "mayor_house", "store", "shack", "bulletin_board"]
 
 const LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout]
@@ -267,8 +268,8 @@ func test_all_layouts_expose_the_shared_npc_roster() -> void:
 	for i in LAYOUTS.size():
 		var layout = LAYOUTS[i]
 		var npcs: Array[Dictionary] = layout.npcs()
-		assert_eq(npcs, LayoutCommon.TOWN_NPCS,
-			"%s's npcs() is the same shared town-core roster" % LAYOUT_NAMES[i])
+		assert_eq(npcs, LayoutCommon.all_npcs(),
+			"%s's npcs() is the same shared roster (town core + ranch keeper)" % LAYOUT_NAMES[i])
 
 
 func test_all_layouts_npc_home_cells_are_walkable() -> void:
@@ -287,4 +288,52 @@ func test_npc_roster_has_three_unique_ids_and_positive_radius() -> void:
 		assert_false(ids.has(id), "npc id '%s' is unique in the roster" % id)
 		ids[id] = true
 		assert_true(int(entry["wander_radius"]) > 0, "%s has a positive wander radius" % id)
-	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs this stage")
+	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs")
+
+
+## -- MAPS.md §3: the Ranch/Sanctuary southern compound (shared verbatim by all 3 starts) --
+
+func test_all_layouts_have_ranch_buildings() -> void:
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var kinds := {}
+		for b in layout.buildings():
+			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
+		for kind in ["ranch_house", "ranch_barn", "ranch_coop"]:
+			assert_eq(kinds.get(kind, 0), 1, "%s has exactly one %s" % [LAYOUT_NAMES[i], kind])
+
+
+func test_all_layouts_have_the_ranch_keeper_npc() -> void:
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var homes := {}
+		for entry in layout.npcs():
+			homes[String(entry["id"])] = entry["home"]
+		assert_true(homes.has("rancher_silas"), "%s roster includes the ranch keeper" % LAYOUT_NAMES[i])
+		var home: Vector2i = homes["rancher_silas"]
+		assert_false(layout.is_solid(home.x, home.y),
+			"%s ranch keeper's home cell %s isn't blocked" % [LAYOUT_NAMES[i], home])
+
+
+func test_all_layouts_ranch_decor_props_are_on_open_ground() -> void:
+	# Decorative animal props stand on grass inside the compound — never on a building, fence,
+	# water, or off-map cell (they'd render nonsensically otherwise).
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		var props: Array[Dictionary] = layout.decor_props()
+		assert_true(props.size() > 0, "%s has ranch decor props" % LAYOUT_NAMES[i])
+		var size: Vector2i = layout.size()
+		for prop in props:
+			var cell: Vector2i = prop["cell"]
+			assert_true(cell.x >= 0 and cell.x < size.x and cell.y >= 0 and cell.y < size.y,
+				"%s decor prop %s is in bounds" % [LAYOUT_NAMES[i], cell])
+			assert_false(layout.is_solid(cell.x, cell.y),
+				"%s decor prop cell %s isn't blocked" % [LAYOUT_NAMES[i], cell])
+
+
+func test_all_layouts_have_town_and_ranch_gates() -> void:
+	# The town's main south gate (2 cells) plus the ranch compound's own entrance gate (2 cells).
+	for i in LAYOUTS.size():
+		var layout = LAYOUTS[i]
+		assert_eq(layout.gate_cells().size(), 4,
+			"%s has the town gate + ranch gate = 4 'G' cells" % LAYOUT_NAMES[i])

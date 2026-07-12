@@ -469,14 +469,26 @@ relationship with them.
       settlers add to population and unlock dialogue/economy options
 - [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
       functioning shop
-- [ ] **Ranch/Sanctuary compound (added per `GDD.md` §8/§11, `MAPS.md` §3)** — a dedicated small
-      map area south of the farm, outside the town-core fence, one shared template across all 3
-      starts (same reasoning as the town core). Houses a rancher-keeper NPC and their own visible
-      mixed herd (normal + mutant stock), reachable via a short safe path from the farm.
-- [ ] **Rancher NPC + livestock shop (added per `GDD.md` §8/§11)** — sells starting normal and
-      mutant animals plus feed/supplies; the purchase point for livestock, not where the player's
-      own animals live (see the Barn/Coop split below). Gets full dialogue/schedule treatment
-      like Phase 5/7's other NPCs once those systems reach this character.
+- [x] **Ranch/Sanctuary compound (added per `GDD.md` §8/§11, `MAPS.md` §3)** — a dedicated small
+      map area south of the farm, its own fenced compound with a distinct entrance gate separate
+      from the town's main (city-bound) gate, one shared template across all 3 starts extending
+      each layout's continuous map southward rather than a new scene-transition system (none
+      existed; disproportionate for this scope, properly Phase 9's job when the ruined city needs
+      it). Real PixelLab art (`ranch_house`/`ranch_barn`/`ranch_coop`, flat/high-top-down,
+      matching the town buildings' established convention) plus decorative cow/goat props
+      (`scripts/props.gd` — cosmetic only, no animal-entity system).
+- [x] **Rancher NPC — exists, no shop yet (added per `GDD.md` §8/§11)** — Silas, the
+      Ranch/Sanctuary's keeper, spawned with real character art and full dialogue (including an
+      honest in-character line that he won't sell livestock until the player has a barn/coop to
+      put them in — matching Marta's own Stage-1 precedent of not faking an unbuilt shop). The
+      actual buy-animal transaction is **not** built yet — that's still open, along with the
+      Barn/Coop split below, both genuine Phase 8 gameplay systems this pass deliberately didn't
+      reach.
+- [ ] **Barn/Coop building split (added per `GDD.md` §8/§11)** — the generic "Storage Barn" above
+      is resource storage only; add distinct **Barn** (cows/goats/pigs) and **Coop** (chickens)
+      building types the player constructs on their own farm via the building-grid system above,
+      sized/tiered to the yield-vs-hardiness axis (`GDD.md` §8's "Animals & pets"). This is where
+      animals bought from the Ranch/Sanctuary actually live and produce.
 - [ ] **Barn/Coop building split (added per `GDD.md` §8/§11)** — the generic "Storage Barn" above
       is resource storage only; add distinct **Barn** (cows/goats/pigs) and **Coop** (chickens)
       building types the player constructs on their own farm via the building-grid system above,

@@ -1,5 +1,30 @@
 # Character Art — PixelLab Provenance
 
+## `rancher_silas/` — Phase 8 Ranch/Sanctuary keeper NPC
+
+Silas, the Ranch/Sanctuary compound's keeper (`ROADMAP.md` Phase 8, `GDD.md` §8/§11) — spawned
+with full dialogue but no buy-animal transaction yet (that's gated on the Barn/Coop building
+split, still open). Same pipeline as the town-core NPCs below: `mcp__pixellab__create_character`
+standard mode, 16px character on a 24x24 canvas, 4 directions, `low top-down` view, basic
+shading, single color outline, low detail — then `mcp__pixellab__animate_character` with
+templates `walking-4-frames` and `breathing-idle` (all 4 directions each), matching this repo's
+established idle+walk-only NPC scope (no tool_* set — Silas doesn't use tools).
+
+- **Rancher Silas — character id `c8dd77da-5f26-4642-9b07-20ddbda6f223`** ("NPC - Rancher
+  Silas"). No v2/rejected attempt on the account for this character — a single accepted
+  generation. Confirmed by downloading the `south` rotation from the PixelLab account and
+  matching its SHA-256 hash byte-for-byte against the shipped `rotations/south.png`.
+
+### Files
+
+Same layout as `mayor_harlan/`, `marta/`, `scout_kael/`, and `player/` below:
+
+- `rancher_silas/rotations/{south,north,east,west}.png` — base directional stills (24x24).
+- `rancher_silas/walk/{dir}/{0-3}.png` — walk cycle, template `walking-4-frames`.
+- `rancher_silas/idle/{dir}/{0-3}.png` — idle, template `breathing-idle`.
+- `rancher_silas/rancher_silas_frames.tres` — Godot `SpriteFrames` (via
+  `tools/build_player_frames.py`): animations `idle_*`/`walk_*` per direction.
+
 ## `mayor_harlan/`, `marta/`, `scout_kael/` — Phase 6 "Art pass 1" NPCs
 
 The 3 town-core NPCs (ROADMAP Phase 6 "Art pass 1"; previously flat-color ColorRect

@@ -52,6 +52,9 @@ const NPC_FRAMES := {
 	"mayor_harlan": preload("res://art/characters/mayor_harlan/mayor_harlan_frames.tres"),
 	"marta": preload("res://art/characters/marta/marta_frames.tres"),
 	"scout_kael": preload("res://art/characters/scout_kael/scout_kael_frames.tres"),
+	# Ranch/Sanctuary keeper (MAPS.md §3), same pipeline as the town three (16px char, 24x24
+	# canvas, low top-down, 4 directions, idle + walk):
+	"rancher_silas": preload("res://art/characters/rancher_silas/rancher_silas_frames.tres"),
 }
 ## Matches player.tscn's Sprite offset: the 24x24 canvas is centered with feet toward the cell
 ## center, so the sprite rides a little above the feet-box collision shape.
@@ -74,6 +77,9 @@ const NPC_COLORS := {
 	"mayor_harlan": "#7b5025",
 	"marta": "#ffc948",
 	"scout_kael": "#9d9180",
+	# Ranch/Sanctuary keeper (MAPS.md §3): rust-red duster — distinct from the town three, and
+	# reads against the compound's grass. (He's far south, so overlap with Harlan's brown is moot.)
+	"rancher_silas": "#9e4b34",
 }
 const HEAD_COLOR := Color("#281a0b")  # warm near-black "head" band tops the body read
 

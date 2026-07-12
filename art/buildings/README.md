@@ -165,3 +165,26 @@ note for future asset-swap sessions:** overwriting a PNG in place does not autom
 invalidate Godot's `.import` cache — a `godot --headless --path . --import` pass (standing
 headless approval, not the GUI editor) was required before the windowed screenshot run actually
 picked up the new art; the first screenshot attempt silently rendered the stale cached texture.
+
+## Ranch/Sanctuary buildings (Phase 8) — 3 new kinds
+
+The Ranch/Sanctuary compound's 3 scenery buildings (`scripts/structures.gd`'s `BUILDING_COLORS`
+comment: "the keeper's home/shop, barn, and coop in the southern compound") — same fallback
+pattern as the rest of this file, flat-color `ColorRect` volume until the PNG exists, real art
+here closes that gap. `mcp__pixellab__create_map_object`, basic mode, `high top-down` view,
+matching the established post-revision buildings recipe above (flat front elevation, not the
+original isometric-reading pass). Each prompt anchors the kind's `BUILDING_COLORS` identity hex.
+
+| Kind | Object id | Canvas -> shipped | Identity hex anchored |
+|---|---|---|---|
+| `ranch_house` | `f51304c3-860d-409a-b75b-6b100b0d2e63` | 48x32 as-is | `#9c5a3c` weathered timber |
+| `ranch_barn` | `7f57abdb-815a-4739-9788-68a5756c60a4` | 64x48 as-is | `#a23a2a` faded barn red |
+| `ranch_coop` | `8c1c14d0-4476-426e-b38c-b29bbdcbc117` | 32x32 as-is | `#c9a24b` straw/wood |
+
+Object ids confirmed by downloading each candidate from the PixelLab account and comparing its
+SHA-256 hash against the shipped PNG byte-for-byte (exact match on all 3) — `ranch_house` in
+particular had 3 other same-size sibling attempts on the account (`8b9f5dbe…`, `d7fc547c…`,
+`bf23319e…`, all "weathered ranch house/farmhouse" variants) that were generated and rejected in
+the same session; the hash check is what disambiguated the shipped one from those rejects, not
+just the description text. Same 8-hour map-object auto-delete caveat as the rest of this file
+applies — these ids are historical provenance only, the shipped PNGs are the only copies.

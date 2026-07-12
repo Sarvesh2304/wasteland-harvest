@@ -46,6 +46,26 @@ const ROWS: Array[String] = [
 	"W..................................F",
 	"W..................................F",
 	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	# -- Ranch/Sanctuary southern extension (MAPS.md §3) — shared verbatim by all 3 starts; see
+	#    open_plains_layout.gd for the annotated version. Riverside keeps its west column as river
+	#    ('W') the whole way down, per its "the river IS the western wall" identity (MAPS.md §1). --
+	"W..................................F",
+	"W..................................F",
+	"W..................................F",
+	"W....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
+	"W....F........................F....F",
+	"W....F......N.................F....F",
+	"W....F........................F....F",
+	"W....F........................F....F",
+	"W....FY..................P....F....F",
+	"W....F........................F....F",
+	"W....F........................F....F",
+	"W....F.....F.........F......F.F....F",
+	"W....F.....F.........F......F.F....F",
+	"W....FFFFFFF.........FFFFFFFF.F....F",
+	"W....FFFFFFFFFFFFFFFFFFFFFFFFFF....F",
+	"W..................................F",
+	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 const BUILDINGS: Array[Dictionary] = [
@@ -66,6 +86,11 @@ const BUILDINGS: Array[Dictionary] = [
 	# spawn cell directly below it, same relative placement as the other two starts even though
 	# Riverside's farmhouse coordinates diverge. See structures.gd for the interaction.
 	{"id": "shipping_box", "kind": "shipping_box", "top_left": Vector2i(10, 5), "size": Vector2i(1, 1)},
+	# Ranch/Sanctuary scenery buildings (MAPS.md §3) — shared verbatim by all 3 starts (see
+	# open_plains_layout.gd). Markers N/Y/P in ROWS; art at art/buildings/<kind>.png.
+	{"id": "ranch_house", "kind": "ranch_house", "top_left": Vector2i(12, 37), "size": Vector2i(3, 2)},
+	{"id": "ranch_barn", "kind": "ranch_barn", "top_left": Vector2i(6, 40), "size": Vector2i(4, 3)},
+	{"id": "ranch_coop", "kind": "ranch_coop", "top_left": Vector2i(25, 40), "size": Vector2i(2, 2)},
 ]
 
 
@@ -113,7 +138,13 @@ static func buildings() -> Array[Dictionary]:
 ## positions and why they're common to all 3 starts — Riverside's town core matches the template
 ## even though its farm half diverges).
 static func npcs() -> Array[Dictionary]:
-	return LayoutCommon.TOWN_NPCS
+	return LayoutCommon.all_npcs()
+
+
+## Ranch/Sanctuary decorative animal props (MAPS.md §3) — shared across all 3 starts, spawned as
+## static non-collidable Sprite2D critters by scripts/props.gd (no animal-entity system yet).
+static func decor_props() -> Array[Dictionary]:
+	return LayoutCommon.RANCH_DECOR
 
 
 static func building_at(x: int, y: int) -> Dictionary:

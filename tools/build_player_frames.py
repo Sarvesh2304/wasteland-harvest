@@ -47,6 +47,10 @@ CHARACTERS = {
         [("idle", True, 5.0), ("walk", True, 6.0)],
         "4fe49946-1b70-4661-8a47-140649d03972",
     ),
+    "rancher_silas": (
+        [("idle", True, 5.0), ("walk", True, 6.0)],
+        "c8dd77da-5f26-4642-9b07-20ddbda6f223",
+    ),
 }
 
 

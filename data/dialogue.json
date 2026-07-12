@@ -73,5 +73,32 @@
 				"text": "Smart. It is. That's why I go careful and come home every time. Home's the whole trick — lamplight at your back going out, lamplight in front coming home."
 			}
 		}
+	},
+	"rancher_silas": {
+		"name": "Silas",
+		"start": "greet",
+		"nodes": {
+			"greet": {
+				"text": "Silas. This is the Sanctuary — what's left of it. Mind the grey goat, she bites what she can reach and she can reach further than you'd think.",
+				"next": "stock"
+			},
+			"stock": {
+				"text": "Every beast in these pens comes down from one stubborn line I kept breathing through the bad years. Pre-war stock's gone soft and precious; the mutant kind are ugly and near unkillable. Out here you keep both, or you keep neither long.",
+				"next": "offer"
+			},
+			"offer": {
+				"text": "You'll want animals of your own soon enough. Something with a pulse to put in a barn. That what walks you down here?",
+				"choices": [
+					{"text": "Can I buy some stock?", "next": "not_yet"},
+					{"text": "Just came to look.", "next": "look"}
+				]
+			},
+			"not_yet": {
+				"text": "Not yet you can't. I'll not sell a living creature to somebody with nowhere to put it — build yourself a barn or a coop first, then we'll talk feed and fair prices. Come back when you've got walls and a roof for them, and I'll set you up proper."
+			},
+			"look": {
+				"text": "Look all you like — half the town wanders down just to. The one with the extra horn is Dorothy. She's meaner than the wasteland and twice as hard to kill, and she knows it."
+			}
+		}
 	}
 }

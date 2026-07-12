@@ -11,7 +11,8 @@ extends RefCounted
 ## ## Legend (extends Phase 2/3's '.'/'f'/'p'/'#'/'@'/'T'/'O' with Phase 4 additions)
 ##   'F'  perimeter fence (solid) — painted as a worn-wood-tinted rubble tile, see test_map.gd
 ##   'W'  water (solid) — painted as a blue-tinted rubble tile; river, pond, or creek per start
-##   'G'  town's one main gate (walkable landmark; a break in the south fence line)
+##   'G'  a gate (walkable landmark; a break in a fence line) — the town's main south gate and,
+##        since MAPS.md §3's southern extension, the Ranch/Sanctuary compound's own entrance gate
 ##   'g'  farm's small perimeter fence gap (walkable landmark; a break in the north fence line,
 ##        "closed later" per ROADMAP.md — no functional gameplay meaning yet, layout marker only)
 ##   'H'/'C'/'D'/'M'/'R'/'K'/'B'/'S'  building top-left markers (farmhouse/chest/bed/mayor's
@@ -19,6 +20,8 @@ extends RefCounted
 ##        multi-cell footprints. 'D' (the farmhouse beD, Phase 4 Stage 3) is 1x1 like the chest;
 ##        'B' was taken. 'S' (the Shipping box, Phase 5 Stage 3) is 1x1 too, and this time the
 ##        kind's own first letter was actually free.
+##   'N'/'Y'/'P'  Ranch/Sanctuary scenery-building markers (MAPS.md §3): raNch house, barn (Y),
+##        cooP. Same top-left-marker convention as the town buildings above.
 ##
 ## ## Multi-cell buildings
 ##
@@ -64,6 +67,38 @@ const TOWN_NPCS: Array[Dictionary] = [
 	{"id": "marta", "home": Vector2i(17, 24), "wander_radius": 1},
 	{"id": "scout_kael", "home": Vector2i(18, 28), "wander_radius": 1},
 ]
+
+## Phase 8 groundwork (MAPS.md §3): the Ranch/Sanctuary keeper, appended after the town-core three
+## on every start's roster. Home (17, 40) is the open yard in front of the ranch house, inside the
+## southern compound reached through the town's south gate. wander_radius 1 keeps a tight,
+## disjoint amble zone (the same reasoning TOWN_NPCS documents).
+const RANCH_NPCS: Array[Dictionary] = [
+	{"id": "rancher_silas", "home": Vector2i(17, 40), "wander_radius": 1},
+]
+
+## Ranch/Sanctuary decorative animal props (MAPS.md §3): the keeper's visible stock — calm pre-war
+## cows and hardier mutant goats standing in the two irregular pens — so the compound reads as
+## alive and working before the player buys anything. Purely cosmetic Sprite2D props: NO collision
+## and NO animal-entity system (that's Phase 8's livestock mechanics), spawned by scripts/props.gd
+## from art/props/<kind>.png. Cells are spaced so the 32px sprites read as loose herds without
+## heavily overlapping. Shared verbatim by all 3 starts.
+const RANCH_DECOR: Array[Dictionary] = [
+	{"kind": "ranch_cow", "cell": Vector2i(7, 44)},
+	{"kind": "ranch_cow", "cell": Vector2i(10, 44)},
+	{"kind": "ranch_goat", "cell": Vector2i(22, 44)},
+	{"kind": "ranch_goat", "cell": Vector2i(25, 44)},
+	{"kind": "ranch_goat", "cell": Vector2i(27, 43)},
+]
+
+
+## The full NPC roster every layout exposes via npcs(): the shared town core plus the ranch keeper.
+## Built concretely (rather than TOWN_NPCS + RANCH_NPCS) so the return stays a typed
+## Array[Dictionary].
+static func all_npcs() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	out.append_array(TOWN_NPCS)
+	out.append_array(RANCH_NPCS)
+	return out
 
 
 static func size(rows: Array[String]) -> Vector2i:
