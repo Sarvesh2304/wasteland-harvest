@@ -151,7 +151,9 @@ func set_talking(value: bool) -> void:
 func occupies_cell(cell: Vector2i) -> bool:
 	if _test_map.world_to_cell(global_position) == cell:
 		return true
-	return global_position.distance_to(_test_map.cell_to_world_center(cell)) < CELL_SIZE * 0.75
+	# get_global_cell_center, not cell_to_world_center: global_position must be compared in the
+	# same frame as the cell center now that zones carry position offsets (the zone split).
+	return global_position.distance_to(_test_map.get_global_cell_center(cell)) < CELL_SIZE * 0.75
 
 
 ## Pick a validated one-cell wander step (see class doc / npc_grid.gd). Also schedules the next
@@ -165,7 +167,9 @@ func _begin_step() -> void:
 		return
 	var target_cell: Vector2i = candidates[_rng.randi_range(0, candidates.size() - 1)]
 	facing = facing_from_step(target_cell - current, facing)
-	_step_target = _test_map.cell_to_world_center(target_cell)
+	# World-space target: _process_step measures against global_position, so the zone's
+	# position offset must be included (the zone split — see occupies_cell's same fix).
+	_step_target = _test_map.get_global_cell_center(target_cell)
 	_stepping = true
 
 

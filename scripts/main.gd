@@ -1,29 +1,29 @@
 extends Node2D
-## Root scene glue: spawns the player on the active map (scripts/test_map.gd's `layout`,
-## selected via GameState.chosen_settlement_id — see scripts/settlement_db.gd), points the
-## follow camera at them with the map's bounds for clamping, and binds the HUD's energy bar to
-## the player (Phase 2). Phase 3 additionally wires the player to the Farm node (till/plant/
-## water/harvest target resolution) and the HUD's hotbar to the player's inventory. Phase 4
-## additionally wires Structures (buildings/chest), the chest UI toggle, and grants the chosen
-## settlement's starting-resource bonus (ROADMAP.md Phase 4: "differing starting resources").
-## Phase 5 Stage 1 wires the NPC roster (scripts/npcs.gd) into player.bind_world() and the
-## dialogue box (scripts/dialogue_ui.gd) both ways, the same shape as Builder below: the player
-## emits npc_dialogue_requested, DialogueUI owns opening/advancing it, and player.dialogue_ui
-## points back so its held-tool polling can stand down while a conversation is open.
-## Phase 5 Stage 2 wires Marta's store (scripts/store_ui.gd) one level deeper: DialogueUI emits
-## store_requested (when a dialogue choice leads to its OPEN_STORE sentinel), StoreUI owns
-## opening/browsing/buying, and player.store_ui points back the same way player.dialogue_ui does.
-## Phase 5 Stage 3 wires the shipping box's loading UI (scripts/shipping_ui.gd) and the
-## sale-credit hop (structures.crops_sold -> player.add_credits) — see _ready()'s comment.
-## The day/night CanvasModulate and DayManager autoload run themselves.
+## Root scene glue: binds the player/camera/HUD/UIs to the world (Phases 2-6 — see the wiring
+## comments in _ready below), and since the zone split owns the Farm/Path/Town/Ranch zone
+## cluster: all four zones stay ALWAYS-INSTANTIATED as siblings (FarmMap/PathMap/TownMap/
+## RanchMap, each a test_map.tscn instance at a distinct position offset — see Finding 2 in the
+## zone-transition plan: the offsets are a pure non-collision trick, never seen by the player,
+## since each zone has its own clamped camera view). "Entering a zone" is a rebind + teleport
+## (_bind_zone below), not a Godot scene load/unload — chosen because the zones are tiny
+## (negligible memory), it avoids the cache-state-for-unloaded-zones problem entirely (every
+## zone's Farm/Structures nodes always exist, so saving gathers all of them normally), and it's
+## lower engineering risk. Transitions ride player.gd's gate-cell detection
+## (zone_exit_requested) wrapped in scripts/zone_fade.gd's ~0.15s fade-to-black; the actual
+## teleport happens at the fade's black midpoint.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const ModalGate := preload("res://scripts/modal_gate.gd")
 
-@onready var test_map: Node2D = $TestMap
+## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
+## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
+## in _ready; player.zones aliases it for the save path.
+var zones: Dictionary = {}
+
 @onready var player: CharacterBody2D = $Player
 @onready var camera: Camera2D = $GameCamera
 @onready var hud: CanvasLayer = $HUD
+@onready var zone_fade: CanvasLayer = $ZoneFade
 
 ## Phase 6: the shared modal mutual-exclusion registry (see modal_gate.gd's class doc). Owned
 ## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
@@ -31,27 +31,40 @@ const ModalGate := preload("res://scripts/modal_gate.gd")
 var modal_gate: ModalGate = ModalGate.new()
 
 ## The build/placement-mode node, kept as a field so _process's time-pause poll below can exempt
-## it from the "any modal open" check (see that poll's comment for the judgment call).
+## it from the "any modal open" check (see that poll's comment for the judgment call), and so
+## _bind_zone_refs can re-point it at the active zone.
 var _builder: Node2D = null
 
 
 func _ready() -> void:
-	player.global_position = test_map.get_spawn_position()
-	camera.set_map_bounds(test_map.get_map_rect())
-	camera.set_target(player)
+	for zone_id in ["farm", "path", "town", "ranch"]:
+		var map: Node2D = get_node("%sMap" % String(zone_id).capitalize())
+		zones[zone_id] = {
+			"map": map,
+			"farm": map.get_node("Farm"),
+			"structures": map.get_node("Structures"),
+			"npcs": map.get_node("Npcs"),
+		}
 	hud.bind_player(player)
-	var structures: Node = test_map.get_node("Structures")
-	var npcs: Node = test_map.get_node("Npcs")
-	player.bind_world(test_map.get_node("Farm"), test_map, structures, npcs)
 	hud.bind_inventory(player.inventory)
-	structures.chest_toggled.connect(hud.toggle_chest_ui)
+	# Zone-wide signal wiring, ONCE per zone at boot (never re-run on transitions): any zone's
+	# storage interaction opens the same chest UI, and any zone's shipping sale credits the same
+	# player — uniform across all four zones (only the farm authors a shipping box today, but
+	# wiring uniformly keeps this loop branch-free and forward-compatible).
+	for zone_id in zones:
+		var structures: Node = zones[zone_id]["structures"]
+		structures.chest_toggled.connect(hud.toggle_chest_ui)
+		structures.crops_sold.connect(player.add_credits)
 	# Phase 4 Stage 2: build/placement mode (scripts/builder.gd) — bound both ways, since the
 	# builder reads the player's facing/inventory and the player suppresses tool swings while
-	# placement mode is active.
+	# placement mode is active. Re-bound to the active zone on every transition (_bind_zone_refs).
 	var builder: Node2D = $Builder
-	builder.bind(player, test_map, structures)
 	player.builder = builder
 	_builder = builder
+	# The player's zone bookkeeping: the zones dict (for _end_day/menu saves) and the
+	# transition signal (fade + rebind). See player.gd's _zone_transitioning guard doc.
+	player.zones = zones
+	player.zone_exit_requested.connect(_on_zone_exit_requested)
 	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
 	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
 	# signal that says one should start.
@@ -66,16 +79,13 @@ func _ready() -> void:
 	dialogue_ui.store_requested.connect(store_ui.open_store)
 	player.store_ui = store_ui
 	# Phase 5 Stage 3: the shipping box's crop-loading UI (scripts/shipping_ui.gd) — bound both
-	# ways like StoreUI above, but reached directly from use_tool() facing the box (a world
-	# interaction like the chest/bed) rather than through a dialogue choice. The second wire
-	# closes the economy loop: structures.gd resolves the box's overnight sale on day_started
-	# and emits crops_sold(total), which lands here as player Credits — the "Credits added next
-	# morning" checklist line, via the add_credits hook Stage 2 documented for exactly this.
+	# ways like StoreUI above, but reached directly from use_tool() facing the box. Bound to the
+	# FARM zone's structures permanently: the farm is the only zone that authors a shipping box
+	# (the crops_sold wire above still covers every zone uniformly).
 	var shipping_ui: Node = $ShippingUI
-	shipping_ui.bind(player, structures)
+	shipping_ui.bind(player, zones["farm"]["structures"])
 	player.shipping_box_requested.connect(shipping_ui.open_box)
 	player.shipping_ui = shipping_ui
-	structures.crops_sold.connect(player.add_credits)
 	# 2026-07-12: the in-game tabbed menu (scripts/menu_screen.gd) — bound both ways like the
 	# three UIs above. bind() also ADOPTS the HUD's %InventoryGrid as the menu's Inventory-tab
 	# content (after bind_inventory above built its widgets), so the grid logic stays in hud.gd
@@ -91,13 +101,13 @@ func _ready() -> void:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
-	# before this scene instantiates (via the title screen's Load flow — title_screen.gd's
-	# _confirm_slot, since 2026-07-11; previously settlement_select.gd's auto-resume); an empty
-	# result means new game -> grant the one-time settlement starting bonus instead. Applied here, after
-	# every bind above, so restored state flows through the already-connected signals (inventory
-	# UI, energy bar) exactly like live changes would.
+	# before this scene instantiates (via the title screen's Load flow); an empty result means
+	# new game -> spawn on the farm and grant the one-time settlement starting bonus instead.
+	# Both paths bind unfaded — boot is not a live transition, there's nothing to mask.
 	var save_data := GameState.take_pending_save()
 	if save_data.is_empty():
+		_bind_zone("farm")
+		camera.set_target(player)
 		_grant_starting_resource_bonus()
 	else:
 		_apply_save(save_data)
@@ -123,19 +133,64 @@ func _exit_tree() -> void:
 	DayManager.time_paused = false
 
 
-## Restores each system's saved state (see scripts/save_data.gd's class doc for the shape) on
-## top of the layout-authored world the child nodes' _ready() already built. Order matters only
-## in that TestMap's layout was already resolved from the restored chosen_settlement_id in
-## _enter_tree(); the per-node load_state() calls are independent overlays. DayManager fields
-## are assigned directly — no day_started emission, since re-loading a day must not re-run
-## daily ticks (crop growth already happened before the save was written).
+## -- Zone binding (the zone split's core) --
+
+## Points every zone-scoped reference at `zone_id`'s nodes WITHOUT repositioning anything:
+## the player's world refs (farm/test_map/structures/npcs), the builder's bound nodes, and the
+## camera's clamp bounds. Save restoration calls only this (player.load_state already restored
+## the exact saved position); live transitions and boot go through _bind_zone below.
+func _bind_zone_refs(zone_id: String) -> void:
+	var zone: Dictionary = zones[zone_id]
+	player.current_zone_id = zone_id
+	player.bind_world(zone["farm"], zone["map"], zone["structures"], zone["npcs"])
+	_builder.bind(player, zone["map"], zone["structures"])
+	camera.set_map_bounds(zone["map"].get_global_map_rect())
+
+
+## Full zone entry: rebind refs, teleport the player to `entry_cell` (or the zone's authored
+## '@' spawn when the NO_ENTRY_CELL sentinel is passed — the fresh-boot case; only the farm
+## authors a spawn), snap-clamp the camera, and release player.gd's transition guard. During a
+## live transition this runs as zone_fade.play()'s midpoint — while the screen is fully black —
+## so the teleport/snap is invisible; the guard is therefore released while still black, and by
+## fade-in the player is already standing in the new zone (see player.gd's guard doc).
+const NO_ENTRY_CELL := Vector2i(-1, -1)
+
+func _bind_zone(zone_id: String, entry_cell: Vector2i = NO_ENTRY_CELL) -> void:
+	_bind_zone_refs(zone_id)
+	var map: Node2D = zones[zone_id]["map"]
+	if entry_cell == NO_ENTRY_CELL:
+		player.global_position = map.to_global(map.get_spawn_position())
+	else:
+		player.global_position = map.get_global_cell_center(entry_cell)
+	player.velocity = Vector2.ZERO
+	camera.set_target(player)  # snap=true: instant reposition, hidden by the fade's black frame
+	player.end_zone_transition()
+
+
+## A gate-cell crossing (player.gd's zone_exit_requested): run the rebind/teleport at the black
+## midpoint of the fade. The boot paths call _bind_zone directly, unfaded.
+func _on_zone_exit_requested(target_zone: String, entry_cell: Vector2i) -> void:
+	zone_fade.play(func() -> void: _bind_zone(target_zone, entry_cell))
+
+
+## Restores each system's saved state (see scripts/save_data.gd's class doc for the v2 shape)
+## on top of the layout-authored world the child nodes' _ready() already built. Per-zone
+## sections apply to each always-instantiated zone's own nodes; the player section restores the
+## exact saved position/zone, so only _bind_zone_refs (no teleport, no fade) follows it.
+## DayManager fields are assigned directly — no day_started emission, since re-loading a day
+## must not re-run daily ticks (crop growth already happened before the save was written).
 func _apply_save(data: Dictionary) -> void:
 	DayManager.day = int(data.get("day", 1))
 	DayManager.minutes_into_day = float(data.get("minutes_into_day", DayManager.DAY_START_MINUTES))
-	test_map.load_state(data.get("map", {}))
-	test_map.get_node("Farm").load_state(data.get("farm", {}))
-	test_map.get_node("Structures").load_state(data.get("structures", {}))
+	var zones_data: Dictionary = data.get("zones", {})
+	for zone_id in zones:
+		var zone_data: Dictionary = zones_data.get(zone_id, {})
+		zones[zone_id]["map"].load_state(zone_data.get("map", {}))
+		zones[zone_id]["farm"].load_state(zone_data.get("farm", {}))
+		zones[zone_id]["structures"].load_state(zone_data.get("structures", {}))
 	player.load_state(data.get("player", {}))
+	_bind_zone_refs(player.current_zone_id)
+	camera.set_target(player)
 
 
 ## The chosen settlement's resource-lean bonus (water access / ruin materials / better soil —

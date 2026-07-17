@@ -193,6 +193,40 @@ when.
       `settlement_select.tscn` now skips straight to loading a save if one exists, falling
       through to the picker only for a missing/corrupt/unrecognized one — closing the resume gap
       Stage 1's own doc comment had explicitly flagged as deferred.
+- [x] **Farm/Path/Town/Ranch zone-transition system, Stage 1 of 3 (added per Sarvesh's explicit
+      request 2026-07-13 — see the zone-transition plan)** — the Ranch/Sanctuary session's
+      continuous-single-map shortcut (Phase 8 bullet above) is replaced by 4 independent,
+      always-instantiated zones (siblings under `Main`, not true scene load/unload) connected by
+      gate-cell warps wrapped in a ~0.15s fade (`scripts/zone_fade.gd`). A new **Path** zone sits
+      between Farm and Town — a Stardew-Bus-Stop-style corridor (conceptual reference only, see
+      `docs/STARDEW_REFERENCE.md`), always open, with a wrecked-car landmark and a separate
+      **locked, non-functional checkpoint gate** (structure only, unlock system deferred, same
+      "structure now, system later" precedent as the Ranch's buy-animal shop). Farm/Town
+      re-oriented literal east-west (Stardew-style), gate-breaks in their already-existing walls
+      rather than new construction. Town and Ranch each needed a new prepended perimeter wall
+      row (a real deviation the plan flagged for re-verification and which did NOT hold as
+      simplified — the combined map had no wall between old farm/town rows, so this was a
+      genuine finding, not an oversight). Saves reshaped to `SAVE_VERSION 2` (a `zones` dict
+      keyed per zone); old v1 saves invalidated, not migrated. Stage 2 (save-system hardening)
+      and Stage 3 (`tests/test_map_layouts.gd`/`runtime_smoke.gd`/`soak_test.gd` full migration)
+      are follow-on work, not yet done — `runtime_smoke.gd`/`soak_test.gd`/`sleep_smoke.gd` are
+      known-broken against the new `TestMap` node structure until Stage 2's mechanical sweep.
+
+**Zone-transition Stage 1 verified independently:** re-ran the full suite myself (252/252 tests)
+and the new `tools/zone_transition_smoke.gd` (86 checks — all 6 gate crossings, camera-bounds
+and ref-rebinding per crossing, a town save→reload round trip, and specifically the held-
+movement-key regression case for the `_zone_transitioning` guard: exactly one
+`zone_exit_requested` fired, `zone_fade` never re-entered mid-tween). Read through the core
+diffs (`player.gd`'s guard, `main.gd`'s `_bind_zone`/`_bind_zone_refs`/fade sequencing,
+`test_map.gd`'s `world_to_cell`/`get_global_cell_center`/`get_global_map_rect` frame fixes,
+`zone_fade.gd`, the save reshape) and cross-checked the real `ROWS`/`zone_exits()` gate and
+entry-cell coordinates by hand across all four zones (Farm↔Path↔Town↔Ranch) — internally
+consistent both directions at every seam. Reviewed the zone-arrival screenshots
+(`tools/screenshot_zones.gd`) — Path's car/weeds/checkpoint render correctly; confirmed the
+plan's flagged "no row-shift" simplification genuinely did not hold and the +1 wall-row-prepend
+fix that replaced it is correct. Known non-blocking rough edges (documented in the layout
+files): the ruined road reads as reddish planks (only existing decor tile at 16px; a dedicated
+tile is future polish), Riverside's west river gate has a cosmetic gap.
 
 **Stage 1 verified independently:** re-ran the full suite myself (87/87 unit tests), read
 through the new core scripts (`game_state.gd`, `settlement_db.gd`, `structures.gd`,
@@ -270,6 +304,12 @@ stage's work).
       just inside the town's main gate (MAPS.md §2 already places expedition departures there —
       the scout who watches the road east naturally posts up at the door to it). "Quest-giver" is
       flavor/dialogue only this stage — no quest system exists yet (Phase 13).
+- [ ] **Day-28 food-shortage beat (added per `GDD.md` §§2–4/§11)** — one in-game month after Day
+      1, Harlan delivers a scripted dialogue beat: food reserves are running low and the
+      settlement is counting on the farm again, re-establishing its founding-era civic role
+      (`GDD.md` §2). Dialogue content only, same "flavor/dialogue only" scope Harlan already has
+      in this phase — no quest system needed. Starts the standing town-wellbeing signal described
+      in `GDD.md` §4 (soft, never a fail state) and sets up the hired-labor payoff below.
 - [x] Town store — Marta sells seeds/basic tools/food; UI shows name/description/price; currency
       is Credits (per `GDD.md` §7; not "Scrap Coins" as earlier drafted — Credits is settled
       humanity's established currency, with barter as a parallel economy for raiders/remote
@@ -468,13 +508,16 @@ relationship with them.
 - [ ] Settler system — periodic Survivor NPC arrivals asking to join; accept/reject; accepted
       settlers add to population and unlock dialogue/economy options
 - [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
-      functioning shop
+      functioning shop. **Specific narrative instance (added per `GDD.md` §§2–4/§11):** hiring a
+      settler/newcomer for a weekly Credits salary to run the farm's own till/water/harvest loop
+      — the payoff to the Day-28 beat above (Phase 5), a real simulated farming loop rather than
+      an abstracted trickle, not separate scope from this item.
 - [x] **Ranch/Sanctuary compound (added per `GDD.md` §8/§11, `MAPS.md` §3)** — a dedicated small
       map area south of the farm, its own fenced compound with a distinct entrance gate separate
       from the town's main (city-bound) gate, one shared template across all 3 starts extending
       each layout's continuous map southward rather than a new scene-transition system (none
-      existed; disproportionate for this scope, properly Phase 9's job when the ruined city needs
-      it). Real PixelLab art (`ranch_house`/`ranch_barn`/`ranch_coop`, flat/high-top-down,
+      existed yet at the time; disproportionate for this scope then — since superseded by
+      Phase 4's zone-transition system above, which the Ranch now rides too). Real PixelLab art (`ranch_house`/`ranch_barn`/`ranch_coop`, flat/high-top-down,
       matching the town buildings' established convention) plus decorative cow/goat props
       (`scripts/props.gd` — cosmetic only, no animal-entity system).
 - [x] **Rancher NPC — exists, no shop yet (added per `GDD.md` §8/§11)** — Silas, the
@@ -484,11 +527,6 @@ relationship with them.
       actual buy-animal transaction is **not** built yet — that's still open, along with the
       Barn/Coop split below, both genuine Phase 8 gameplay systems this pass deliberately didn't
       reach.
-- [ ] **Barn/Coop building split (added per `GDD.md` §8/§11)** — the generic "Storage Barn" above
-      is resource storage only; add distinct **Barn** (cows/goats/pigs) and **Coop** (chickens)
-      building types the player constructs on their own farm via the building-grid system above,
-      sized/tiered to the yield-vs-hardiness axis (`GDD.md` §8's "Animals & pets"). This is where
-      animals bought from the Ranch/Sanctuary actually live and produce.
 - [ ] **Barn/Coop building split (added per `GDD.md` §8/§11)** — the generic "Storage Barn" above
       is resource storage only; add distinct **Barn** (cows/goats/pigs) and **Coop** (chickens)
       building types the player constructs on their own farm via the building-grid system above,

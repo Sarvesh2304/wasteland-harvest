@@ -28,7 +28,10 @@ func _spawn_npc(entry: Dictionary) -> void:
 	var home: Vector2i = entry["home"]
 	var npc := Npc.new()
 	npc.setup(String(entry["id"]), home, int(entry.get("wander_radius", 2)), _test_map)
-	npc.global_position = _test_map.cell_to_world_center(home)
+	# `position`, not global_position: this node lives under its zone's TestMap, whose zone
+	# offset (the zone split's sibling-layout trick) must carry through — cell_to_world_center
+	# returns zone-LOCAL pixels.
+	npc.position = _test_map.cell_to_world_center(home)
 	add_child(npc)
 	_npcs.append(npc)
 

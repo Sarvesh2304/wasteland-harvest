@@ -12,6 +12,16 @@ extends RefCounted
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
+# Zone-split layouts (the Farm/Path/Town/Ranch scene separation): the farm layouts above are
+# farm-zone-only now; the Path/Town/Ranch zones each ship a standard variant (Open Plains +
+# Forest Edge) and a riverside variant (river west column / bridge crossing). Dispatched by
+# layout_for_zone() below.
+const PathStandardLayout := preload("res://scripts/map_layouts/path_layout_standard.gd")
+const PathRiversideLayout := preload("res://scripts/map_layouts/path_layout_riverside.gd")
+const TownStandardLayout := preload("res://scripts/map_layouts/town_layout_standard.gd")
+const TownRiversideLayout := preload("res://scripts/map_layouts/town_layout_riverside.gd")
+const RanchStandardLayout := preload("res://scripts/map_layouts/ranch_layout_standard.gd")
+const RanchRiversideLayout := preload("res://scripts/map_layouts/ranch_layout_riverside.gd")
 
 ## Default/fallback choice when no selection has been made yet (e.g. a headless test or smoke
 ## script that boots scenes/main.tscn directly without going through the selection screen first)
@@ -113,6 +123,25 @@ static func layout_for_id(id: String):
 			return RiversideLayout
 		_:
 			return OpenPlainsLayout
+
+
+## The layout script for one ZONE of a playthrough (the Farm/Path/Town/Ranch zone split):
+## the farm zone still varies per settlement (layout_for_id above, now farm-only maps), while
+## Path/Town/Ranch each come in a standard variant and a riverside variant — Riverside's river
+## forms those zones' west edges (MAPS.md §1), so it's the one start that changes their terrain.
+## Unknown zone ids fall back to the farm layout, mirroring layout_for_id's own
+## unknown-id-tolerant contract (scripts/test_map.gd calls this unconditionally at build time).
+static func layout_for_zone(zone_id: String, settlement_id: String):
+	var riverside := settlement_id == "riverside"
+	match zone_id:
+		"path":
+			return PathRiversideLayout if riverside else PathStandardLayout
+		"town":
+			return TownRiversideLayout if riverside else TownStandardLayout
+		"ranch":
+			return RanchRiversideLayout if riverside else RanchStandardLayout
+		_:
+			return layout_for_id(settlement_id)
 
 
 static func starting_items(id: String) -> Array[Dictionary]:

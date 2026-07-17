@@ -1,18 +1,22 @@
 extends RefCounted
-## Shared pure-logic helpers for the Phase 4 starting-settlement layouts (Open Plains, Forest
-## Edge, Riverside — scripts/map_layouts/*_layout.gd). Phase 2's single TestMapLayout has grown
-## into three named layouts sharing one ASCII-grid + Wang-painting pipeline (per ROADMAP.md
-## Phase 4: "generalize... to support three named layouts rather than inventing a new map
-## system"); this file is the deduplicated logic all three wrap, so each concrete layout file is
-## just its ROWS/BUILDINGS data plus thin static delegating wrappers (see e.g.
-## open_plains_layout.gd) — same "pure functions operating on plain data" convention as
-## farm_grid.gd/wang_tileset.gd, just parameterized over which map's data to read.
+## Shared pure-logic helpers for the map layouts (scripts/map_layouts/*.gd). Phase 2's single
+## TestMapLayout grew into three named starting layouts in Phase 4, and the zone split (the
+## Farm/Path/Town/Ranch scene separation) grew those into per-zone files: 3 farm layouts
+## (open_plains/forest_edge/riverside), plus standard/riverside pairs for the Path, Town, and
+## Ranch zones (9 layout files total, all sharing one ASCII-grid + Wang-painting pipeline).
+## This file is the deduplicated logic they all wrap, so each concrete layout file is just its
+## ROWS/BUILDINGS data plus thin static delegating wrappers (see e.g. open_plains_layout.gd) —
+## same "pure functions operating on plain data" convention as farm_grid.gd/wang_tileset.gd,
+## just parameterized over which map's data to read.
 ##
 ## ## Legend (extends Phase 2/3's '.'/'f'/'p'/'#'/'@'/'T'/'O' with Phase 4 additions)
 ##   'F'  perimeter fence (solid) — painted as a worn-wood-tinted rubble tile, see test_map.gd
 ##   'W'  water (solid) — painted as a blue-tinted rubble tile; river, pond, or creek per start
-##   'G'  a gate (walkable landmark; a break in a fence line) — the town's main south gate and,
-##        since MAPS.md §3's southern extension, the Ranch/Sanctuary compound's own entrance gate
+##   'G'  a gate (walkable; a break in a fence line). Since the zone split (Phase 8's
+##        Farm/Path/Town/Ranch scene separation), most 'G' cells are ZONE-TRANSITION gates —
+##        stepping onto one warps the player to the neighbouring zone (see each layout's
+##        zone_exits() and test_map.gd's zone_exit_at()). The Ranch compound's own inner gate
+##        stays a purely cosmetic walkable break (not a zone exit), as before.
 ##   'g'  farm's small perimeter fence gap (walkable landmark; a break in the north fence line,
 ##        "closed later" per ROADMAP.md — no functional gameplay meaning yet, layout marker only)
 ##   'H'/'C'/'D'/'M'/'R'/'K'/'B'/'S'  building top-left markers (farmhouse/chest/bed/mayor's
@@ -40,40 +44,42 @@ const FarmGrid := preload("res://scripts/farm_grid.gd")
 
 const SOLID_TERRAIN_CHARS := ["F", "W", "#"]
 
-## Phase 5 Stage 1: the three town-core NPCs (ROADMAP.md "First NPCs"), shared verbatim by all
-## 3 starting layouts — the town core is one spatial template (MAPS.md §2), and since every
-## town-core building coordinate is already identical across the 3 files, the NPC roster lives
-## here once rather than being triplicated (a layout with a divergent town could stop delegating
-## its npcs() here, the same way Riverside already diverges on farmhouse coordinates).
+## Phase 5 Stage 1: the three town-core NPCs (ROADMAP.md "First NPCs"), shared verbatim by both
+## Town zone variants — the town core is one spatial template (MAPS.md §2), and since every
+## town-core building coordinate is already identical across the town layout files, the NPC
+## roster lives here once rather than being duplicated.
+## Coordinates are TOWN-ZONE-LOCAL since the zone split (see town_layout_standard.gd): the Town
+## zone's local rows are the old combined map's rows 16-31 shifted up by 15 (one new north
+## perimeter wall row prepended at local row 0), so every home cell here moved by (0, -15).
 ## Each entry: {id (dialogue key in data/dialogue.json), home (cell the NPC spawns at and
 ## wanders around), wander_radius (Chebyshev cell radius of the wander zone — see npc_grid.gd)}.
-##   - mayor_harlan (10, 19): on the plaza directly south of his fortified house's door
-##     (footprint x8-11, y16-18) — "half town hall, half keep", he holds court out front.
-##   - marta (17, 24): directly north of her store (footprint x16-18, y25-26), out front with
+##   - mayor_harlan (10, 4): on the plaza directly south of his fortified house's door
+##     (footprint x8-11, y1-3) — "half town hall, half keep", he holds court out front.
+##   - marta (17, 9): directly north of her store (footprint x16-18, y10-11), out front with
 ##     the crates — MAPS.md's "economic heart" faces the plaza.
-##   - scout_kael (18, 28): just inside the town's one main gate (the 'G' cells at x17-18,
-##     y31 — confirmed against ForestEdgeLayout.gate_cells()). MAPS.md §2 puts expedition
-##     departures and bandit-scout events at the gate, so the scout who watches the road to the
-##     ruined city naturally posts up there — he's the last face you see walking out toward the
-##     ruins and the first one coming home.
+##   - scout_kael (18, 13): just inside the town's main south gate (the 'G' cells at x17-18,
+##     y16 — the gate to the Ranch/Sanctuary approach). MAPS.md §2 puts expedition departures
+##     and bandit-scout events at the gate, so the scout who watches the road naturally posts up
+##     there — he's the last face you see walking out and the first one coming home.
 ## wander_radius is deliberately 1 (a tight 3x3 zone), not larger: with homes spaced ~5 cells
-## apart in y (19, 24, 28), a radius of 2 would let neighbouring NPCs' wander zones overlap by a
+## apart in y (4, 9, 13), a radius of 2 would let neighbouring NPCs' wander zones overlap by a
 ## cell (verified this the hard way — tools/runtime_smoke.gd's dialogue stages occasionally
 ## picked up the WRONG NPC at a shared boundary cell when this was 2, an intermittent failure
 ## that traced back to here); radius 1 keeps every zone strictly disjoint while still reading as
 ## "stands near home and ambles a little."
 const TOWN_NPCS: Array[Dictionary] = [
-	{"id": "mayor_harlan", "home": Vector2i(10, 19), "wander_radius": 1},
-	{"id": "marta", "home": Vector2i(17, 24), "wander_radius": 1},
-	{"id": "scout_kael", "home": Vector2i(18, 28), "wander_radius": 1},
+	{"id": "mayor_harlan", "home": Vector2i(10, 4), "wander_radius": 1},
+	{"id": "marta", "home": Vector2i(17, 9), "wander_radius": 1},
+	{"id": "scout_kael", "home": Vector2i(18, 13), "wander_radius": 1},
 ]
 
-## Phase 8 groundwork (MAPS.md §3): the Ranch/Sanctuary keeper, appended after the town-core three
-## on every start's roster. Home (17, 40) is the open yard in front of the ranch house, inside the
-## southern compound reached through the town's south gate. wander_radius 1 keeps a tight,
-## disjoint amble zone (the same reasoning TOWN_NPCS documents).
+## Phase 8 groundwork (MAPS.md §3): the Ranch/Sanctuary keeper. Home (17, 9) is RANCH-ZONE-LOCAL
+## (old combined row 40 shifted up by 31 — the Ranch zone's local rows are old rows 32-48 plus
+## one new north wall row prepended at local row 0): the open yard in front of the ranch house,
+## inside the southern compound reached through the town's south gate. wander_radius 1 keeps a
+## tight, disjoint amble zone (the same reasoning TOWN_NPCS documents).
 const RANCH_NPCS: Array[Dictionary] = [
-	{"id": "rancher_silas", "home": Vector2i(17, 40), "wander_radius": 1},
+	{"id": "rancher_silas", "home": Vector2i(17, 9), "wander_radius": 1},
 ]
 
 ## Ranch/Sanctuary decorative animal props (MAPS.md §3): the keeper's visible stock — calm pre-war
@@ -82,23 +88,15 @@ const RANCH_NPCS: Array[Dictionary] = [
 ## and NO animal-entity system (that's Phase 8's livestock mechanics), spawned by scripts/props.gd
 ## from art/props/<kind>.png. Cells are spaced so the 32px sprites read as loose herds without
 ## heavily overlapping. Shared verbatim by all 3 starts.
+## Cells are RANCH-ZONE-LOCAL (old combined rows 43-44 shifted up by 31 — same shift as
+## RANCH_NPCS above).
 const RANCH_DECOR: Array[Dictionary] = [
-	{"kind": "ranch_cow", "cell": Vector2i(7, 44)},
-	{"kind": "ranch_cow", "cell": Vector2i(10, 44)},
-	{"kind": "ranch_goat", "cell": Vector2i(22, 44)},
-	{"kind": "ranch_goat", "cell": Vector2i(25, 44)},
-	{"kind": "ranch_goat", "cell": Vector2i(27, 43)},
+	{"kind": "ranch_cow", "cell": Vector2i(7, 13)},
+	{"kind": "ranch_cow", "cell": Vector2i(10, 13)},
+	{"kind": "ranch_goat", "cell": Vector2i(22, 13)},
+	{"kind": "ranch_goat", "cell": Vector2i(25, 13)},
+	{"kind": "ranch_goat", "cell": Vector2i(27, 12)},
 ]
-
-
-## The full NPC roster every layout exposes via npcs(): the shared town core plus the ranch keeper.
-## Built concretely (rather than TOWN_NPCS + RANCH_NPCS) so the return stays a typed
-## Array[Dictionary].
-static func all_npcs() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	out.append_array(TOWN_NPCS)
-	out.append_array(RANCH_NPCS)
-	return out
 
 
 static func size(rows: Array[String]) -> Vector2i:

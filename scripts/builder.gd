@@ -112,7 +112,10 @@ func _process(_delta: float) -> void:
 	var id := current_id()
 	var footprint_size := BuildingDB.size_of(id)
 	var top_left := _current_top_left(footprint_size)
-	_preview.position = Vector2(top_left) * CELL_SIZE
+	# to_global through the bound map: cell coordinates are zone-local, but this node sits
+	# directly under Main, so the active zone's position offset (the zone split) must be added.
+	# A no-op for the origin-anchored farm zone.
+	_preview.position = _test_map.to_global(Vector2(top_left) * CELL_SIZE)
 	_preview.size = Vector2(footprint_size) * CELL_SIZE
 	_preview.color = VALID_COLOR if _placement_ok(id, top_left, footprint_size) else INVALID_COLOR
 	_label.text = "%s — %s\n[Space] place  [Q] next  [B] cancel" \

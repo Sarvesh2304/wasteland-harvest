@@ -54,6 +54,10 @@ signal credits_changed(current: int)
 ## scripts/shipping_ui.gd's open_box(). No payload: there's exactly one box per map, and the
 ## UI reads everything it needs from the player/structures references it was bound with.
 signal shipping_box_requested
+## Zone split: fired when the player steps onto a zone-transition gate cell (see the
+## _zone_transitioning block in _physics_process). main.gd owns the response — the fade +
+## _bind_zone rebind/teleport — same signal-handoff shape as the interactions above.
+signal zone_exit_requested(target_zone: String, entry_cell: Vector2i)
 
 ## ~3.5 tiles/second at the 16px tile size — close to Stardew's walk feel.
 const SPEED := 56.0
@@ -153,6 +157,22 @@ var _modal_open_last_frame := false
 var _stepping := false
 var _step_target := Vector2.ZERO
 
+## -- Zone split bookkeeping --
+## Which zone the player currently stands in ("farm"/"path"/"town"/"ranch") — kept by main.gd's
+## _bind_zone_refs and saved/restored (v2 saves' player.current_zone).
+var current_zone_id := "farm"
+## ALL FOUR zones' nodes ({zone_id: {map, farm, structures, npcs}}), set once by main.gd at
+## boot. Distinct from the per-transition farm/test_map/structures/npcs fields below, which
+## always point at the CURRENT zone's nodes only (rebound on every transition) — this dict is
+## for whole-world operations, i.e. _end_day's save gather.
+var zones: Dictionary = {}
+## True from the instant a gate-cell exit is detected until main.gd's _bind_zone completes the
+## rebind at the fade's black midpoint. Movement/input freezes for the duration, matching every
+## other modal state — and critically, the exit detection itself stands down: the fade leaves
+## the player standing ON the gate cell for ~0.075s of physics frames, which would otherwise
+## re-detect the exit and re-emit zone_exit_requested every frame, corrupting the fade tween.
+var _zone_transitioning := false
+
 ## Bound by main.gd once the world exists (see bind_world()).
 var farm: Node = null
 var test_map: Node = null
@@ -240,6 +260,24 @@ func _physics_process(_delta: float) -> void:
 	if _in_menu():
 		velocity = Vector2.ZERO
 		return
+	# Zone split: while a gate crossing's fade is in flight, freeze completely (see the
+	# _zone_transitioning field doc — without this, the player still standing on the gate cell
+	# during the fade-out half would re-detect the exit below every physics frame). Cleared by
+	# main.gd's _bind_zone via end_zone_transition() at the fade's black midpoint, once the
+	# player already stands in the new zone.
+	if _zone_transitioning:
+		velocity = Vector2.ZERO
+		return
+	# Standing on a zone-transition gate cell requests the warp exactly once per crossing.
+	# The test_map guard keeps this node instance-testable without a bound world, same as the
+	# use_tool dispatch's own guards.
+	if test_map != null:
+		var exit: Dictionary = test_map.zone_exit_at(test_map.world_to_cell(global_position))
+		if not exit.is_empty():
+			_zone_transitioning = true
+			velocity = Vector2.ZERO
+			zone_exit_requested.emit(String(exit["target_zone"]), Vector2i(exit["entry_cell"]))
+			return
 	if _stepping:
 		_process_step()
 		return
@@ -421,8 +459,8 @@ func _end_day() -> void:
 	DayManager.skip_to_next_morning()
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
-	if test_map != null and farm != null and structures != null:
-		GameState.save_game(self, test_map, farm, structures)
+	if not zones.is_empty():
+		GameState.save_game(self, zones)
 
 
 ## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs
@@ -449,6 +487,12 @@ func _in_shipping() -> bool:
 ## True while scripts/menu_screen.gd's tabbed menu is open — see _physics_process's early-return.
 func _in_menu() -> bool:
 	return menu_screen != null and bool(menu_screen.active)
+
+
+## Called by main.gd's _bind_zone once a zone crossing's rebind/teleport has completed (at the
+## fade's black midpoint) — the one legitimate release of the _zone_transitioning freeze.
+func end_zone_transition() -> void:
+	_zone_transitioning = false
 
 
 ## The logical cell directly ahead of the player, in the current facing direction.
@@ -545,12 +589,14 @@ func add_credits(amount: int) -> void:
 
 func save_state() -> Dictionary:
 	return {
-		# Vector2 split into JSON-friendly scalars.
+		# Vector2 split into JSON-friendly scalars. WORLD-space (includes the current zone's
+		# position offset), so restoring x/y + current_zone reproduces the exact stand-point.
 		"x": global_position.x,
 		"y": global_position.y,
 		"facing": facing,
 		"energy": energy,
 		"credits": credits,
+		"current_zone": current_zone_id,
 		"inventory": SaveData.encode_inventory(inventory.slots, inventory.selected_hotbar_index),
 	}
 
@@ -559,6 +605,9 @@ func load_state(data: Dictionary) -> void:
 	global_position = Vector2(float(data.get("x", global_position.x)),
 		float(data.get("y", global_position.y)))
 	velocity = Vector2.ZERO
+	# Zone split: which zone the save was written in — main.gd's _apply_save reads this back
+	# (via _bind_zone_refs) right after load_state, so the world refs follow the position.
+	current_zone_id = String(data.get("current_zone", "farm"))
 	if String(data.get("facing", "")) in FACINGS:
 		facing = String(data["facing"])
 	# Direct assign + emit, not set_energy(): restoring a saved value is not a gameplay energy

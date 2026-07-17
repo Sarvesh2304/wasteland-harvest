@@ -74,8 +74,15 @@ var _tilled: Dictionary = {}
 var _runtime_blocked: Dictionary = {}
 
 
+## Which zone this instance paints ("farm"/"path"/"town"/"ranch") — set per instance in
+## scenes/main.tscn since the zone split. The script keeps its test_map.gd filename despite now
+## being the generic any-zone map script, to avoid a rename ripple through every tool/test path
+## string.
+@export var zone_id := "farm"
+
+
 func _enter_tree() -> void:
-	layout = SettlementDB.layout_for_id(GameState.chosen_settlement_id)
+	layout = SettlementDB.layout_for_zone(zone_id, GameState.chosen_settlement_id)
 
 
 func _ready() -> void:
@@ -187,23 +194,56 @@ func load_state(data: Dictionary) -> void:
 
 
 ## World position -> logical cell coordinate (floor division by the 16px tile size).
+## Since the zone split, each zone instance sits at a distinct position offset under Main (a
+## pure non-collision trick — each zone has its own camera view), so the caller's world position
+## must be brought into this zone's local frame first. Every existing caller keeps passing raw
+## global_position unchanged: to_local() is a no-op for the origin-anchored farm and correct for
+## free for the offset zones.
 func world_to_cell(world_pos: Vector2) -> Vector2i:
-	return Vector2i(floori(world_pos.x / CELL_SIZE), floori(world_pos.y / CELL_SIZE))
+	var local := to_local(world_pos)
+	return Vector2i(floori(local.x / CELL_SIZE), floori(local.y / CELL_SIZE))
 
 
 func cell_to_world_center(cell: Vector2i) -> Vector2:
 	return layout.cell_center(cell)
 
 
+## Zone-local cell -> WORLD-space center (the reverse of world_to_cell's frame fix) — for the
+## call sites that position things living outside this zone's subtree: the player teleport on
+## zone entry, NPC step targets, the builder's preview.
+func get_global_cell_center(cell: Vector2i) -> Vector2:
+	return to_global(cell_to_world_center(cell))
+
+
 func terrain_at(cell: Vector2i) -> String:
 	return layout.cell(cell.x, cell.y)
 
 
-## Map bounds in world pixels — main.gd hands this to the camera for clamping.
+## Map bounds in ZONE-LOCAL pixels (kept for the tests/tools that predate the zone split).
 func get_map_rect() -> Rect2:
 	return layout.map_rect()
 
 
-## Where the player spawns (the '@' cell's center).
+## Map bounds in WORLD pixels — main.gd hands this to the camera for clamping, so the clamp
+## follows the zone's position offset.
+func get_global_map_rect() -> Rect2:
+	var r := get_map_rect()
+	return Rect2(to_global(r.position), r.size)
+
+
+## Where the player spawns (the '@' cell's center), zone-local — main.gd converts via
+## to_global for the actual boot teleport.
 func get_spawn_position() -> Vector2:
 	return layout.cell_center(layout.spawn_cell())
+
+
+## The zone_exits() entry whose gate cells contain `cell`, or {} if the cell is not a
+## transition gate. player.gd polls this each physics frame with its own current cell; main.gd
+## acts on the resulting {gate_cells, target_zone, entry_cell} via the zone fade.
+func zone_exit_at(cell: Vector2i) -> Dictionary:
+	if layout == null:
+		return {}
+	for exit in layout.zone_exits():
+		if cell in exit["gate_cells"]:
+			return exit
+	return {}

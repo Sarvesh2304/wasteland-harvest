@@ -1,25 +1,50 @@
 extends "res://tests/test_case.gd"
-## Phase 4 map-layout data integrity: well-formed grids, sealed perimeters (with the farm gap
-## and town gate as the only breaks), valid spawns, and the town-core landmark set (farmhouse,
-## chest, mayor's house, store, 3-4 shacks, bulletin board, dock, gate) for all 3 starting
-## layouts (scripts/map_layouts/*.gd). Runs the same checks against all three via a data table,
-## the way tests/test_crop_db.gd iterates crop ids, rather than tripling the assertions by hand.
+## Phase 4 map-layout data integrity, minimally restructured for the Farm/Path/Town/Ranch zone
+## split (Stage 1): the old "3 combined-map settlements" table is now 3 farm layouts + 2 town +
+## 2 ranch + 2 path zone layouts. Structural checks (grids, footprints, solidity) run over ALL
+## layouts; the content checks each moved to the zone that still owns that content (town-core
+## buildings/NPCs → town layouts, ranch compound → ranch layouts, farmland/spawn → farm
+## layouts). This is deliberately the MINIMUM honest edit — the deeper per-zone matrix
+## restructure (full zone_exits graph consistency etc.) is Stage 3's job per the
+## zone-transition plan.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
+const PathStandardLayout := preload("res://scripts/map_layouts/path_layout_standard.gd")
+const PathRiversideLayout := preload("res://scripts/map_layouts/path_layout_riverside.gd")
+const TownStandardLayout := preload("res://scripts/map_layouts/town_layout_standard.gd")
+const TownRiversideLayout := preload("res://scripts/map_layouts/town_layout_riverside.gd")
+const RanchStandardLayout := preload("res://scripts/map_layouts/ranch_layout_standard.gd")
+const RanchRiversideLayout := preload("res://scripts/map_layouts/ranch_layout_riverside.gd")
 
 const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G", "g",
 	"N", "Y", "P"]  # Ranch/Sanctuary markers (MAPS.md §3): raNch house, barn (Y), cooP
-const REQUIRED_BUILDING_KINDS := ["farmhouse", "chest", "bed", "shipping_box", "mayor_house", "store", "shack", "bulletin_board"]
+const FARM_BUILDING_KINDS := ["farmhouse", "chest", "bed", "shipping_box"]
+const TOWN_BUILDING_KINDS := ["mayor_house", "store", "shack", "bulletin_board"]
 
-const LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout]
-const LAYOUT_NAMES := ["open_plains", "forest_edge", "riverside"]
+const FARM_LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout]
+const FARM_NAMES := ["open_plains", "forest_edge", "riverside"]
+const TOWN_LAYOUTS := [TownStandardLayout, TownRiversideLayout]
+const TOWN_NAMES := ["town_standard", "town_riverside"]
+const RANCH_LAYOUTS := [RanchStandardLayout, RanchRiversideLayout]
+const RANCH_NAMES := ["ranch_standard", "ranch_riverside"]
+const PATH_LAYOUTS := [PathStandardLayout, PathRiversideLayout]
+const PATH_NAMES := ["path_standard", "path_riverside"]
 
+const ALL_LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout,
+	PathStandardLayout, PathRiversideLayout, TownStandardLayout, TownRiversideLayout,
+	RanchStandardLayout, RanchRiversideLayout]
+const ALL_NAMES := ["open_plains", "forest_edge", "riverside",
+	"path_standard", "path_riverside", "town_standard", "town_riverside",
+	"ranch_standard", "ranch_riverside"]
+
+
+## -- Structural checks over every zone layout --
 
 func test_all_layouts_are_rectangular() -> void:
-	for layout in LAYOUTS:
+	for layout in ALL_LAYOUTS:
 		var rows: Array[String] = layout.ROWS
 		var width: int = rows[0].length()
 		for y in rows.size():
@@ -27,139 +52,19 @@ func test_all_layouts_are_rectangular() -> void:
 
 
 func test_all_layouts_only_legal_characters() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
+	for i in ALL_LAYOUTS.size():
+		var layout = ALL_LAYOUTS[i]
 		var rows: Array[String] = layout.ROWS
 		for y in rows.size():
 			var row: String = rows[y]
 			for x in row.length():
 				assert_true(row[x] in LEGAL_CHARS,
-					"%s cell (%d,%d) is '%s'" % [LAYOUT_NAMES[i], x, y, row[x]])
-
-
-func test_all_layouts_exactly_one_spawn() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var rows: Array[String] = layout.ROWS
-		var count := 0
-		for y in rows.size():
-			for x in rows[y].length():
-				if rows[y][x] == "@":
-					count += 1
-		assert_eq(count, 1, "%s exactly one '@' spawn marker" % LAYOUT_NAMES[i])
-		var spawn: Vector2i = layout.spawn_cell()
-		assert_false(layout.is_solid(spawn.x, spawn.y), "%s spawn is not blocked" % LAYOUT_NAMES[i])
-
-
-func test_all_layouts_have_all_required_building_kinds() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var kinds := {}
-		for b in layout.buildings():
-			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
-		for kind in REQUIRED_BUILDING_KINDS:
-			assert_true(kinds.get(kind, 0) > 0, "%s missing building kind '%s'" % [LAYOUT_NAMES[i], kind])
-		assert_true(kinds.get("shack", 0) >= 3, "%s has at least 3 settler shacks" % LAYOUT_NAMES[i])
-
-
-func test_bed_is_1x1_and_reachable() -> void:
-	# Phase 4 Stage 3: every start has exactly one farmhouse bed, 1x1 like the chest, with at
-	# least one walkable orthogonal neighbour cell the player can stand on to interact with it.
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var beds: Array[Dictionary] = []
-		for b in layout.buildings():
-			if String(b["kind"]) == "bed":
-				beds.append(b)
-		assert_eq(beds.size(), 1, "%s has exactly one bed" % LAYOUT_NAMES[i])
-		var bed: Dictionary = beds[0]
-		assert_eq(bed["size"], Vector2i(1, 1), "%s bed is 1x1" % LAYOUT_NAMES[i])
-		var cell: Vector2i = bed["top_left"]
-		var reachable := false
-		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var n: Vector2i = cell + offset
-			if not layout.is_solid(n.x, n.y):
-				reachable = true
-		assert_true(reachable, "%s bed has a walkable neighbour to interact from" % LAYOUT_NAMES[i])
-
-
-func test_shipping_box_is_1x1_beside_chest_and_bed_and_reachable() -> void:
-	# Phase 5 Stage 3: every start has exactly one shipping box, 1x1 like the chest/bed, sitting
-	# in the same farmhouse "service row" as both (same y, x strictly between the chest's and the
-	# bed's — the authored chest/box/bed line each layout file documents), with at least one
-	# walkable orthogonal neighbour to interact from.
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var boxes: Array[Dictionary] = []
-		var chest_cell := Vector2i(-1, -1)
-		var bed_cell := Vector2i(-1, -1)
-		for b in layout.buildings():
-			match String(b["kind"]):
-				"shipping_box": boxes.append(b)
-				"chest": chest_cell = b["top_left"]
-				"bed": bed_cell = b["top_left"]
-		assert_eq(boxes.size(), 1, "%s has exactly one shipping box" % LAYOUT_NAMES[i])
-		var box: Dictionary = boxes[0]
-		assert_eq(box["size"], Vector2i(1, 1), "%s shipping box is 1x1" % LAYOUT_NAMES[i])
-		var cell: Vector2i = box["top_left"]
-		assert_eq(cell.y, chest_cell.y, "%s box shares the chest's row" % LAYOUT_NAMES[i])
-		assert_eq(cell.y, bed_cell.y, "%s box shares the bed's row" % LAYOUT_NAMES[i])
-		assert_true(chest_cell.x < cell.x and cell.x < bed_cell.x,
-			"%s box sits between the chest and the bed" % LAYOUT_NAMES[i])
-		var reachable := false
-		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var n: Vector2i = cell + offset
-			if not layout.is_solid(n.x, n.y):
-				reachable = true
-		assert_true(reachable, "%s shipping box has a walkable neighbour" % LAYOUT_NAMES[i])
-
-
-func test_shipping_box_marker_char_matches_building_cell() -> void:
-	# The 'S' ASCII marker and the BUILDINGS entry are two statements of the same fact — they
-	# must agree (the same guarantee every other marker/building pair gets implicitly via
-	# is_solid, made explicit here since the pair was authored by hand in 3 files).
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var marker_cells: Array[Vector2i] = []
-		var rows: Array[String] = layout.ROWS
-		for y in rows.size():
-			for x in rows[y].length():
-				if rows[y][x] == "S":
-					marker_cells.append(Vector2i(x, y))
-		assert_eq(marker_cells.size(), 1, "%s has exactly one 'S' marker" % LAYOUT_NAMES[i])
-		var box: Dictionary = {}
-		for b in layout.buildings():
-			if String(b["kind"]) == "shipping_box":
-				box = b
-		assert_eq(marker_cells[0], box["top_left"],
-			"%s 'S' marker sits at the shipping box's authored cell" % LAYOUT_NAMES[i])
-
-
-func test_all_layouts_have_dock_and_gate() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		assert_true(layout.dock_cells().size() > 0, "%s has dock plank cells" % LAYOUT_NAMES[i])
-		assert_true(layout.gate_cells().size() > 0, "%s has a main gate" % LAYOUT_NAMES[i])
-		assert_true(layout.water_cells().size() > 0, "%s has a water body" % LAYOUT_NAMES[i])
-		assert_true(layout.farm_gap_cells().size() > 0, "%s has the farm's perimeter fence gap" % LAYOUT_NAMES[i])
-
-
-func test_all_layouts_have_farmland_and_resource_nodes() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var rows: Array[String] = layout.ROWS
-		var soil_count := 0
-		for y in rows.size():
-			for x in rows[y].length():
-				if rows[y][x] == "f":
-					soil_count += 1
-		assert_true(soil_count > 0, "%s has tillable/pre-tilled farmland" % LAYOUT_NAMES[i])
-		assert_true(layout.resource_node_cells().size() > 0, "%s has at least one resource node" % LAYOUT_NAMES[i])
+					"%s cell (%d,%d) is '%s'" % [ALL_NAMES[i], x, y, row[x]])
 
 
 func test_building_footprints_dont_overlap_each_other() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
+	for i in ALL_LAYOUTS.size():
+		var layout = ALL_LAYOUTS[i]
 		var occupied := {}
 		for b in layout.buildings():
 			var top_left: Vector2i = b["top_left"]
@@ -169,23 +74,21 @@ func test_building_footprints_dont_overlap_each_other() -> void:
 					var c := Vector2i(x, y)
 					assert_false(occupied.has(c),
 						"%s building '%s' overlaps '%s' at %s" \
-							% [LAYOUT_NAMES[i], b["id"], occupied.get(c, ""), c])
+							% [ALL_NAMES[i], b["id"], occupied.get(c, ""), c])
 					occupied[c] = b["id"]
 
 
 func test_is_tillable_excludes_buildings_fence_water() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
+	for i in ALL_LAYOUTS.size():
+		var layout = ALL_LAYOUTS[i]
 		for b in layout.buildings():
 			var top_left: Vector2i = b["top_left"]
 			assert_false(layout.is_tillable(top_left.x, top_left.y),
-				"%s building '%s' top-left isn't tillable" % [LAYOUT_NAMES[i], b["id"]])
+				"%s building '%s' top-left isn't tillable" % [ALL_NAMES[i], b["id"]])
 		for c in layout.fence_cells():
-			assert_false(layout.is_tillable(c.x, c.y), "%s fence cell isn't tillable" % LAYOUT_NAMES[i])
+			assert_false(layout.is_tillable(c.x, c.y), "%s fence cell isn't tillable" % ALL_NAMES[i])
 		for c in layout.water_cells():
-			assert_false(layout.is_tillable(c.x, c.y), "%s water cell isn't tillable" % LAYOUT_NAMES[i])
-		var spawn: Vector2i = layout.spawn_cell()
-		assert_true(layout.is_tillable(spawn.x, spawn.y), "%s spawn cell (grass) is tillable" % LAYOUT_NAMES[i])
+			assert_false(layout.is_tillable(c.x, c.y), "%s water cell isn't tillable" % ALL_NAMES[i])
 
 
 func test_is_solid_covers_full_building_footprint_not_just_marker() -> void:
@@ -193,47 +96,345 @@ func test_is_solid_covers_full_building_footprint_not_just_marker() -> void:
 	# rest of its footprint still reads as plain grass in ROWS (see layout_common.gd's class
 	# doc). is_solid()/is_tillable() must treat every footprint cell as blocked, not just the
 	# marker, or a player could till/walk through the "inside" of a building's other cells.
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
+	for i in ALL_LAYOUTS.size():
+		var layout = ALL_LAYOUTS[i]
 		for b in layout.buildings():
 			var top_left: Vector2i = b["top_left"]
 			var footprint_size: Vector2i = b["size"]
 			for y in range(top_left.y, top_left.y + footprint_size.y):
 				for x in range(top_left.x, top_left.x + footprint_size.x):
 					assert_true(layout.is_solid(x, y),
-						"%s '%s' footprint cell (%d,%d) should be solid" % [LAYOUT_NAMES[i], b["id"], x, y])
+						"%s '%s' footprint cell (%d,%d) should be solid" % [ALL_NAMES[i], b["id"], x, y])
 
 
 func test_resource_nodes_not_on_farmland_or_buildings() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
+	for i in ALL_LAYOUTS.size():
+		var layout = ALL_LAYOUTS[i]
 		for entry in layout.resource_node_cells():
 			var cell: Vector2i = entry["cell"]
-			assert_false(layout.is_soil(cell.x, cell.y), "%s resource node not on farmland" % LAYOUT_NAMES[i])
-			assert_false(layout.is_solid(cell.x, cell.y), "%s resource node cell itself not solid" % LAYOUT_NAMES[i])
+			assert_false(layout.is_soil(cell.x, cell.y), "%s resource node not on farmland" % ALL_NAMES[i])
+			assert_false(layout.is_solid(cell.x, cell.y), "%s resource node cell itself not solid" % ALL_NAMES[i])
 
 
 func test_out_of_bounds_reads_as_grass() -> void:
-	for layout in LAYOUTS:
+	for layout in ALL_LAYOUTS:
 		assert_eq(layout.cell(-1, -1), ".", "dual-grid sampling beyond edges sees grass")
 		assert_eq(layout.cell(9999, 3), ".")
 
 
 func test_world_space_math() -> void:
-	for layout in LAYOUTS:
+	for layout in ALL_LAYOUTS:
 		var size: Vector2i = layout.size()
 		assert_eq(layout.map_rect(), Rect2(0, 0, size.x * 16, size.y * 16))
 		assert_eq(layout.cell_center(Vector2i(0, 0)), Vector2(8, 8), "cell centers at half-tile")
-		var spawn_pos: Vector2 = layout.cell_center(layout.spawn_cell())
-		assert_true(layout.map_rect().has_point(spawn_pos), "spawn position inside map bounds")
 
+
+## -- Zone exits (light well-formedness only — the full cross-zone graph check is Stage 3) --
+
+func test_zone_exits_gate_cells_are_real_gates() -> void:
+	for i in ALL_LAYOUTS.size():
+		var layout = ALL_LAYOUTS[i]
+		var gate_cells: Array[Vector2i] = layout.gate_cells()
+		assert_true(layout.zone_exits().size() > 0, "%s has at least one zone exit" % ALL_NAMES[i])
+		for exit in layout.zone_exits():
+			assert_true(String(exit["target_zone"]) in ["farm", "path", "town", "ranch"],
+				"%s exit targets a real zone" % ALL_NAMES[i])
+			for cell in exit["gate_cells"]:
+				assert_true(cell in gate_cells,
+					"%s exit gate cell %s is an authored 'G' cell" % [ALL_NAMES[i], cell])
+
+
+func test_zone_exit_entry_cells_are_walkable_in_target_zone() -> void:
+	# Uses the standard/riverside pairing the game actually plays (settlement_db.layout_for_zone):
+	# an exit's entry cell must be open ground in the matching variant of its target zone, and
+	# must not itself be a gate cell there (or arrival would instantly re-trigger a warp back).
+	var variants := {
+		"standard": {"farm": OpenPlainsLayout, "path": PathStandardLayout,
+			"town": TownStandardLayout, "ranch": RanchStandardLayout},
+		"riverside": {"farm": RiversideLayout, "path": PathRiversideLayout,
+			"town": TownRiversideLayout, "ranch": RanchRiversideLayout},
+	}
+	# Forest Edge shares the standard variants but has its own farm terrain — check it too.
+	var farm_variants := {"standard": [OpenPlainsLayout, ForestEdgeLayout],
+		"riverside": [RiversideLayout]}
+	for variant_name in variants:
+		var zone_map: Dictionary = variants[variant_name]
+		for zone_id in zone_map:
+			var layout = zone_map[zone_id]
+			for exit in layout.zone_exits():
+				var target_id := String(exit["target_zone"])
+				var entry: Vector2i = exit["entry_cell"]
+				var targets: Array = farm_variants[variant_name] if target_id == "farm" \
+					else [zone_map[target_id]]
+				for target in targets:
+					assert_false(target.is_solid(entry.x, entry.y),
+						"%s(%s) exit → %s entry %s is walkable" % [zone_id, variant_name, target_id, entry])
+					assert_false(entry in target.gate_cells(),
+						"%s(%s) exit → %s entry %s is not itself a gate" % [zone_id, variant_name, target_id, entry])
+
+
+## -- Farm-zone checks (the 3 starting layouts, farm-only since the split) --
+
+func test_farm_layouts_exactly_one_spawn() -> void:
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var rows: Array[String] = layout.ROWS
+		var count := 0
+		for y in rows.size():
+			for x in rows[y].length():
+				if rows[y][x] == "@":
+					count += 1
+		assert_eq(count, 1, "%s exactly one '@' spawn marker" % FARM_NAMES[i])
+		var spawn: Vector2i = layout.spawn_cell()
+		assert_false(layout.is_solid(spawn.x, spawn.y), "%s spawn is not blocked" % FARM_NAMES[i])
+		assert_true(layout.is_tillable(spawn.x, spawn.y), "%s spawn cell (grass) is tillable" % FARM_NAMES[i])
+
+
+func test_farm_layouts_have_farm_building_kinds_only() -> void:
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var kinds := {}
+		for b in layout.buildings():
+			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
+		for kind in FARM_BUILDING_KINDS:
+			assert_eq(kinds.get(kind, 0), 1, "%s has exactly one '%s'" % [FARM_NAMES[i], kind])
+		for kind in TOWN_BUILDING_KINDS:
+			assert_eq(kinds.get(kind, 0), 0,
+				"%s no longer hosts town building '%s' (moved to the town zone)" % [FARM_NAMES[i], kind])
+
+
+func test_bed_is_1x1_and_reachable() -> void:
+	# Phase 4 Stage 3: every start has exactly one farmhouse bed, 1x1 like the chest, with at
+	# least one walkable orthogonal neighbour cell the player can stand on to interact with it.
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var beds: Array[Dictionary] = []
+		for b in layout.buildings():
+			if String(b["kind"]) == "bed":
+				beds.append(b)
+		assert_eq(beds.size(), 1, "%s has exactly one bed" % FARM_NAMES[i])
+		var bed: Dictionary = beds[0]
+		assert_eq(bed["size"], Vector2i(1, 1), "%s bed is 1x1" % FARM_NAMES[i])
+		var cell: Vector2i = bed["top_left"]
+		var reachable := false
+		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = cell + offset
+			if not layout.is_solid(n.x, n.y):
+				reachable = true
+		assert_true(reachable, "%s bed has a walkable neighbour to interact from" % FARM_NAMES[i])
+
+
+func test_shipping_box_is_1x1_beside_chest_and_bed_and_reachable() -> void:
+	# Phase 5 Stage 3: every start has exactly one shipping box, 1x1 like the chest/bed, sitting
+	# in the same farmhouse "service row" as both (same y, x strictly between the chest's and the
+	# bed's — the authored chest/box/bed line each layout file documents), with at least one
+	# walkable orthogonal neighbour to interact from.
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var boxes: Array[Dictionary] = []
+		var chest_cell := Vector2i(-1, -1)
+		var bed_cell := Vector2i(-1, -1)
+		for b in layout.buildings():
+			match String(b["kind"]):
+				"shipping_box": boxes.append(b)
+				"chest": chest_cell = b["top_left"]
+				"bed": bed_cell = b["top_left"]
+		assert_eq(boxes.size(), 1, "%s has exactly one shipping box" % FARM_NAMES[i])
+		var box: Dictionary = boxes[0]
+		assert_eq(box["size"], Vector2i(1, 1), "%s shipping box is 1x1" % FARM_NAMES[i])
+		var cell: Vector2i = box["top_left"]
+		assert_eq(cell.y, chest_cell.y, "%s box shares the chest's row" % FARM_NAMES[i])
+		assert_eq(cell.y, bed_cell.y, "%s box shares the bed's row" % FARM_NAMES[i])
+		assert_true(chest_cell.x < cell.x and cell.x < bed_cell.x,
+			"%s box sits between the chest and the bed" % FARM_NAMES[i])
+		var reachable := false
+		for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = cell + offset
+			if not layout.is_solid(n.x, n.y):
+				reachable = true
+		assert_true(reachable, "%s shipping box has a walkable neighbour" % FARM_NAMES[i])
+
+
+func test_shipping_box_marker_char_matches_building_cell() -> void:
+	# The 'S' ASCII marker and the BUILDINGS entry are two statements of the same fact — they
+	# must agree (the same guarantee every other marker/building pair gets implicitly via
+	# is_solid, made explicit here since the pair was authored by hand in 3 files).
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var marker_cells: Array[Vector2i] = []
+		var rows: Array[String] = layout.ROWS
+		for y in rows.size():
+			for x in rows[y].length():
+				if rows[y][x] == "S":
+					marker_cells.append(Vector2i(x, y))
+		assert_eq(marker_cells.size(), 1, "%s has exactly one 'S' marker" % FARM_NAMES[i])
+		var box: Dictionary = {}
+		for b in layout.buildings():
+			if String(b["kind"]) == "shipping_box":
+				box = b
+		assert_eq(marker_cells[0], box["top_left"],
+			"%s 'S' marker sits at the shipping box's authored cell" % FARM_NAMES[i])
+
+
+func test_farm_layouts_have_farmland_resource_nodes_and_gap() -> void:
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var rows: Array[String] = layout.ROWS
+		var soil_count := 0
+		for y in rows.size():
+			for x in rows[y].length():
+				if rows[y][x] == "f":
+					soil_count += 1
+		assert_true(soil_count > 0, "%s has tillable/pre-tilled farmland" % FARM_NAMES[i])
+		assert_true(layout.resource_node_cells().size() > 0, "%s has at least one resource node" % FARM_NAMES[i])
+		assert_true(layout.farm_gap_cells().size() > 0, "%s has the farm's perimeter fence gap" % FARM_NAMES[i])
+
+
+func test_farm_layouts_have_the_east_path_gate() -> void:
+	# The zone split's new east-wall gate-break: exactly 2 'G' cells, in the east wall column,
+	# targeting the Path zone.
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var gates: Array[Vector2i] = layout.gate_cells()
+		assert_eq(gates.size(), 2, "%s has exactly the 2-cell east gate" % FARM_NAMES[i])
+		var east_x: int = layout.size().x - 1
+		for cell in gates:
+			assert_eq(cell.x, east_x, "%s gate cell %s sits in the east wall" % [FARM_NAMES[i], cell])
+		assert_eq(layout.zone_exits().size(), 1, "%s has one zone exit" % FARM_NAMES[i])
+		assert_eq(String(layout.zone_exits()[0]["target_zone"]), "path")
+		assert_true(layout.npcs().is_empty(), "%s farm hosts no NPCs since the split" % FARM_NAMES[i])
+		assert_true(layout.decor_props().is_empty(), "%s farm has no decor props" % FARM_NAMES[i])
+
+
+## -- Town-zone checks --
+
+func test_town_layouts_have_town_core() -> void:
+	for i in TOWN_LAYOUTS.size():
+		var layout = TOWN_LAYOUTS[i]
+		var kinds := {}
+		for b in layout.buildings():
+			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
+		for kind in TOWN_BUILDING_KINDS:
+			assert_true(kinds.get(kind, 0) > 0, "%s missing building kind '%s'" % [TOWN_NAMES[i], kind])
+		assert_true(kinds.get("shack", 0) >= 3, "%s has at least 3 settler shacks" % TOWN_NAMES[i])
+		assert_true(layout.dock_cells().size() > 0, "%s has dock plank cells" % TOWN_NAMES[i])
+		assert_true(layout.water_cells().size() > 0, "%s has a water body" % TOWN_NAMES[i])
+		assert_eq(layout.gate_cells().size(), 4,
+			"%s has the west path gate + south ranch gate = 4 'G' cells" % TOWN_NAMES[i])
+
+
+func test_town_layouts_expose_the_town_npc_roster() -> void:
+	for i in TOWN_LAYOUTS.size():
+		var layout = TOWN_LAYOUTS[i]
+		assert_eq(layout.npcs(), LayoutCommon.TOWN_NPCS,
+			"%s's npcs() is the shared town-core roster" % TOWN_NAMES[i])
+		for entry in layout.npcs():
+			var home: Vector2i = entry["home"]
+			assert_false(layout.is_solid(home.x, home.y),
+				"%s npc '%s' home cell %s isn't blocked" % [TOWN_NAMES[i], entry["id"], home])
+
+
+func test_npc_roster_has_three_unique_ids_and_positive_radius() -> void:
+	var ids := {}
+	for entry in LayoutCommon.TOWN_NPCS:
+		var id := String(entry["id"])
+		assert_false(ids.has(id), "npc id '%s' is unique in the roster" % id)
+		ids[id] = true
+		assert_true(int(entry["wander_radius"]) > 0, "%s has a positive wander radius" % id)
+	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs")
+
+
+## -- Ranch-zone checks (MAPS.md §3) --
+
+func test_ranch_layouts_have_ranch_buildings() -> void:
+	for i in RANCH_LAYOUTS.size():
+		var layout = RANCH_LAYOUTS[i]
+		var kinds := {}
+		for b in layout.buildings():
+			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
+		for kind in ["ranch_house", "ranch_barn", "ranch_coop"]:
+			assert_eq(kinds.get(kind, 0), 1, "%s has exactly one %s" % [RANCH_NAMES[i], kind])
+		# The north zone gate (2 cells) + the cosmetic inner compound gate (2 cells).
+		assert_eq(layout.gate_cells().size(), 4,
+			"%s has the north town gate + inner compound gate = 4 'G' cells" % RANCH_NAMES[i])
+
+
+func test_ranch_layouts_have_the_ranch_keeper_npc() -> void:
+	for i in RANCH_LAYOUTS.size():
+		var layout = RANCH_LAYOUTS[i]
+		var homes := {}
+		for entry in layout.npcs():
+			homes[String(entry["id"])] = entry["home"]
+		assert_true(homes.has("rancher_silas"), "%s roster includes the ranch keeper" % RANCH_NAMES[i])
+		var home: Vector2i = homes["rancher_silas"]
+		assert_false(layout.is_solid(home.x, home.y),
+			"%s ranch keeper's home cell %s isn't blocked" % [RANCH_NAMES[i], home])
+
+
+func test_ranch_layouts_decor_props_are_on_open_ground() -> void:
+	# Decorative animal props stand on grass inside the compound — never on a building, fence,
+	# water, or off-map cell (they'd render nonsensically otherwise).
+	for i in RANCH_LAYOUTS.size():
+		var layout = RANCH_LAYOUTS[i]
+		var props: Array[Dictionary] = layout.decor_props()
+		assert_true(props.size() > 0, "%s has ranch decor props" % RANCH_NAMES[i])
+		var size: Vector2i = layout.size()
+		for prop in props:
+			var cell: Vector2i = prop["cell"]
+			assert_true(cell.x >= 0 and cell.x < size.x and cell.y >= 0 and cell.y < size.y,
+				"%s decor prop %s is in bounds" % [RANCH_NAMES[i], cell])
+			assert_false(layout.is_solid(cell.x, cell.y),
+				"%s decor prop cell %s isn't blocked" % [RANCH_NAMES[i], cell])
+
+
+## -- Path-zone checks (the zone split's new corridor) --
+
+func test_path_layouts_are_a_bare_corridor_with_dressing() -> void:
+	for i in PATH_LAYOUTS.size():
+		var layout = PATH_LAYOUTS[i]
+		assert_true(layout.buildings().is_empty(), "%s has no buildings" % PATH_NAMES[i])
+		assert_true(layout.npcs().is_empty(), "%s has no NPCs" % PATH_NAMES[i])
+		assert_true(layout.resource_node_cells().is_empty(),
+			"%s has no choppable/minable nodes" % PATH_NAMES[i])
+		# The west Farm gate (2) + east Town gate (2).
+		assert_eq(layout.gate_cells().size(), 4, "%s has 4 zone-gate cells" % PATH_NAMES[i])
+		assert_true(layout.dock_cells().size() > 0,
+			"%s has road/plank cells (the ruined road)" % PATH_NAMES[i])
+		# The dressing: exactly one wrecked-car landmark, plus weeds, all on open ground.
+		var cars := 0
+		for prop in layout.decor_props():
+			if String(prop["kind"]) == "wrecked_car":
+				cars += 1
+			var cell: Vector2i = prop["cell"]
+			assert_false(layout.is_solid(cell.x, cell.y),
+				"%s prop cell %s isn't blocked" % [PATH_NAMES[i], cell])
+		assert_eq(cars, 1, "%s has exactly one wrecked-car landmark" % PATH_NAMES[i])
+
+
+func test_path_checkpoint_is_sealed() -> void:
+	# The locked checkpoint structure (north side): its rubble-sealed gateway must be SOLID —
+	# the "visible but impassable" guarantee ("structure now, system later," like the ranch's
+	# unbuilt buy-animal shop). Cells (10-13, 1) per the authored ROWS.
+	for i in PATH_LAYOUTS.size():
+		var layout = PATH_LAYOUTS[i]
+		for x in range(10, 14):
+			assert_true(layout.is_solid(x, 1),
+				"%s checkpoint gateway cell (%d,1) is sealed/solid" % [PATH_NAMES[i], x])
+
+
+## -- Riverside identity (MAPS.md §1) --
 
 func test_riverside_west_edge_is_river_not_fence() -> void:
-	# Riverside's distinguishing structural feature (MAPS.md §1): the river replaces the western
-	# perimeter fence entirely, for both the farmland and town rows.
+	# Riverside's distinguishing structural feature: the river replaces the western perimeter
+	# fence entirely — on the farm AND on the town/ranch zone variants (their west columns are
+	# 'W' except the town's 2 west-gate cells, where the Path bridge lands).
 	var size: Vector2i = RiversideLayout.size()
 	for y in range(1, size.y - 1):
-		assert_eq(RiversideLayout.cell(0, y), "W", "riverside west column is river at y=%d" % y)
+		assert_eq(RiversideLayout.cell(0, y), "W", "riverside farm west column is river at y=%d" % y)
+	for layout in [TownRiversideLayout, RanchRiversideLayout]:
+		for y in layout.size().y:
+			assert_true(layout.cell(0, y) in ["W", "G"],
+				"riverside zone west column is river (or the bridge gate) at y=%d" % y)
 
 
 func test_open_plains_and_forest_edge_have_full_west_fence() -> void:
@@ -243,6 +444,8 @@ func test_open_plains_and_forest_edge_have_full_west_fence() -> void:
 		for y in range(1, size.y - 1):
 			assert_eq(layout.cell(0, y), "F", "west column is fence at y=%d" % y)
 
+
+## -- LayoutCommon pure helpers --
 
 func test_layout_common_is_inside_any_building() -> void:
 	var buildings: Array[Dictionary] = [
@@ -260,80 +463,3 @@ func test_layout_common_building_at() -> void:
 	]
 	assert_eq(LayoutCommon.building_at(buildings, 2, 3).get("id", ""), "a")
 	assert_true(LayoutCommon.building_at(buildings, 10, 10).is_empty())
-
-
-## -- Phase 5 Stage 1: shared town-core NPC roster (LayoutCommon.TOWN_NPCS) --
-
-func test_all_layouts_expose_the_shared_npc_roster() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var npcs: Array[Dictionary] = layout.npcs()
-		assert_eq(npcs, LayoutCommon.all_npcs(),
-			"%s's npcs() is the same shared roster (town core + ranch keeper)" % LAYOUT_NAMES[i])
-
-
-func test_all_layouts_npc_home_cells_are_walkable() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		for entry in layout.npcs():
-			var home: Vector2i = entry["home"]
-			assert_false(layout.is_solid(home.x, home.y),
-				"%s npc '%s' home cell %s isn't blocked" % [LAYOUT_NAMES[i], entry["id"], home])
-
-
-func test_npc_roster_has_three_unique_ids_and_positive_radius() -> void:
-	var ids := {}
-	for entry in LayoutCommon.TOWN_NPCS:
-		var id := String(entry["id"])
-		assert_false(ids.has(id), "npc id '%s' is unique in the roster" % id)
-		ids[id] = true
-		assert_true(int(entry["wander_radius"]) > 0, "%s has a positive wander radius" % id)
-	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs")
-
-
-## -- MAPS.md §3: the Ranch/Sanctuary southern compound (shared verbatim by all 3 starts) --
-
-func test_all_layouts_have_ranch_buildings() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var kinds := {}
-		for b in layout.buildings():
-			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
-		for kind in ["ranch_house", "ranch_barn", "ranch_coop"]:
-			assert_eq(kinds.get(kind, 0), 1, "%s has exactly one %s" % [LAYOUT_NAMES[i], kind])
-
-
-func test_all_layouts_have_the_ranch_keeper_npc() -> void:
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var homes := {}
-		for entry in layout.npcs():
-			homes[String(entry["id"])] = entry["home"]
-		assert_true(homes.has("rancher_silas"), "%s roster includes the ranch keeper" % LAYOUT_NAMES[i])
-		var home: Vector2i = homes["rancher_silas"]
-		assert_false(layout.is_solid(home.x, home.y),
-			"%s ranch keeper's home cell %s isn't blocked" % [LAYOUT_NAMES[i], home])
-
-
-func test_all_layouts_ranch_decor_props_are_on_open_ground() -> void:
-	# Decorative animal props stand on grass inside the compound — never on a building, fence,
-	# water, or off-map cell (they'd render nonsensically otherwise).
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		var props: Array[Dictionary] = layout.decor_props()
-		assert_true(props.size() > 0, "%s has ranch decor props" % LAYOUT_NAMES[i])
-		var size: Vector2i = layout.size()
-		for prop in props:
-			var cell: Vector2i = prop["cell"]
-			assert_true(cell.x >= 0 and cell.x < size.x and cell.y >= 0 and cell.y < size.y,
-				"%s decor prop %s is in bounds" % [LAYOUT_NAMES[i], cell])
-			assert_false(layout.is_solid(cell.x, cell.y),
-				"%s decor prop cell %s isn't blocked" % [LAYOUT_NAMES[i], cell])
-
-
-func test_all_layouts_have_town_and_ranch_gates() -> void:
-	# The town's main south gate (2 cells) plus the ranch compound's own entrance gate (2 cells).
-	for i in LAYOUTS.size():
-		var layout = LAYOUTS[i]
-		assert_eq(layout.gate_cells().size(), 4,
-			"%s has the town gate + ranch gate = 4 'G' cells" % LAYOUT_NAMES[i])

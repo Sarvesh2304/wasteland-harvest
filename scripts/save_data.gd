@@ -15,38 +15,54 @@ extends RefCounted
 ## compares with `==` — stage counts, item counts, durability, placed_day would all silently
 ## mismatch without this.
 ##
-## ## Top-level save Dictionary shape (SAVE_VERSION 1)
+## ## Top-level save Dictionary shape (SAVE_VERSION 2 — the zone split)
 ## {
-##   "version": 1,
-##   "settlement_id": "forest_edge",           # which map_layouts/*.gd this playthrough uses
+##   "version": 2,
+##   "settlement_id": "forest_edge",           # which start this playthrough uses (selects the
+##                                             # farm layout AND the standard/riverside variant
+##                                             # of each other zone — settlement_db.gd's
+##                                             # layout_for_zone)
 ##   "day": 5, "minutes_into_day": 360.0,      # DayManager clock
 ##   "saved_unix": 1783728000,                 # OPTIONAL wall-clock write stamp (2026-07-11,
 ##                                             # multi-slot) — Load-screen ordering only, never
 ##                                             # world state; absent in older saves (treated 0)
-##                                             # so SAVE_VERSION deliberately did NOT bump
-##   "player": {"x": ..., "y": ..., "facing": "south", "energy": 100.0,
+##   "player": {"x": ..., "y": ..., "facing": "south", "energy": 100.0, "credits": 57,
+##              "current_zone": "town",        # which zone x/y (world-space) stands in
 ##              "inventory": {"slots": [...], "selected_hotbar_index": 0}},
-##   "map": {"tilled": ["x,y", ...]},          # player-hoed cells (test_map.gd's overlay)
+##   "zones": {                                # one uniform section per always-instantiated
+##     "farm":  {"map": ..., "farm": ..., "structures": ...},   # zone (v1's top-level map/farm/
+##     "path":  {"map": ..., "farm": ..., "structures": ...},   # structures sections, per zone)
+##     "town":  {"map": ..., "farm": ..., "structures": ...},
+##     "ranch": {"map": ..., "farm": ..., "structures": ...}
+##   }
+## }
+## Per-zone section shapes (unchanged from v1, just nested per zone — the encoders below are
+## reused as-is, called 4x instead of once):
+##   "map": {"tilled": ["x,y", ...]}           # player-hoed cells (test_map.gd's overlay)
 ##   "farm": {"plots": {"x,y": {crop_id, stage, watered}},
-##            "resource_nodes": {"x,y": "tree"|"ore"}},   # nodes still STANDING (chopped/mined
-##                                                        # ones are simply absent — single-hit,
-##                                                        # no-respawn per Phase 3)
+##            "resource_nodes": {"x,y": "tree"|"ore"}}   # nodes still STANDING (chopped/mined
+##                                                       # ones are simply absent — single-hit,
+##                                                       # no-respawn per Phase 3)
 ##   "structures": {"pending": [entry...], "completed": [entry...],
 ##                  "storage": {"x,y": inventory}, "chest": inventory,
 ##                  "shipping": {"contents": {item_id: count},
 ##                               "history": [{day, items: {item_id: count}, total}]}}
 ##                  # entry = {building_id, kind, top_left: [x,y], size: [w,h], placed_day}
-##                  # (the runtime `visual` ColorRect is deliberately dropped; load re-spawns it)
-##                  # shipping (Phase 5 Stage 3) nests under structures rather than claiming a
-##                  # new top-level section because structures.gd owns the live box (see its
-##                  # class doc) — same reasoning as the chest inventory nesting there.
-## }
+##                  # (the runtime `visual` node is deliberately dropped; load re-spawns it)
+## Zones with no farmland/chest/box (path/town/ranch today) serialise empty defaults in the
+## same uniform shape — keeps game_state.gd's gather loop branch-free and stays
+## forward-compatible if e.g. a town garden patch is ever added.
 ## test_map.gd's _runtime_blocked overlay is intentionally NOT serialised: it is derived state
 ## (placed/completed building footprints), re-established on load by structures.gd re-calling
 ## block_cells() for each restored entry — exactly how place_blueprint() established it live,
 ## so the two paths can't diverge.
+##
+## v1 saves are INVALIDATED, not migrated (parse_save's version check returns {} for them, so
+## they fall through to the new-game picker): the zone split moved Town/Ranch into new local
+## coordinate frames, and per Sarvesh's explicit call the pre-split save files are deleted
+## rather than left as permanently-unloadable clutter — see the Stage 1/2 plan notes.
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 
 
 ## -- Vector2i <-> JSON-safe key/array forms --

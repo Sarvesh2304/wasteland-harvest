@@ -115,23 +115,32 @@ func has_save() -> bool:
 	return FileAccess.file_exists(save_path)
 
 
-## Gathers all live mutable state (see save_data.gd's class doc for the exact shape) and writes
-## it as JSON. The four nodes are passed in rather than looked up here so this autoload never
-## assumes a particular scene layout — player.gd calls this from the bed interaction with the
-## world references it already holds via bind_world().
-func save_game(player: Node, test_map: Node, farm: Node, structures: Node) -> bool:
+## Gathers all live mutable state (see save_data.gd's class doc for the exact v2 shape) and
+## writes it as JSON. Since the zone split, world state is gathered PER ZONE from the
+## always-instantiated cluster: `zones` is main.gd's {zone_id: {map, farm, structures, npcs}}
+## dict (player.zones aliases it), passed in rather than looked up here so this autoload never
+## assumes a particular scene layout — player.gd calls this from _end_day with the dict it
+## already holds. The gather loop is deliberately uniform across zones (no per-zone branching):
+## a zone with no farmland/chest just serialises empty defaults, keeping the shape
+## forward-compatible (see the plan's save-shape note).
+func save_game(player: Node, zones: Dictionary) -> bool:
+	var zones_out := {}
+	for zone_id in zones:
+		var zone: Dictionary = zones[zone_id]
+		zones_out[zone_id] = {
+			"map": zone["map"].save_state(),
+			"farm": zone["farm"].save_state(),
+			"structures": zone["structures"].save_state(),
+		}
 	var data := SaveData.build_save({
 		"settlement_id": chosen_settlement_id,
 		"day": DayManager.day,
 		"minutes_into_day": DayManager.minutes_into_day,
 		# Wall-clock stamp for the Load screen's most-recent-first ordering (see
-		# save_slots.gd's compare_summaries) — optional metadata, not part of world state,
-		# so SAVE_VERSION is unchanged and older stamp-less saves still parse (they sort last).
+		# save_slots.gd's compare_summaries) — optional metadata, not part of world state.
 		"saved_unix": int(Time.get_unix_time_from_system()),
 		"player": player.save_state(),
-		"map": test_map.save_state(),
-		"farm": farm.save_state(),
-		"structures": structures.save_state(),
+		"zones": zones_out,
 	})
 	# Slot files live in a subdirectory that won't exist before the first-ever save (slot
 	# allocation is eager, file creation lazy — see start_new_slot()); a no-op for paths whose

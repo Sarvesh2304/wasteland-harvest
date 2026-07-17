@@ -30,3 +30,34 @@ hash byte-for-byte against the shipped PNG — no rejected/duplicate attempt exi
 on the account (unlike some of the `art/buildings/` ranch kinds), so there was no ambiguity to
 resolve, only confirmation. Same 8-hour map-object auto-delete caveat as `art/buildings/README.md`
 applies — these ids are historical provenance only, the shipped PNGs are the only copies.
+
+## `wrecked_car.png`, `weed_tuft.png` — Path zone dressing (zone split, Stage 1)
+
+The new Farm↔Town Path corridor's props (`scripts/map_layouts/path_layout_*.gd`'s
+`decor_props()`, spawned by `scripts/props.gd` exactly like the ranch animals — static,
+non-collidable, no save/load):
+
+- **`wrecked_car`** — the corridor's landmark: a rusted pre-war sedan being reclaimed by weeds,
+  abandoned on the dead paved road. Deliberately reuses the image Forest Edge's lore blurb
+  already established ("a rusted car half-eaten" by green), not new IP-risky art — the zone's
+  "the world before" statement, per the zone-transition plan's design brief (conceptual
+  Stardew bus-stop reference only, original art, per `docs/STARDEW_REFERENCE.md`).
+- **`weed_tuft`** — a weed clump sprouting through cracked pavement, scattered along the ruined
+  road's cracks (and one at the sealed checkpoint's foot). Its baked-in pavement base is
+  intentional: every authored placement cell is a road/plank ('p') cell.
+
+Generated via `mcp__pixellab__create_map_object`, basic mode, **`low top-down` view** (the
+props/characters projection, per this README's ranch-animals note), `basic shading`,
+`lineless`; car `medium detail` 48x32 (a car is a wide landmark — allowed to overhang its cell
+per the CLAUDE.md sprite-beyond-tile convention), weeds `low detail` 32x32.
+
+| Kind | Object id | Canvas -> shipped | SHA-256 of shipped PNG |
+|---|---|---|---|
+| `wrecked_car` | `372232af-8e8f-4f5a-8ab4-2702c839c3f6` | 48x32 as-is | `292d66b2928a0e19b6bab8e1aa8f4ec61ec726684f9afb135423c712a3d583c9` |
+| `weed_tuft` | `d0c28407-e7bb-4e53-8e1c-26468ea2113a` | 32x32 as-is | `062907e8444ab87d7432aa71db38761af2fc7649255adfc45a47e95be05389cb` |
+
+One generation attempt each, downloaded directly from the returned job — no rejected/duplicate
+attempts on the account for either kind. Same 8-hour map-object auto-delete caveat as above:
+the ids are historical provenance only, the shipped PNGs are the only copies. Flat-color
+fallbacks in `props.gd`'s `PROP_COLORS` (`wrecked_car` `#9d9180` scavenged metal, `weed_tuft`
+`#95ac49` faded field green).

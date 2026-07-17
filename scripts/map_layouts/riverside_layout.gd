@@ -1,13 +1,17 @@
 extends RefCounted
 ## Riverside starting layout (ROADMAP.md Phase 4 / MAPS.md §1) — the "water access" lean.
 ##
-## The river runs the full western edge of the map — both farmland and town rows — replacing
-## the west perimeter fence entirely ("the river IS the western wall", MAPS.md §1). Farmland is
-## a narrow irrigated ribbon along the bank; the farmhouse sits just north of town "on a low
-## bluff above the floodline" per MAPS.md, so its position (and the chest/spawn near it) differs
-## from the other two starts' shared coordinates. Fewest resource nodes of the three (stone/scrap
-## are scarcest here). Town's dock juts directly from the plaza-adjacent bank into the river
-## rather than a separate town-edge pool.
+## The river runs the full western edge of the map, replacing the west perimeter fence entirely
+## ("the river IS the western wall", MAPS.md §1). Farmland is a narrow irrigated ribbon along
+## the bank; the farmhouse sits "on a low bluff above the floodline" per MAPS.md, so its
+## position (and the chest/spawn near it) differs from the other two starts' shared
+## coordinates. Fewest resource nodes of the three (stone/scrap are scarcest here).
+##
+## FARM ZONE ONLY since the Farm/Path/Town/Ranch zone split: the town core and Ranch/Sanctuary
+## rows moved to town_layout_riverside.gd / ranch_layout_riverside.gd (this start uses the
+## riverside variants — see settlement_db.gd's layout_for_zone()). Row 15 is now the farm's own
+## south perimeter wall (west column stays river), and the east wall gains the 2-cell 'G'
+## zone-exit gate at rows 4-5 — see open_plains_layout.gd's class doc for the full frame notes.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
@@ -18,8 +22,8 @@ const ROWS: Array[String] = [
 	"W..................................F",
 	"W.fffffff..........................F",
 	"W.fffffffH.........................F",
-	"W.fffffff..........................F",
-	"W.fffffffCSD.......................F",
+	"W.fffffff..........................G",
+	"W.fffffffCSD.......................G",
 	"W.fffffff.@........................F",
 	"W.fffffff..........................F",
 	"W.fffffff.....................T....F",
@@ -29,53 +33,15 @@ const ROWS: Array[String] = [
 	"W.fffffff..........................F",
 	"W.fffffff..........................F",
 	"W.fffffff..........................F",
-	"W..................................F",
-	"W.......M..........................F",
-	"W......................K...........F",
-	"W..................................F",
-	"W................B........K........F",
-	"W..................................F",
-	"W..................................F",
-	"Wppp.......................K.......F",
-	"W..................................F",
-	"W..................................F",
-	"W...............R........K.........F",
-	"W..................................F",
-	"W..................................F",
-	"W..................................F",
-	"W..................................F",
-	"W..................................F",
-	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
-	# -- Ranch/Sanctuary southern extension (MAPS.md §3) — shared verbatim by all 3 starts; see
-	#    open_plains_layout.gd for the annotated version. Riverside keeps its west column as river
-	#    ('W') the whole way down, per its "the river IS the western wall" identity (MAPS.md §1). --
-	"W..................................F",
-	"W..................................F",
-	"W..................................F",
-	"W....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
-	"W....F........................F....F",
-	"W....F......N.................F....F",
-	"W....F........................F....F",
-	"W....F........................F....F",
-	"W....FY..................P....F....F",
-	"W....F........................F....F",
-	"W....F........................F....F",
-	"W....F.....F.........F......F.F....F",
-	"W....F.....F.........F......F.F....F",
-	"W....FFFFFFF.........FFFFFFFF.F....F",
-	"W....FFFFFFFFFFFFFFFFFFFFFFFFFF....F",
-	"W..................................F",
+	# Since the zone split: the farm's own south perimeter wall (west column stays river — see
+	# the class doc). The town core + ranch rows now live in town_layout_riverside.gd /
+	# ranch_layout_riverside.gd.
 	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
+## Farm-zone buildings only since the zone split — the town core and ranch buildings moved to
+## town_layout_riverside.gd / ranch_layout_riverside.gd in their own zone-local frames.
 const BUILDINGS: Array[Dictionary] = [
-	{"id": "mayor_house", "kind": "mayor_house", "top_left": Vector2i(8, 16), "size": Vector2i(4, 3)},
-	{"id": "store", "kind": "store", "top_left": Vector2i(16, 25), "size": Vector2i(3, 2)},
-	{"id": "bulletin_board", "kind": "bulletin_board", "top_left": Vector2i(17, 19), "size": Vector2i(1, 1)},
-	{"id": "shack_1", "kind": "shack", "top_left": Vector2i(23, 17), "size": Vector2i(2, 2)},
-	{"id": "shack_2", "kind": "shack", "top_left": Vector2i(26, 19), "size": Vector2i(2, 2)},
-	{"id": "shack_3", "kind": "shack", "top_left": Vector2i(27, 22), "size": Vector2i(2, 2)},
-	{"id": "shack_4", "kind": "shack", "top_left": Vector2i(25, 25), "size": Vector2i(2, 2)},
 	{"id": "farmhouse", "kind": "farmhouse", "top_left": Vector2i(9, 3), "size": Vector2i(3, 2)},
 	{"id": "chest", "kind": "chest", "top_left": Vector2i(9, 5), "size": Vector2i(1, 1)},
 	# Phase 4 Stage 3: the bed sits at the farmhouse's south-east corner, mirroring the chest at
@@ -86,12 +52,16 @@ const BUILDINGS: Array[Dictionary] = [
 	# spawn cell directly below it, same relative placement as the other two starts even though
 	# Riverside's farmhouse coordinates diverge. See structures.gd for the interaction.
 	{"id": "shipping_box", "kind": "shipping_box", "top_left": Vector2i(10, 5), "size": Vector2i(1, 1)},
-	# Ranch/Sanctuary scenery buildings (MAPS.md §3) — shared verbatim by all 3 starts (see
-	# open_plains_layout.gd). Markers N/Y/P in ROWS; art at art/buildings/<kind>.png.
-	{"id": "ranch_house", "kind": "ranch_house", "top_left": Vector2i(12, 37), "size": Vector2i(3, 2)},
-	{"id": "ranch_barn", "kind": "ranch_barn", "top_left": Vector2i(6, 40), "size": Vector2i(4, 3)},
-	{"id": "ranch_coop", "kind": "ranch_coop", "top_left": Vector2i(25, 40), "size": Vector2i(2, 2)},
 ]
+
+
+## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
+## east-wall gate-break to the new Path corridor, landing just inside Path's own west gate.
+static func zone_exits() -> Array[Dictionary]:
+	return [
+		{"gate_cells": [Vector2i(35, 4), Vector2i(35, 5)], "target_zone": "path",
+			"entry_cell": Vector2i(1, 4)},
+	]
 
 
 static func size() -> Vector2i:
@@ -134,17 +104,14 @@ static func buildings() -> Array[Dictionary]:
 	return BUILDINGS
 
 
-## Phase 5 Stage 1: the shared town-core NPC roster (see LayoutCommon.TOWN_NPCS's doc for the
-## positions and why they're common to all 3 starts — Riverside's town core matches the template
-## even though its farm half diverges).
+## No NPCs live on the farm — the town-core roster moved to the Town zone layouts and the ranch
+## keeper to the Ranch zone layouts, along with their rows (see the class doc).
 static func npcs() -> Array[Dictionary]:
-	return LayoutCommon.all_npcs()
+	return []
 
 
-## Ranch/Sanctuary decorative animal props (MAPS.md §3) — shared across all 3 starts, spawned as
-## static non-collidable Sprite2D critters by scripts/props.gd (no animal-entity system yet).
 static func decor_props() -> Array[Dictionary]:
-	return LayoutCommon.RANCH_DECOR
+	return []
 
 
 static func building_at(x: int, y: int) -> Dictionary:

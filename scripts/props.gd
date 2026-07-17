@@ -1,8 +1,9 @@
 extends Node2D
-## Ranch/Sanctuary decorative props layer (MAPS.md §3, reconciled into ROADMAP Phase 8):
-## instantiates the active layout's decor_props() as static, NON-collidable Sprite2D critters —
-## the keeper's visible stock standing in the compound's pens, so the ranch reads as alive and
-## working before the player has bought anything.
+## Decorative props layer: instantiates the active layout's decor_props() as static,
+## NON-collidable Sprite2Ds. Two consumers today: the Ranch/Sanctuary's pen animals (MAPS.md
+## §3 — the keeper's visible stock, so the ranch reads as alive and working before the player
+## has bought anything) and, since the zone split, the Path corridor's dressing (the
+## wrecked-car landmark + road weeds, see path_layout_standard.gd's design doc).
 ##
 ## Deliberately its OWN node (sibling to Structures/Npcs under TestMap), not a Structures child:
 ## these props have no collision body and no gameplay state, whereas Structures is exclusively
@@ -24,11 +25,14 @@ extends Node2D
 
 const CELL_SIZE := 16
 
-## Flat-color fallback fills per prop kind (used only when the art PNG is absent) — dusty hide for
-## the cow, a mutant grey-green for the goat.
+## Flat-color fallback fills per prop kind (used only when the art PNG is absent) — dusty hide
+## for the cow, a mutant grey-green for the goat, scavenged-metal rust for the Path zone's
+## wrecked-car landmark, faded field green for its road weeds.
 const PROP_COLORS := {
 	"ranch_cow": "#c9b89a",
 	"ranch_goat": "#8a9a7a",
+	"wrecked_car": "#9d9180",
+	"weed_tuft": "#95ac49",
 }
 
 var _test_map: Node2D

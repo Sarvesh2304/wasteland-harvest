@@ -185,14 +185,14 @@ func _quit_pressed() -> void:
 	_save_and_return_to_title()
 
 
-## The real save, then the title screen. GameState.save_game with the player's bound world
-## refs is byte-for-byte the bed/pass-out save path (player.gd's _end_day) minus the day
-## advance; the same null-guard as _end_day keeps a not-fully-bound player (tests) from
-## crashing. The scene change mirrors title_screen.gd's own change_scene_to_file hops, and
-## main.gd's _exit_tree already guarantees the paused clock can't leak into the next boot.
+## The real save, then the title screen. GameState.save_game with the player's zones dict is
+## byte-for-byte the bed/pass-out save path (player.gd's _end_day) minus the day advance; the
+## same empty-dict guard as _end_day keeps a not-fully-bound player (tests) from crashing. The
+## scene change mirrors title_screen.gd's own change_scene_to_file hops, and main.gd's
+## _exit_tree already guarantees the paused clock can't leak into the next boot.
 func _save_and_return_to_title() -> void:
-	if _player.test_map != null and _player.farm != null and _player.structures != null:
-		GameState.save_game(_player, _player.test_map, _player.farm, _player.structures)
+	if not _player.zones.is_empty():
+		GameState.save_game(_player, _player.zones)
 	close()
 	get_tree().change_scene_to_file("res://scenes/title_screen.tscn")
 

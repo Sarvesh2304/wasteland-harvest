@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -11,11 +11,24 @@
 [ext_resource type="PackedScene" path="res://scenes/store_ui.tscn" id="9_store"]
 [ext_resource type="PackedScene" path="res://scenes/shipping_ui.tscn" id="10_shipping"]
 [ext_resource type="PackedScene" path="res://scenes/menu_screen.tscn" id="11_menu"]
+[ext_resource type="Script" path="res://scripts/zone_fade.gd" id="12_zonefade"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
 
-[node name="TestMap" parent="." instance=ExtResource("2_map")]
+[node name="FarmMap" parent="." instance=ExtResource("2_map")]
+
+[node name="PathMap" parent="." instance=ExtResource("2_map")]
+position = Vector2(2048, 0)
+zone_id = "path"
+
+[node name="TownMap" parent="." instance=ExtResource("2_map")]
+position = Vector2(4096, 0)
+zone_id = "town"
+
+[node name="RanchMap" parent="." instance=ExtResource("2_map")]
+position = Vector2(4096, 2048)
+zone_id = "ranch"
 
 [node name="Player" parent="." instance=ExtResource("3_player")]
 
@@ -37,3 +50,6 @@ script = ExtResource("5_daynight")
 [node name="ShippingUI" parent="." instance=ExtResource("10_shipping")]
 
 [node name="MenuScreen" parent="." instance=ExtResource("11_menu")]
+
+[node name="ZoneFade" type="CanvasLayer" parent="."]
+script = ExtResource("12_zonefade")

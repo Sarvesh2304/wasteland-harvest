@@ -5,7 +5,15 @@ extends RefCounted
 ## collapsed-wall rubble and scrap piles — salvage within walking distance from day one, this
 ## start's resource lean), a south-west creek, and farmland broken into several smaller irregular
 ## patches rather than one clean rectangle ("worst total plantable area of the three", per
-## MAPS.md). Shares the same town-core template as the other two starts.
+## MAPS.md).
+##
+## FARM ZONE ONLY since the Farm/Path/Town/Ranch zone split: the town core and Ranch/Sanctuary
+## rows moved to town_layout_standard.gd / ranch_layout_standard.gd (this start uses the
+## standard variants — see settlement_db.gd's layout_for_zone()). Row 15 is now the farm's own
+## south perimeter wall, and the east wall gains the 2-cell 'G' zone-exit gate at rows 4-5 —
+## see open_plains_layout.gd's class doc for the full frame notes (rows 4-5's x33-34 approach
+## verified clear here too: the treeline's nearest trees sit at (33,4) and (34,3)/(34,6),
+## leaving the two gate-approach cells open).
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
@@ -16,8 +24,8 @@ const ROWS: Array[String] = [
 	"F...................T#T.T#T.O.T.T..F",
 	"F...............H................T.F",
 	"F.................................TF",
-	"F...............CSD..............T.F",
-	"F................@.................F",
+	"F...............CSD..............T.G",
+	"F................@.................G",
 	"F.....ffffff.....................OTF",
 	"F.....ffffff.ffffff................F",
 	"F.....ffffff.ffffff..............T.F",
@@ -27,52 +35,15 @@ const ROWS: Array[String] = [
 	"F.WWW..ffff..fffffff.............TTF",
 	"F.WWW..ffff..fffffff...............F",
 	"F..................................F",
-	"F..................................F",
-	"F.......M..........................F",
-	"F......................K...........F",
-	"F..................................F",
-	"F................B........K........F",
-	"F..................................F",
-	"F..................................F",
-	"F..........................K.......F",
-	"F..................................F",
-	"F..................................F",
-	"F...............R........K.........F",
-	"F..................................F",
-	"F.......................pppWWWWW...F",
-	"F..........................WWWWW...F",
-	"F..........................WWWWW...F",
-	"F..........................WWWWW...F",
-	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
-	# -- Ranch/Sanctuary southern extension (MAPS.md §3) — shared verbatim by all 3 starts; see
-	#    open_plains_layout.gd for the annotated version of this block. --
-	"F..................................F",
-	"F..................................F",
-	"F..................................F",
-	"F....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
-	"F....F........................F....F",
-	"F....F......N.................F....F",
-	"F....F........................F....F",
-	"F....F........................F....F",
-	"F....FY..................P....F....F",
-	"F....F........................F....F",
-	"F....F........................F....F",
-	"F....F.....F.........F......F.F....F",
-	"F....F.....F.........F......F.F....F",
-	"F....FFFFFFF.........FFFFFFFF.F....F",
-	"F....FFFFFFFFFFFFFFFFFFFFFFFFFF....F",
-	"F..................................F",
+	# Since the zone split: the farm's own south perimeter wall (was open ground continuing into
+	# the town rows — see the class doc). The town core + ranch rows now live in
+	# town_layout_standard.gd / ranch_layout_standard.gd.
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
+## Farm-zone buildings only since the zone split — the town core and ranch buildings moved to
+## town_layout_standard.gd / ranch_layout_standard.gd in their own zone-local frames.
 const BUILDINGS: Array[Dictionary] = [
-	{"id": "mayor_house", "kind": "mayor_house", "top_left": Vector2i(8, 16), "size": Vector2i(4, 3)},
-	{"id": "store", "kind": "store", "top_left": Vector2i(16, 25), "size": Vector2i(3, 2)},
-	{"id": "bulletin_board", "kind": "bulletin_board", "top_left": Vector2i(17, 19), "size": Vector2i(1, 1)},
-	{"id": "shack_1", "kind": "shack", "top_left": Vector2i(23, 17), "size": Vector2i(2, 2)},
-	{"id": "shack_2", "kind": "shack", "top_left": Vector2i(26, 19), "size": Vector2i(2, 2)},
-	{"id": "shack_3", "kind": "shack", "top_left": Vector2i(27, 22), "size": Vector2i(2, 2)},
-	{"id": "shack_4", "kind": "shack", "top_left": Vector2i(25, 25), "size": Vector2i(2, 2)},
 	{"id": "farmhouse", "kind": "farmhouse", "top_left": Vector2i(16, 2), "size": Vector2i(3, 2)},
 	{"id": "chest", "kind": "chest", "top_left": Vector2i(16, 4), "size": Vector2i(1, 1)},
 	# Phase 4 Stage 3: the bed sits at the farmhouse's south-east corner, mirroring the chest at
@@ -83,12 +54,16 @@ const BUILDINGS: Array[Dictionary] = [
 	# spawn cell directly below it, matching Stardew's bin-beside-the-farmhouse placement. Load
 	# harvested crops in, sleep, and the sale's Credits arrive next morning — see structures.gd.
 	{"id": "shipping_box", "kind": "shipping_box", "top_left": Vector2i(17, 4), "size": Vector2i(1, 1)},
-	# Ranch/Sanctuary scenery buildings (MAPS.md §3) — shared verbatim by all 3 starts (see
-	# open_plains_layout.gd). Markers N/Y/P in ROWS; art at art/buildings/<kind>.png.
-	{"id": "ranch_house", "kind": "ranch_house", "top_left": Vector2i(12, 37), "size": Vector2i(3, 2)},
-	{"id": "ranch_barn", "kind": "ranch_barn", "top_left": Vector2i(6, 40), "size": Vector2i(4, 3)},
-	{"id": "ranch_coop", "kind": "ranch_coop", "top_left": Vector2i(25, 40), "size": Vector2i(2, 2)},
 ]
+
+
+## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
+## east-wall gate-break to the new Path corridor, landing just inside Path's own west gate.
+static func zone_exits() -> Array[Dictionary]:
+	return [
+		{"gate_cells": [Vector2i(35, 4), Vector2i(35, 5)], "target_zone": "path",
+			"entry_cell": Vector2i(1, 4)},
+	]
 
 
 static func size() -> Vector2i:
@@ -131,16 +106,14 @@ static func buildings() -> Array[Dictionary]:
 	return BUILDINGS
 
 
-## Phase 5 Stage 1: the shared town-core NPC roster (see LayoutCommon.TOWN_NPCS's doc for the
-## positions and why they're common to all 3 starts).
+## No NPCs live on the farm — the town-core roster moved to the Town zone layouts and the ranch
+## keeper to the Ranch zone layouts, along with their rows (see the class doc).
 static func npcs() -> Array[Dictionary]:
-	return LayoutCommon.all_npcs()
+	return []
 
 
-## Ranch/Sanctuary decorative animal props (MAPS.md §3) — shared across all 3 starts, spawned as
-## static non-collidable Sprite2D critters by scripts/props.gd (no animal-entity system yet).
 static func decor_props() -> Array[Dictionary]:
-	return LayoutCommon.RANCH_DECOR
+	return []
 
 
 static func building_at(x: int, y: int) -> Dictionary:

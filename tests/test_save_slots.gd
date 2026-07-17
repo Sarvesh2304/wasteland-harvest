@@ -6,6 +6,7 @@ extends "res://tests/test_case.gd"
 ## the smoke tools follow for save files.
 
 const SaveSlots := preload("res://scripts/save_slots.gd")
+const SaveData := preload("res://scripts/save_data.gd")
 
 const TMP_DIR := "user://test_save_slots_tmp"
 const TMP_LEGACY := "user://test_save_slots_legacy.json"
@@ -140,7 +141,11 @@ func test_migrate_legacy_save_ignores_missing_and_corrupt() -> void:
 ## -- helpers --
 
 func _save_dict(settlement_id: String, day: int, saved_unix: int) -> Dictionary:
-	return {"version": 1, "settlement_id": settlement_id, "day": day, "saved_unix": saved_unix}
+	# SAVE_VERSION symbolically, not a literal: a listable fixture must always be a
+	# current-version save (parse/summarize reject mismatched versions by design — v1 saves
+	# were invalidated by the zone split's v2 reshape).
+	return {"version": SaveData.SAVE_VERSION, "settlement_id": settlement_id, "day": day,
+		"saved_unix": saved_unix}
 
 
 func _write_slot(id: int, settlement_id: String, day: int, saved_unix: int) -> void:

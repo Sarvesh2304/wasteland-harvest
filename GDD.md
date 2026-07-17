@@ -49,7 +49,13 @@ things going for it: it was defensible, it had water, and its soil was clean eno
 They stopped running and dug in. That patch became **the settlement**, the game's home town.
 The founding generation built the first fences, the first fields, and the first fragile trade
 contacts with other pockets of survivors. Several of the town's older NPCs are founders or
-early arrivals, and their personal questlines can draw on that shared history.
+early arrivals, and their personal questlines can draw on that shared history. **The player's
+own farm was one of the settlement's real food sources**, not just the parents' private plot —
+in the founding years, before the town had enough separate growers, it was partly relied on to
+help feed the settlement. That civic role faded only in the parents' final years as they slowed
+down, and it's what gives Mayor Harlan's Day-28 beat (§3) its weight: the town isn't asking a
+stranger to start contributing, it's asking the founders' child to pick back up something the
+farm used to actually do.
 
 ### The present day (~44–50 years after the war)
 
@@ -113,6 +119,16 @@ we can't, so we solve it differently, with three reinforcing devices:
    you get *the farm specifically* back on its feet. Teaching moments are framed as "your
    mother used to do it this way" and "you remember your father's trick for this" — the
    character is remembering, while the player is learning. Same content, two readings.
+   **This gentle period has a precise length: one in-game month (28 days, the same season
+   length `ROADMAP.md` Phase 11 already uses).** Nothing mechanically gates the player during
+   it beyond systems that already exist elsewhere (energy, tool durability) — it's a *tone*
+   window, not a *locked* one. It ends with a scripted beat: Mayor Harlan comes to the farm and
+   tells the player food reserves are running low and the settlement is counting on the farm the
+   way it used to (§2's civic-role addition). This is the story's pivot from "you're still
+   finding your feet" to "this now matters to people beyond yourself" — the same emotional turn
+   Stardew marks with the Community Center letter, delivered here through an NPC who already
+   has a relationship with the player rather than a piece of mail. See §4's cozy contract for
+   what happens after the beat (never a fail state) and §8 for the hired-labor payoff it sets up.
 2. **Known faces, new relationship.** NPCs greet the player by name from day one — no "who are
    you, stranger?" dialogue anywhere in the opening. But the *relationship system* starts near
    zero anyway, and the fiction supports it: these people knew you as the kid of two beloved
@@ -175,6 +191,17 @@ of NPCs, no doom timers. Raid *events* exist (bandit scouts at the perimeter, pe
 but resolve as manageable, bounded incidents — tension as seasoning, never as dread. When the
 player walks back through the gate at dusk with a full pack, the feeling should be relief and
 warmth, every single time. That contrast is the entire point of the game.
+
+**The food-shortage beat (§3) obeys this contract exactly.** After Mayor Harlan's Day-28 news,
+the ongoing consequence is a soft, visible town-wellbeing signal that responds to how much food
+the player has shipped over time — never a meter that can hit zero and cost the player anything,
+never a doom timer. It's a reason to care, not a requirement to meet. Once the player has real
+progress on their skills (§8), they can hire a settler or newcomer for a weekly Credits salary to
+work the farm — a genuine simulated till/water/harvest loop, not an abstracted trickle — freeing
+them to spend days on expeditions, socializing, or building instead of farming every day
+themselves. This is the arc's payoff: a responsibility that started as "you must learn this"
+becomes "you can now delegate this," and it's a specific, narratively-motivated instance of the
+NPC–building assignment system in §8/`ROADMAP.md` Phase 8, not a separate system.
 
 ## 5. The Expedition Loop — Ruins, Radiation & the Ammo Economy
 
@@ -551,7 +578,7 @@ Harvest is an endless sandbox in exactly Stardew Valley's mold:
 
 ## 11. Scope-Addition Flags (reconciled into ROADMAP.md — kept here for design rationale)
 
-**Reconciled** into `ROADMAP.md` Phases 5/9/10/14 as of Phase 1's close-out. The flags below are
+**Reconciled** into `ROADMAP.md` Phases 5/8/9/10/14 as of Phase 1's close-out. The flags below are
 kept for the design reasoning behind those additions, not as an open to-do list — don't treat
 them as pending work.
 
@@ -584,6 +611,14 @@ they could be reconciled into the roadmap's phase checklists — which has since
    compound and its keeper NPC, and splitting the generic "Storage Barn" into a distinct
    Barn/Coop pair (matching the normal/mutated livestock split) the player builds on their own
    farm to actually house what they buy.
+4. **Farm inheritance's civic role, onboarding pacing, and hired labor (§§2–4; flagged
+   2026-07-15).** Most of the emotional shape here already existed (parents as founders, the
+   farm inherited Day 1, an onboarding-help fiction) — what didn't exist was the farm's specific
+   food-supplying role for the settlement, a precise 28-day onboarding length ending in a
+   scripted Mayor Harlan beat, and the hired-labor payoff. Reconciled: `ROADMAP.md` Phase 5 gets
+   a new checklist item for the Day-28 beat (dialogue content only, no new systems — consistent
+   with Harlan's existing "flavor/dialogue only" scope there), and Phase 8's existing
+   NPC–building assignment item gets a note naming this as its specific narrative instance.
 
 **Minor naming reconciliation, already done:** ROADMAP.md Phase 5 now names the currency
 **"Credits"** (with barter as the parallel non-currency economy), matching this GDD's §7
