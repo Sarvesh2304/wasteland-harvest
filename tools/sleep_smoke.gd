@@ -28,6 +28,12 @@ extends SceneTree
 ## all lived time runs through advance_minutes() — 1-minute ticks inside a single synchronous
 ## block for exact-arithmetic stages, or real _process frames for stage (e).
 ##
+## Zone split (the Farm/Path/Town/Ranch scene separation — this file's Stage 3 sweep): world
+## refs come from main.zones (the old single TestMap node is gone), the stage-(c) grass cell is
+## re-anchored to the farm zone's own 36x16 grid, and stage (e) warps to the TOWN zone first —
+## Scout Kael lives there now, not on the farm. Positioning goes through get_global_cell_center
+## since zones sit at sibling world offsets.
+##
 ## Run: godot --headless --path . --script res://tools/sleep_smoke.gd
 ## Uses a test-only save filename, deleted before and after (the standing hygiene rule).
 
@@ -72,16 +78,32 @@ func _enter_stage(next: int) -> void:
 	stage_started_at = Engine.get_physics_frames()
 
 
+## Watchdog (ported from tools/runtime_smoke.gd/soak_test.gd after this file itself hung for
+## real: the zone split removed the old single TestMap node, stage 0's fetch crash-looped every
+## frame at near-zero CPU, and without a bound the process spun silently forever). Comfortably
+## above the longest legitimate in-stage wait here (330 ticks) so it never fires on a healthy
+## run, but guarantees any future stall fails LOUDLY with the exact stuck stage.
+const MAX_TICKS_PER_STAGE := 1800
+var _watchdog_tripped := false
+
+
 func _physics_process(_delta: float) -> bool:
 	var ticks := int(Engine.get_physics_frames()) - stage_started_at
+	if ticks > MAX_TICKS_PER_STAGE and not _watchdog_tripped:
+		_watchdog_tripped = true
+		push_error("sleep_smoke watchdog: stuck in stage %d for %d ticks" % [stage, ticks])
+		_check(false, "TIMED OUT after %d ticks with no stage transition (watchdog)" % ticks)
+		_finish()
+		return true
 	match stage:
 		0:
 			# -- Boot --
 			if ticks < 10:
 				return false
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
-			npcs = test_map.get_node("Npcs")
+			# Zone split: world refs come from main.zones; boot binds the FARM zone.
+			test_map = main.zones["farm"]["map"]
+			npcs = main.zones["farm"]["npcs"]
 			dialogue_ui = main.get_node("DialogueUI")
 			hud = main.get_node("HUD")
 			sleepy_label = hud.get_node("%SleepyLabel")
@@ -136,9 +158,11 @@ func _physics_process(_delta: float) -> bool:
 			# -- (c) Coffee (and general food) through the REAL consume path, then a protected
 			#    all-nighter and the unprotected collapse the following night --
 			if ticks < 5:
-				# Face plain grass at (5,20) (clear of every NPC wander zone — the soak's
-				# clearance rule) so use_tool falls through to the hotbar-item dispatch.
-				player.global_position = test_map.cell_to_world_center(Vector2i(5, 19))
+				# Face plain grass at (5,14) — open farm-zone ground clear of farmland/creek/
+				# buildings (the same anchor runtime_smoke.gd's farming stages use; re-anchored
+				# from the pre-split (5,20), which now belongs to the Town zone's frame) — so
+				# use_tool falls through to the hotbar-item dispatch.
+				player.global_position = test_map.get_global_cell_center(Vector2i(5, 13))
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				return false
@@ -240,8 +264,12 @@ func _physics_process(_delta: float) -> bool:
 		5:
 			# -- (e) Time-paused interplay: 2 AM cannot arrive mid-conversation --
 			if ticks < 5:
+				# Zone split: Scout Kael posts up inside the TOWN zone's gate now — warp there
+				# (main._bind_zone, the same rebind a gate crossing performs; the literal
+				# gate-cell walk is runtime_smoke/soak_test/zone_transition_smoke's job).
+				_warp_to("town")
 				var npc: Node = _npc_by_id("scout_kael")
-				player.global_position = test_map.cell_to_world_center(
+				player.global_position = test_map.get_global_cell_center(
 					test_map.world_to_cell(npc.global_position) + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
@@ -289,6 +317,15 @@ func _hotbar_index_of(item_id: String) -> int:
 		if String(player.inventory.get_slot(i).get("item_id", "")) == item_id:
 			return i
 	return -1
+
+
+## Rebinds the player into `zone_id` through main.gd's real _bind_zone (the same rebind a gate
+## crossing performs, minus the fade) and re-points this smoke's refs at that zone's nodes —
+## the established _warp_to convention from tools/runtime_smoke.gd/soak_test.gd.
+func _warp_to(zone_id: String) -> void:
+	main._bind_zone(zone_id)
+	test_map = main.zones[zone_id]["map"]
+	npcs = main.zones[zone_id]["npcs"]
 
 
 func _npc_by_id(id: String) -> Node:

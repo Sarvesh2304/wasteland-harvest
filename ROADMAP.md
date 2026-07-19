@@ -221,9 +221,27 @@ when.
       moved onto each zone's own clear ground) rather than a pure mechanical sweep — a purely
       literal signature swap left them crash-looping on null town NPCs, so scope necessarily
       pulled forward part of Stage 3's re-anchoring work while leaving *what's asserted*
-      unchanged. Stage 3 (`tests/test_map_layouts.gd`'s per-zone restructure + `zone_exits()`
-      graph checks, `sleep_smoke.gd`/`held_input_smoke.gd`, and driving real gate-walks instead of
-      direct `_bind_zone` calls in soak/runtime) remains open.
+      unchanged.
+- [x] **Zone-transition system, Stage 3 of 3 — full test-suite migration.** `tests/test_map_layouts.gd`
+      gained the full `zone_exits()` well-formedness gate: every target zone name resolves through
+      the real `SettlementDB.layout_for_zone` dispatcher (with teeth — its unknown-id fallback
+      silently returns the farm layout, so a typo'd target now fails loudly instead of misrouting
+      at runtime), and the full cross-zone graph is bidirectionally consistent (every A→B exit
+      requires a matching reverse B→A exit whose gate cells sit orthogonally beside A→B's entry
+      cell — both sides must describe the same doorway). Checked across all 3 playable pairings
+      (standard, forest_edge, riverside), not just the 2 variant archetypes. `runtime_smoke.gd`
+      and `soak_test.gd` each now drive their first town round trip through the REAL gate-cell
+      walk (player.gd's own detection → `zone_exit_requested` → `main`'s fade → `_bind_zone`) for
+      both the Farm↔Path and Path↔Town seams, asserting the signal fires exactly once per hop —
+      the remaining town visits stay direct `_bind_zone` shortcuts by design, since
+      `zone_transition_smoke.gd` already exhaustively covers all 6 crossings. `sleep_smoke.gd` and
+      `held_input_smoke.gd` were still fetching the deleted single `TestMap` node — genuinely
+      broken (a silent per-frame crash-loop, not just untested), fixed onto `main.zones` plus a
+      ported watchdog so a future regression like this fails loudly instead of hanging. A real,
+      independently-reproduced test flake was also fixed along the way: stage 60's NPC-wander
+      check compared only start/end cells, which intermittently failed when short idle timers let
+      an NPC round-trip back to its home cell within the observation window — now accumulates
+      "moved at any point," not just the endpoints.
 
 **Zone-transition Stage 1 verified independently:** re-ran the full suite myself (252/252 tests)
 and the new `tools/zone_transition_smoke.gd` (86 checks — all 6 gate crossings, camera-bounds
@@ -251,6 +269,18 @@ fix are real). Independently confirmed on disk (`~/Library/Application Support/G
 Wasteland Harvest/saves/`) that no stale save files existed, rather than trusting the "nothing to
 delete" claim. Confirmed `data/buildings.json`/`data/items.json`'s diffs are pure whitespace noise
 via `git diff -w` before excluding them from this commit.
+
+**Zone-transition Stage 3 verified independently:** re-ran the full suite myself (255/255 tests,
++2 new since Stage 2) and each of `runtime_smoke.gd`, `soak_test.gd`, `sleep_smoke.gd`,
+`held_input_smoke.gd`, `zone_transition_smoke.gd` (86 checks), and `title_smoke.gd` individually
+(never batched) — all green, matching Fable's own report exactly. Read the full diffs on all 5
+changed files: confirmed `test_map_layouts.gd`'s new graph-consistency test's adjacency check
+(orthogonal distance == 1 between an entry cell and the target's reverse gate cells) is sound, and
+that `main.zone_fade`/`player.test_map`/`current_zone_id` — the fields the new gate-walk stages in
+`runtime_smoke.gd`/`soak_test.gd` assert against — are real, existing fields (grepped
+`main.gd`/`player.gd`/`zone_fade.gd` directly rather than assuming). Confirmed the reported
+`sleep_smoke.gd` hang was real and the fix (watchdog + `main.zones` refs) is sound. Save hygiene
+and `data/*.json` whitespace-noise re-confirmed clean.
 
 **Stage 1 verified independently:** re-ran the full suite myself (87/87 unit tests), read
 through the new core scripts (`game_state.gd`, `settlement_db.gd`, `structures.gd`,

@@ -153,6 +153,9 @@ var shipping_ui: Node
 var menu_screen: Node
 ## Wander-check snapshot (stage 60): each NPC's cell recorded once, compared after simulated time.
 var _wander_start_cells: Dictionary = {}
+## NPC ids seen away from their start cell at ANY point during stage 60's window (a step-and-
+## return must still count as wandering — see stage 60's comment).
+var _wander_moved: Dictionary = {}
 ## Position snapshot for stage 95's post-store movement check (see that stage).
 var _store_check_start_pos := Vector2.ZERO
 var spawn := Vector2.ZERO
@@ -179,6 +182,31 @@ const SHED_CELL := Vector2i(30, 9)      # footprint top-left
 const SHED_CELL_SE := Vector2i(31, 10)  # footprint bottom-right
 const TENT_STAND := Vector2i(24, 13)
 const TENT_CELL := Vector2i(24, 14)
+
+## Zone-transition plan, Stage 3: the first town round trip (stages 3/4) is driven through the
+## REAL gate-cell path — the player is stood on the authored gate cell and player.gd's own
+## _physics_process detection fires zone_exit_requested → main's fade → _bind_zone, the genuine
+## crossing code path — rather than this file's direct main._bind_zone() shortcut. One real
+## crossing per hop, each direction (farm→path→town going, town→path→farm coming home), with
+## the signal counted and asserted exactly-once per hop; the REMAINING stage warps stay direct
+## _warp_to() calls by design (the plan: "faster direct _bind_zone() calls are fine for the
+## remaining stages once that's covered" — tools/zone_transition_smoke.gd owns proving all six
+## crossings exhaustively). Routes: [from_zone, its authored gate cell, expected arrival zone];
+## coordinates hold for every settlement variant (the layouts author identical gate positions).
+const GATE_WALK_STAGE := 200
+const ROUTE_FARM_TO_TOWN := [
+	["farm", Vector2i(35, 4), "path"],
+	["path", Vector2i(23, 4), "town"],
+]
+const ROUTE_TOWN_TO_FARM := [
+	["town", Vector2i(0, 4), "path"],
+	["path", Vector2i(0, 4), "farm"],
+]
+var _gate_route: Array = []
+var _gate_next_stage := 0
+## zone_exit_requested emissions observed (connected where the player is fetched, stage 1).
+var _gate_exit_signals := 0
+var _gate_signals_before := 0
 
 
 func _initialize() -> void:
@@ -306,9 +334,13 @@ func _physics_process(_delta: float) -> bool:
 			player = main.get_node("Player")
 			camera = main.get_node("GameCamera")
 			day_night = main.get_node("DayNight")
+			# Count real crossing signals for the Stage 3 gate-walk stages (3/4 via stage 200).
+			player.zone_exit_requested.connect(
+				func(_z: String, _c: Vector2i) -> void: _gate_exit_signals += 1)
 			# Since the zone split main.tscn holds 4 sibling zone maps (main.zones); this smoke's
-			# world refs point at the FARM zone's nodes (Stage 2's mechanical signature sweep —
-			# re-anchoring the stages themselves per-zone is the plan's Stage 3, still open).
+			# world refs start on the FARM zone's nodes and are re-pointed per zone as stages
+			# cross (the first town round trip through the real gate walk, later trips via
+			# _warp_to — the zone-transition plan's Stage 3, landed).
 			test_map = main.zones["farm"]["map"]
 			farm = main.zones["farm"]["farm"]
 			structures = main.zones["farm"]["structures"]
@@ -406,14 +438,15 @@ func _physics_process(_delta: float) -> bool:
 					if npc != null:
 						_check(zmap.world_to_cell(npc.global_position) == entry["home"],
 							"npc '%s' spawned at its authored home cell %s" % [entry["id"], entry["home"]])
-			_enter_stage(3)
+			# Stage 3's town visit arrives through the REAL gate walk (farm→path→town), not a
+			# direct _bind_zone shortcut — see GATE_WALK_STAGE's doc.
+			_begin_gate_walk(ROUTE_FARM_TO_TOWN, 3)
 		3:
 			# -- Basic collision on buildings works: walk the player into the mayor's house.
-			#    Town-zone content since the split: warp there (main._bind_zone, the same rebind
-			#    a gate crossing performs) and compare in the town map's LOCAL frame, since the
-			#    zone sits at a sibling world offset. --
+			#    Town-zone content since the split: we arrive here via the real gate-cell walk
+			#    (stage 200), already town-bound, and compare in the town map's LOCAL frame,
+			#    since the zone sits at a sibling world offset. --
 			if ticks < 5:
-				_warp_to("town")
 				player.global_position = test_map.get_global_cell_center(Vector2i(5, 2))
 				player.velocity = Vector2.ZERO
 				player.facing = "east"
@@ -429,11 +462,12 @@ func _physics_process(_delta: float) -> bool:
 				_check(x_local > 90.0,
 					"player actually moved toward the building before being stopped (local x=%.1f)" \
 						% x_local)
-				_enter_stage(4)
+				# Home again the same way: the real west gate walk (town→path→farm).
+				_begin_gate_walk(ROUTE_TOWN_TO_FARM, 4)
 		4:
 			# -- Chest interaction: opens/toggles a real second Inventory via the HUD --
+			#    (Arrived farm-bound via the real gate walk home, stage 200.)
 			if ticks < 5:
-				_warp_to("farm")  # home from the town collision check
 				player.global_position = test_map.get_global_cell_center(Vector2i(16, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"  # targets cell (16,4), the chest
@@ -872,12 +906,23 @@ func _physics_process(_delta: float) -> bool:
 				_enter_stage(60)
 		60:
 			# -- Let real time pass (well past IDLE_SECONDS_MAX) so every NPC gets at least one
-			#    wander step, without touching player/day state that later stages depend on --
+			#    wander step, without touching player/day state that later stages depend on.
+			#    Movement is accumulated DURING the window, not compared endpoint-to-endpoint:
+			#    with 2-6s idles an NPC takes ~2 steps in these ~10s, and a step-out-then-
+			#    step-back ends exactly where it started — the old endpoint comparison read
+			#    that as "never moved" and intermittently failed for real (all 4 NPCs happening
+			#    to round-trip, observed 2026-07-19), even though every NPC genuinely wandered. --
+			for zone_id in ["town", "ranch"]:
+				var zmap: Node2D = main.zones[zone_id]["map"]
+				for entry in zmap.layout.npcs():
+					var id := String(entry["id"])
+					var npc: Node = _npc_by_id(id, zone_id)
+					if zmap.world_to_cell(npc.global_position) != _wander_start_cells[id]:
+						_wander_moved[id] = true
 			if ticks >= 600:  # ~10s of physics frames
 				_enter_stage(61)
 		61:
 			if ticks >= 5:
-				var any_moved := false
 				for zone_id in ["town", "ranch"]:
 					var zmap: Node2D = main.zones[zone_id]["map"]
 					for entry in zmap.layout.npcs():
@@ -885,13 +930,12 @@ func _physics_process(_delta: float) -> bool:
 						var home: Vector2i = entry["home"]
 						var npc: Node = _npc_by_id(id, zone_id)
 						var cell: Vector2i = zmap.world_to_cell(npc.global_position)
-						if cell != _wander_start_cells[id]:
-							any_moved = true
 						_check(NpcGrid.within_zone(cell, home, int(entry["wander_radius"])),
 							"%s's wander stayed within its authorized zone (at %s, home %s)" % [id, cell, home])
 						_check(not zmap.is_blocked_at(cell),
 							"%s never wandered onto solid/blocked terrain (at %s)" % [id, cell])
-				_check(any_moved, "at least one NPC actually wandered over ~10s")
+				_check(not _wander_moved.is_empty(),
+					"at least one NPC actually wandered at some point over ~10s")
 				_enter_stage(62)
 		62:
 			# -- MAPS.md §3: visit the Ranch/Sanctuary compound and open the keeper's dialogue
@@ -1616,6 +1660,41 @@ func _physics_process(_delta: float) -> bool:
 		25:
 			if ticks >= 5:  # let the last queue_free() actually free before quitting
 				_finish()
+		GATE_WALK_STAGE:
+			# -- Zone-transition Stage 3: one REAL gate-cell crossing per remaining hop of
+			#    _gate_route (see GATE_WALK_STAGE's doc). Standing the player on the authored
+			#    gate cell lets player.gd's own _physics_process detection fire
+			#    zone_exit_requested → main._on_zone_exit_requested → zone_fade.play →
+			#    _bind_zone — the genuine crossing path, asserted to fire EXACTLY once per
+			#    hop via the signal counter connected in stage 1. --
+			if _gate_route.is_empty():
+				_rebind_zone_refs(player.current_zone_id)
+				_enter_stage(_gate_next_stage)
+				return false
+			var hop: Array = _gate_route[0]
+			if ticks < 2:
+				return false  # settle a frame between hops
+			if ticks == 2:
+				_check(player.current_zone_id == String(hop[0]),
+					"gate walk: hop starts in %s (got %s)" % [hop[0], player.current_zone_id])
+				_gate_signals_before = _gate_exit_signals
+				player.velocity = Vector2.ZERO
+				player.global_position = \
+					main.zones[String(hop[0])]["map"].get_global_cell_center(Vector2i(hop[1]))
+				return false
+			# Wait out the full warp (detection frame + ~0.15s fade), then verify the real
+			# signal fired once and the arrival state is coherent.
+			if player.current_zone_id == String(hop[2]) \
+					and not main.zone_fade.playing and ticks > 12:
+				_check(_gate_exit_signals == _gate_signals_before + 1,
+					"gate walk %s→%s: zone_exit_requested fired exactly once (saw %d)"
+						% [hop[0], hop[2], _gate_exit_signals - _gate_signals_before])
+				_check(main.zone_fade.rejected_count == 0,
+					"gate walk %s→%s: zone_fade never re-entered mid-tween" % [hop[0], hop[2]])
+				_check(player.test_map == main.zones[String(hop[2])]["map"],
+					"gate walk %s→%s: player rebound to the arrival zone's map" % [hop[0], hop[2]])
+				_gate_route.remove_at(0)
+				_enter_stage(GATE_WALK_STAGE)  # next hop (or the handoff branch above)
 		_:
 			pass
 	return false
@@ -1691,16 +1770,31 @@ func _drive_shipping_action(action: String) -> void:
 	shipping_ui._unhandled_input(event)
 
 
-## Rebinds the player into `zone_id` through main.gd's real _bind_zone (the same rebind a gate
-## crossing performs, minus the fade — zone_transition_smoke.gd owns driving the literal gate
-## walk) and re-points this smoke's world refs at that zone's nodes. Needed since the zone
-## split: the town core, its NPCs/store, and the ranch each live in their own sibling zone.
-func _warp_to(zone_id: String) -> void:
-	main._bind_zone(zone_id)
+## Re-points this smoke's world refs at `zone_id`'s nodes (no player repositioning) — shared by
+## both warp paths below.
+func _rebind_zone_refs(zone_id: String) -> void:
 	test_map = main.zones[zone_id]["map"]
 	farm = main.zones[zone_id]["farm"]
 	structures = main.zones[zone_id]["structures"]
 	npcs = main.zones[zone_id]["npcs"]
+
+
+## Rebinds the player into `zone_id` through main.gd's real _bind_zone (the same rebind a gate
+## crossing performs, minus the fade) and re-points this smoke's world refs at that zone's
+## nodes. Needed since the zone split: the town core, its NPCs/store, and the ranch each live
+## in their own sibling zone. The first town round trip goes through _begin_gate_walk below
+## instead (the REAL gate-cell path); later stages use this direct shortcut once that's covered.
+func _warp_to(zone_id: String) -> void:
+	main._bind_zone(zone_id)
+	_rebind_zone_refs(zone_id)
+
+
+## Kicks off a real gate-cell walk (see GATE_WALK_STAGE's doc): queues `route`'s hops for the
+## stage-200 sub-machine, which enters `next_stage` after the last arrival, world refs rebound.
+func _begin_gate_walk(route: Array, next_stage: int) -> void:
+	_gate_route = route.duplicate()
+	_gate_next_stage = next_stage
+	_enter_stage(GATE_WALK_STAGE)
 
 
 ## Looks up a spawned NPC by its dialogue/roster id (scripts/npcs.gd's spawn list) — in the

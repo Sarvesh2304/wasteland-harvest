@@ -1,14 +1,19 @@
 extends "res://tests/test_case.gd"
-## Phase 4 map-layout data integrity, minimally restructured for the Farm/Path/Town/Ranch zone
-## split (Stage 1): the old "3 combined-map settlements" table is now 3 farm layouts + 2 town +
-## 2 ranch + 2 path zone layouts. Structural checks (grids, footprints, solidity) run over ALL
-## layouts; the content checks each moved to the zone that still owns that content (town-core
-## buildings/NPCs → town layouts, ranch compound → ranch layouts, farmland/spawn → farm
-## layouts). This is deliberately the MINIMUM honest edit — the deeper per-zone matrix
-## restructure (full zone_exits graph consistency etc.) is Stage 3's job per the
-## zone-transition plan.
+## Phase 4 map-layout data integrity, restructured for the Farm/Path/Town/Ranch zone split:
+## the old "3 combined-map settlements" table is now the per-zone matrix "3 farm variants ×
+## {path standard/riverside} × {town standard/riverside} × {ranch standard/riverside}".
+## Structural checks (grids, footprints, solidity) run over ALL layouts; content checks live
+## with the zone that owns that content (town-core buildings + TOWN_NPCS → town layouts, ranch
+## compound + RANCH_NPCS → ranch layouts, farmland/spawn → farm layouts, Farm and Path both
+## assert EMPTY rosters); gate_cells() counts are derived per zone. The zone-transition plan's
+## Stage 3 completed the zone_exits() well-formedness gate: every exit's gate cells are real
+## authored 'G' cells, every entry cell is unblocked (and not itself a gate) in the target
+## zone, every target zone name resolves through the real SettlementDB dispatcher, and the
+## full cross-zone graph is bidirectionally consistent — so a future zone addition can't
+## silently create a one-way or dangling connection.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
+const SettlementDB := preload("res://scripts/settlement_db.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
@@ -39,6 +44,23 @@ const ALL_LAYOUTS := [OpenPlainsLayout, ForestEdgeLayout, RiversideLayout,
 const ALL_NAMES := ["open_plains", "forest_edge", "riverside",
 	"path_standard", "path_riverside", "town_standard", "town_riverside",
 	"ranch_standard", "ranch_riverside"]
+
+## The standard/riverside zone pairings the game actually plays (settlement_db.layout_for_zone
+## dispatches exactly these): one zone_map per variant, keyed by zone id. Forest Edge shares the
+## standard Path/Town/Ranch variants but brings its own farm terrain — the graph checks below
+## run it as a third pairing (standard zones + the Forest Edge farm) so all THREE playable
+## worlds get the full consistency sweep, not just the two variant archetypes.
+const VARIANT_ZONE_MAPS := {
+	"standard": {"farm": OpenPlainsLayout, "path": PathStandardLayout,
+		"town": TownStandardLayout, "ranch": RanchStandardLayout},
+	"forest_edge": {"farm": ForestEdgeLayout, "path": PathStandardLayout,
+		"town": TownStandardLayout, "ranch": RanchStandardLayout},
+	"riverside": {"farm": RiversideLayout, "path": PathRiversideLayout,
+		"town": TownRiversideLayout, "ranch": RanchRiversideLayout},
+}
+## The settlement id SettlementDB resolves each pairing under (layout_for_zone's second arg).
+const VARIANT_SETTLEMENTS := {
+	"standard": "open_plains", "forest_edge": "forest_edge", "riverside": "riverside"}
 
 
 ## -- Structural checks over every zone layout --
@@ -129,7 +151,7 @@ func test_world_space_math() -> void:
 		assert_eq(layout.cell_center(Vector2i(0, 0)), Vector2(8, 8), "cell centers at half-tile")
 
 
-## -- Zone exits (light well-formedness only — the full cross-zone graph check is Stage 3) --
+## -- Zone exits: the full well-formedness gate (zone-transition plan, Stage 3) --
 
 func test_zone_exits_gate_cells_are_real_gates() -> void:
 	for i in ALL_LAYOUTS.size():
@@ -145,32 +167,72 @@ func test_zone_exits_gate_cells_are_real_gates() -> void:
 
 
 func test_zone_exit_entry_cells_are_walkable_in_target_zone() -> void:
-	# Uses the standard/riverside pairing the game actually plays (settlement_db.layout_for_zone):
-	# an exit's entry cell must be open ground in the matching variant of its target zone, and
+	# An exit's entry cell must be open ground in the matching variant of its target zone, and
 	# must not itself be a gate cell there (or arrival would instantly re-trigger a warp back).
-	var variants := {
-		"standard": {"farm": OpenPlainsLayout, "path": PathStandardLayout,
-			"town": TownStandardLayout, "ranch": RanchStandardLayout},
-		"riverside": {"farm": RiversideLayout, "path": PathRiversideLayout,
-			"town": TownRiversideLayout, "ranch": RanchRiversideLayout},
-	}
-	# Forest Edge shares the standard variants but has its own farm terrain — check it too.
-	var farm_variants := {"standard": [OpenPlainsLayout, ForestEdgeLayout],
-		"riverside": [RiversideLayout]}
-	for variant_name in variants:
-		var zone_map: Dictionary = variants[variant_name]
+	for variant_name in VARIANT_ZONE_MAPS:
+		var zone_map: Dictionary = VARIANT_ZONE_MAPS[variant_name]
 		for zone_id in zone_map:
 			var layout = zone_map[zone_id]
 			for exit in layout.zone_exits():
 				var target_id := String(exit["target_zone"])
 				var entry: Vector2i = exit["entry_cell"]
-				var targets: Array = farm_variants[variant_name] if target_id == "farm" \
-					else [zone_map[target_id]]
-				for target in targets:
-					assert_false(target.is_solid(entry.x, entry.y),
-						"%s(%s) exit → %s entry %s is walkable" % [zone_id, variant_name, target_id, entry])
-					assert_false(entry in target.gate_cells(),
-						"%s(%s) exit → %s entry %s is not itself a gate" % [zone_id, variant_name, target_id, entry])
+				var target = zone_map[target_id]
+				assert_false(target.is_solid(entry.x, entry.y),
+					"%s(%s) exit → %s entry %s is walkable" % [zone_id, variant_name, target_id, entry])
+				assert_false(entry in target.gate_cells(),
+					"%s(%s) exit → %s entry %s is not itself a gate" % [zone_id, variant_name, target_id, entry])
+
+
+func test_zone_exits_resolve_through_settlement_db() -> void:
+	# Every target zone NAME must resolve — through the real dispatcher the game boots with
+	# (settlement_db.layout_for_zone), to exactly the layout this variant pairing expects. This
+	# is the "every target zone name resolves" gate with teeth: layout_for_zone's unknown-id
+	# fallback returns the FARM layout, so a typo'd target would resolve to the wrong zone
+	# silently at runtime — here it fails loudly instead.
+	for variant_name in VARIANT_ZONE_MAPS:
+		var zone_map: Dictionary = VARIANT_ZONE_MAPS[variant_name]
+		var settlement_id := String(VARIANT_SETTLEMENTS[variant_name])
+		for zone_id in zone_map:
+			for exit in zone_map[zone_id].zone_exits():
+				var target_id := String(exit["target_zone"])
+				assert_true(zone_map.has(target_id),
+					"%s(%s) exit targets a known zone id ('%s')" % [zone_id, variant_name, target_id])
+				if not zone_map.has(target_id):
+					continue
+				assert_eq(SettlementDB.layout_for_zone(target_id, settlement_id), zone_map[target_id],
+					"%s(%s) exit target '%s' resolves via SettlementDB to this pairing's layout"
+						% [zone_id, variant_name, target_id])
+
+
+func test_zone_exits_graph_is_bidirectionally_consistent() -> void:
+	# The cross-zone graph gate: for every exit A→B, B must carry a matching reverse exit B→A
+	# (no one-way or dangling connections — a future zone addition that forgets the return trip
+	# fails here, not in play), and A→B's entry cell must sit orthogonally adjacent to one of
+	# B's reverse gate cells — the geometric statement that both sides describe the SAME doorway
+	# (arriving anywhere else would mean the two zones disagree about where the seam is).
+	for variant_name in VARIANT_ZONE_MAPS:
+		var zone_map: Dictionary = VARIANT_ZONE_MAPS[variant_name]
+		for zone_id in zone_map:
+			for exit in zone_map[zone_id].zone_exits():
+				var target_id := String(exit["target_zone"])
+				var reverse: Dictionary = {}
+				for back in zone_map[target_id].zone_exits():
+					if String(back["target_zone"]) == zone_id:
+						reverse = back
+				assert_false(reverse.is_empty(),
+					"%s(%s): %s carries a reverse exit back to %s" \
+						% [zone_id, variant_name, target_id, zone_id])
+				if reverse.is_empty():
+					continue
+				var entry: Vector2i = exit["entry_cell"]
+				var beside_return_gate := false
+				for gate_cell in reverse["gate_cells"]:
+					var d: Vector2i = (Vector2i(gate_cell) - entry).abs()
+					if d.x + d.y == 1:
+						beside_return_gate = true
+				assert_true(beside_return_gate,
+					"%s(%s)→%s entry %s lands orthogonally beside the return gate %s" \
+						% [zone_id, variant_name, target_id, entry, str(reverse["gate_cells"])])
 
 
 ## -- Farm-zone checks (the 3 starting layouts, farm-only since the split) --
@@ -359,9 +421,14 @@ func test_ranch_layouts_have_ranch_buildings() -> void:
 			"%s has the north town gate + inner compound gate = 4 'G' cells" % RANCH_NAMES[i])
 
 
-func test_ranch_layouts_have_the_ranch_keeper_npc() -> void:
+func test_ranch_layouts_expose_the_ranch_npc_roster() -> void:
+	# Per-zone roster split (zone-transition Stage 3): the ranch asserts RANCH_NPCS and ONLY
+	# RANCH_NPCS — the exact-equality mirror of the town's TOWN_NPCS check above, so a
+	# misplaced NPC can't hide behind a weaker contains-the-keeper check.
 	for i in RANCH_LAYOUTS.size():
 		var layout = RANCH_LAYOUTS[i]
+		assert_eq(layout.npcs(), LayoutCommon.RANCH_NPCS,
+			"%s's npcs() is exactly the shared ranch roster" % RANCH_NAMES[i])
 		var homes := {}
 		for entry in layout.npcs():
 			homes[String(entry["id"])] = entry["home"]

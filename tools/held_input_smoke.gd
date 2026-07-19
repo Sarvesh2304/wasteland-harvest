@@ -38,6 +38,14 @@ extends SceneTree
 ## fix uses player.gd's explicit press-edge latch instead of just-pressed (the other, bigger one:
 ## a real event dispatched to _unhandled_input between physics frames still reads just-pressed on
 ## the NEXT poll, which would have re-opened every "closed by this press" UI once per tap).
+##
+## Zone split (the Farm/Path/Town/Ranch scene separation — this file's Stage 3 sweep): world
+## refs come from main.zones (the old single TestMap node is gone), the NPC stages warp to the
+## TOWN zone first (every town-core NPC lives there now; the farm roster is empty), the
+## bed/box/chest stages warp back home, and positioning goes through get_global_cell_center
+## since zones sit at sibling world offsets. Warps ride main._bind_zone directly — the literal
+## gate-cell walk is runtime_smoke/soak_test/zone_transition_smoke's job, not an input-timing
+## concern.
 
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 
@@ -89,16 +97,32 @@ func _enter_stage(next: int) -> void:
 	stage_started_at = Engine.get_physics_frames()
 
 
+## Watchdog (ported from tools/runtime_smoke.gd/soak_test.gd — sleep_smoke.gd hung for real on
+## the zone split's removed TestMap node, a per-frame crash loop spinning silently forever, and
+## this file fetched the same stale node). Comfortably above the longest legitimate in-stage
+## wait here (115 ticks) so it never fires on a healthy run, but guarantees any future stall
+## fails LOUDLY with the exact stuck stage.
+const MAX_TICKS_PER_STAGE := 1800
+var _watchdog_tripped := false
+
+
 func _physics_process(_delta: float) -> bool:
 	var ticks := int(Engine.get_physics_frames()) - stage_started_at
+	if ticks > MAX_TICKS_PER_STAGE and not _watchdog_tripped:
+		_watchdog_tripped = true
+		push_error("held_input_smoke watchdog: stuck in stage %d for %d ticks" % [stage, ticks])
+		_check(false, "TIMED OUT after %d ticks with no stage transition (watchdog)" % ticks)
+		_finish()
+		return true
 	match stage:
 		0:
 			if ticks < 10:
 				return false
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
-			structures = test_map.get_node("Structures")
-			npcs = test_map.get_node("Npcs")
+			# Zone split: world refs come from main.zones; boot binds the FARM zone.
+			test_map = main.zones["farm"]["map"]
+			structures = main.zones["farm"]["structures"]
+			npcs = main.zones["farm"]["npcs"]
 			builder = main.get_node("Builder")
 			dialogue_ui = main.get_node("DialogueUI")
 			store_ui = main.get_node("StoreUI")
@@ -144,6 +168,7 @@ func _physics_process(_delta: float) -> bool:
 		3:
 			# -- (b) Closing a dialogue at its terminal node must NOT reopen it --
 			if ticks < 5:
+				_warp_to("town")  # zone split: the town-core NPCs live in the Town zone now
 				_face_npc("mayor_harlan")
 				return false
 			if ticks == 5:
@@ -184,7 +209,7 @@ func _physics_process(_delta: float) -> bool:
 		4:
 			# -- (c) The store's Leave row must not reopen Marta's conversation --
 			if ticks < 5:
-				_face_npc("marta")
+				_face_npc("marta")  # still town-bound from stage 3
 				return false
 			if ticks == 5:
 				player.use_tool()
@@ -218,6 +243,7 @@ func _physics_process(_delta: float) -> bool:
 		5:
 			# -- (d) The shipping box's Leave row must close it, not reset it to the top row --
 			if ticks < 5:
+				_warp_to("farm")  # home from the store checks: the box is farm-zone content
 				_stand(BOX_STAND, "north")
 				return false
 			if ticks == 5:
@@ -241,6 +267,7 @@ func _physics_process(_delta: float) -> bool:
 		6:
 			# -- Esc (ui_cancel) closes every modal surface and both HUD grids --
 			if ticks < 5:
+				_warp_to("town")  # the dialogue half needs Harlan; the chest half warps home below
 				_face_npc("mayor_harlan")
 				return false
 			if ticks == 5:
@@ -264,6 +291,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(menu_screen.active, "Tab opened the in-game menu")
 				_drive(menu_screen, "ui_cancel")
 				_check(not menu_screen.active, "Esc closes the in-game menu")
+				_warp_to("farm")  # the chest is farm-zone content
 				_stand(CHEST_STAND, "north")
 				player.use_tool()
 				_check(hud.get_node("%ChestGrid").visible, "chest grid open for the Esc check")
@@ -301,6 +329,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(not day_manager.time_paused, "clock unpaused with nothing open")
 				_check(day_manager.minutes_into_day > _minutes_snapshot,
 					"time flows with nothing open")
+				_warp_to("town")  # Kael is town-zone content since the split
 				_face_npc("scout_kael")
 				return false
 			if ticks == 35:
@@ -352,11 +381,23 @@ func _physics_process(_delta: float) -> bool:
 	return false
 
 
-## Stands the player on `cell`, still, facing `facing`.
+## Stands the player on `cell` (in the currently-bound zone's frame), still, facing `facing`.
+## get_global_cell_center (not cell_to_world_center) since the zone split: zones sit at
+## sibling world offsets, so a local cell center is only world-space by luck at the origin.
 func _stand(cell: Vector2i, facing: String) -> void:
-	player.global_position = test_map.cell_to_world_center(cell)
+	player.global_position = test_map.get_global_cell_center(cell)
 	player.velocity = Vector2.ZERO
 	player.facing = facing
+
+
+## Rebinds the player into `zone_id` through main.gd's real _bind_zone (the same rebind a gate
+## crossing performs, minus the fade) and re-points this smoke's refs at that zone's nodes —
+## the established _warp_to convention from tools/runtime_smoke.gd/soak_test.gd.
+func _warp_to(zone_id: String) -> void:
+	main._bind_zone(zone_id)
+	test_map = main.zones[zone_id]["map"]
+	structures = main.zones[zone_id]["structures"]
+	npcs = main.zones[zone_id]["npcs"]
 
 
 ## Stands the player one cell south of an NPC's LIVE cell (robust to wander), facing north.
