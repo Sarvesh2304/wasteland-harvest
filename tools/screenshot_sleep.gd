@@ -53,7 +53,7 @@ func _physics_process(_delta: float) -> bool:
 			day_manager.minutes_into_day = 720.0  # noon: unmodulated palette for a clean shot
 			day_manager.time_paused = true
 			# Foot of Forest Edge's bed at (18,4) — same interaction cell the smoke test drives.
-			player.global_position = main.get_node("TestMap").cell_to_world_center(Vector2i(18, 5))
+			player.global_position = main.get_node("FarmMap").cell_to_world_center(Vector2i(18, 5))
 			player.velocity = Vector2.ZERO
 			player.facing = "north"
 			_enter_stage(1)

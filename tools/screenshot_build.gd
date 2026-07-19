@@ -48,7 +48,7 @@ func _physics_process(_delta: float) -> bool:
 			day_manager.minutes_into_day = 720.0  # noon: unmodulated palette for a clean shot
 			day_manager.time_paused = true
 			# Same site as tools/runtime_smoke.gd's stage 16: shed at (3,16)-(4,17).
-			player.global_position = main.get_node("TestMap").cell_to_world_center(Vector2i(3, 15))
+			player.global_position = main.get_node("FarmMap").cell_to_world_center(Vector2i(3, 15))
 			player.velocity = Vector2.ZERO
 			player.facing = "south"
 			builder.set_active(true)

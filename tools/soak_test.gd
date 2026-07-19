@@ -60,15 +60,17 @@ const ItemDB := preload("res://scripts/item_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 
-## The 3 potato plots: open grass on Forest Edge's fully-clear row 20, x kept <= 7 so neither
-## the plots nor the row-19 stand cells ever overlap Mayor Harlan's wander zone (home (10,19),
-## radius 1 -> x 9-11 / y 18-20 — an NPC drifting onto a target cell would hijack use_tool()
-## into a dialogue instead of a till).
-const POTATO_CELLS: Array[Vector2i] = [Vector2i(5, 20), Vector2i(6, 20), Vector2i(7, 20)]
-## The 2 dustwheat plots: row 22, west of shack_3's (27,22) footprint, same NPC-clearance rule.
-const DUSTWHEAT_CELLS: Array[Vector2i] = [Vector2i(5, 22), Vector2i(6, 22)]
-const SHED_STAND := Vector2i(3, 15)   # facing south -> 2x2 shed lands at (3,16)-(4,17)
-const TENT_STAND := Vector2i(30, 20)  # facing south -> 1x1 tent lands at (30,21)
+## Coordinates re-anchored to the FARM ZONE's local grid after the zone split (the farm is
+## 36x16 now; the old combined map's town rows 16+ live in the Town zone). Rows 9/10 and 14
+## are open grass on the farm's Forest Edge ROWS, clear of the pre-baked farmland patches,
+## the SW creek, treeline/salvage, and every building. The old NPC-clearance constraint is
+## gone with the split — no NPC lives in the farm zone anymore (town visits warp, see
+## _warp_to below).
+const POTATO_CELLS: Array[Vector2i] = [Vector2i(5, 14), Vector2i(6, 14), Vector2i(7, 14)]
+const DUSTWHEAT_CELLS: Array[Vector2i] = [Vector2i(9, 14), Vector2i(10, 14)]
+const SHED_STAND := Vector2i(30, 8)   # facing south -> 2x2 shed lands at (30,9)-(31,10)
+const SHED_CELL := Vector2i(30, 9)    # the shed footprint's top-left (storage checks)
+const TENT_STAND := Vector2i(24, 13)  # facing south -> 1x1 tent lands at (24,14)
 const TREE_CELL := Vector2i(33, 2)    # authored treeline 'T', stand (32,2) facing east
 const BED_STAND := Vector2i(18, 5)    # facing north -> bed at (18,4)
 const BOX_STAND := Vector2i(17, 5)    # facing north -> shipping box at (17,4)
@@ -180,8 +182,9 @@ func _physics_process(_delta: float) -> bool:
 		2:
 			# -- Day 1: Scout Kael conversation + the modal-conflict checks (see class doc) --
 			if ticks < 5:
+				_warp_to("town")  # zone split: Kael posts up inside the Town zone's gate now
 				var npc: Node = _npc_by_id("scout_kael")
-				player.global_position = test_map.cell_to_world_center(
+				player.global_position = test_map.get_global_cell_center(
 					test_map.world_to_cell(npc.global_position) + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
@@ -228,7 +231,8 @@ func _physics_process(_delta: float) -> bool:
 			# -- Day 1: place the Storage Shed via the real build-mode input path, checking the
 			#    REVERSE exclusion (other modals refused while build mode is active) --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(SHED_STAND)
+				_warp_to("farm")  # back home from the Kael visit: building happens on the farm
+				player.global_position = test_map.get_global_cell_center(SHED_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				return false
@@ -240,7 +244,7 @@ func _physics_process(_delta: float) -> bool:
 				# invariant explicit — prove it holds).
 				shipping_ui.open_box()
 				_check(not shipping_ui.active, "shipping UI refuses to open while in build mode")
-				var npc: Node = _npc_by_id("marta")
+				var npc: Node = _npc_by_id("marta", "town")  # farm-bound here; Marta's in town
 				dialogue_ui.open_dialogue(npc)
 				_check(not dialogue_ui.active, "dialogue refuses to open while in build mode")
 				_check(not bool(npc.talking), "...and the NPC was never frozen by the refusal")
@@ -263,7 +267,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(game_state.has_save(), "the bed auto-saved")
 				_check(structures._pending.is_empty() and structures._completed.size() == 1,
 					"shed construction completed on the day-2 morning")
-				_check(structures.is_chest_at(Vector2i(3, 16)), "completed shed is storage")
+				_check(structures.is_chest_at(SHED_CELL), "completed shed is storage")
 				for cell in POTATO_CELLS:
 					var plot: Dictionary = farm.get_plot(cell)
 					_check(int(plot.get("stage", -1)) == 1 and not bool(plot.get("watered", true)),
@@ -286,7 +290,7 @@ func _physics_process(_delta: float) -> bool:
 				for cell in POTATO_CELLS:
 					_use_on_cell(cell, 1)
 				# Chop the (33,2) treeline tree: 3 wood -> 6 total, affording day 5's tent.
-				player.global_position = test_map.cell_to_world_center(TREE_CELL + Vector2i(-1, 0))
+				player.global_position = test_map.get_global_cell_center(TREE_CELL + Vector2i(-1, 0))
 				player.velocity = Vector2.ZERO
 				player.facing = "east"
 				player.inventory.select_hotbar(2)  # axe
@@ -340,10 +344,12 @@ func _physics_process(_delta: float) -> bool:
 		6:
 			# -- Day 3: water, talk to Harlan, then the mid-sim save with everything in flight --
 			if ticks < 5:
+				if ticks == 1:  # exactly once: water at home (farm-bound), then head to town
+					for cell in POTATO_CELLS:
+						_use_on_cell(cell, 1)
+					_warp_to("town")  # zone split: Harlan lives in the Town zone
 				var npc: Node = _npc_by_id("mayor_harlan")
-				for cell in POTATO_CELLS:
-					_use_on_cell(cell, 1)
-				player.global_position = test_map.cell_to_world_center(
+				player.global_position = test_map.get_global_cell_center(
 					test_map.world_to_cell(npc.global_position) + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
@@ -357,9 +363,14 @@ func _physics_process(_delta: float) -> bool:
 					_drive(dialogue_ui, "use_tool")
 					guard += 1
 				_check(guard < 20 and not dialogue_ui.active, "Harlan's conversation closed cleanly")
+				# Head home BEFORE the mid-sim save so the saved current_zone is the farm — the
+				# reload below must wake up farm-bound for its bed sleep, matching a real player
+				# who walks home before quitting.
+				_warp_to("farm")
 				# Mid-session save (the direct GameState call, same as runtime_smoke stage 81):
-				# crops mid-growth, a completed player building, watered flags pending.
-				_check(game_state.save_game(player, test_map, farm, structures),
+				# crops mid-growth, a completed player building, watered flags pending — on the
+				# zone-split signature (the whole zones dict, not one map's node trio).
+				_check(game_state.save_game(player, main.zones),
 					"mid-sim save written")
 				var parsed := SaveData.parse_save(
 					FileAccess.get_file_as_string(String(game_state.save_path)))
@@ -412,7 +423,7 @@ func _physics_process(_delta: float) -> bool:
 				var plot: Dictionary = farm.get_plot(cell)
 				_check(int(plot.get("stage", -1)) == 2 and bool(plot.get("watered", false)),
 					"plot %s restored at stage 2, watered" % cell)
-			_check(structures._completed.size() == 1 and structures.is_chest_at(Vector2i(3, 16)),
+			_check(structures._completed.size() == 1 and structures.is_chest_at(SHED_CELL),
 				"completed shed restored as storage")
 			_check(structures.shipping_contents.is_empty() and structures.sale_history.is_empty(),
 				"shipping box restored empty with no phantom history")
@@ -451,7 +462,7 @@ func _physics_process(_delta: float) -> bool:
 				# node the stage-7/8 reload rebuilt, so its catalog_index is back at 0 (the
 				# tent) — the shed cycle from stage 3 died with the old scene, correctly (build
 				#-mode browsing state is UI state, not world state, so it isn't saved).
-				player.global_position = test_map.cell_to_world_center(TENT_STAND)
+				player.global_position = test_map.get_global_cell_center(TENT_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				_drive(builder, "build_toggle")
@@ -461,7 +472,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(player.inventory.count_of("wood") == 0, "tent spent the gathered 6 wood")
 				_drive(builder, "build_toggle")
 				# Load both potatoes through the real shipping UI input path.
-				player.global_position = test_map.cell_to_world_center(BOX_STAND)
+				player.global_position = test_map.get_global_cell_center(BOX_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				player.use_tool()
@@ -498,8 +509,9 @@ func _physics_process(_delta: float) -> bool:
 			# -- Day 6: spend the sale Credits at Marta's (real dialogue-choice path), with a
 			#    build-toggle refusal check while the STORE is the open modal this time --
 			if ticks < 5:
+				_warp_to("town")  # zone split: Marta's store is Town-zone content
 				var npc: Node = _npc_by_id("marta")
-				player.global_position = test_map.cell_to_world_center(
+				player.global_position = test_map.get_global_cell_center(
 					test_map.world_to_cell(npc.global_position) + Vector2i(0, -1))
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
@@ -531,6 +543,7 @@ func _physics_process(_delta: float) -> bool:
 		12:
 			# -- Day 6: harvest the last potato, start the second crop, ship, sleep -> sale #2 --
 			if ticks < 5:
+				_warp_to("farm")  # home from the store: the day's work is all farm-zone
 				return false
 			if ticks == 5:
 				_use_on_cell(POTATO_CELLS[2], 0)  # harvest
@@ -548,7 +561,7 @@ func _physics_process(_delta: float) -> bool:
 						"dustwheat planted+watered at %s" % cell)
 				_check(player.inventory.count_of("seed_dustwheat") == 0, "both seeds planted")
 				# Ship the last potato.
-				player.global_position = test_map.cell_to_world_center(BOX_STAND)
+				player.global_position = test_map.get_global_cell_center(BOX_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				player.use_tool()
@@ -576,7 +589,7 @@ func _physics_process(_delta: float) -> bool:
 		13:
 			# -- Final integrity: nothing stuck, nothing left open, clean save hygiene --
 			if ticks < 5:
-				player.global_position = test_map.get_spawn_position()
+				player.global_position = test_map.to_global(test_map.get_spawn_position())
 				player.velocity = Vector2.ZERO
 				return false
 			if ticks == 5:
@@ -606,12 +619,15 @@ func _physics_process(_delta: float) -> bool:
 
 
 ## Fetches every live node the soak drives — called on first boot and again after the reload.
+## Since the zone split main.tscn holds 4 sibling zone maps (main.zones); this soak's world
+## refs point at the FARM zone's nodes (Stage 2's mechanical signature sweep — re-anchoring
+## the playthrough itself per-zone is the zone-transition plan's Stage 3, still open).
 func _fetch_world_nodes() -> void:
 	player = main.get_node("Player")
-	test_map = main.get_node("TestMap")
-	farm = test_map.get_node("Farm")
-	structures = test_map.get_node("Structures")
-	npcs = test_map.get_node("Npcs")
+	test_map = main.zones["farm"]["map"]
+	farm = main.zones["farm"]["farm"]
+	structures = main.zones["farm"]["structures"]
+	npcs = main.zones["farm"]["npcs"]
 	builder = main.get_node("Builder")
 	dialogue_ui = main.get_node("DialogueUI")
 	store_ui = main.get_node("StoreUI")
@@ -620,12 +636,27 @@ func _fetch_world_nodes() -> void:
 	hud = main.get_node("HUD")
 
 
+## Rebinds the player into `zone_id` through main.gd's real _bind_zone (the same rebind a
+## gate crossing performs, minus the fade — Stage 3's job is driving the literal gate walk)
+## and re-points this soak's world refs at that zone's nodes. Needed since the zone split:
+## the town NPCs and Marta's store live in the Town zone's own map now, while all farming/
+## building/sleeping stays in the farm zone.
+func _warp_to(zone_id: String) -> void:
+	main._bind_zone(zone_id)
+	test_map = main.zones[zone_id]["map"]
+	farm = main.zones[zone_id]["farm"]
+	structures = main.zones[zone_id]["structures"]
+	npcs = main.zones[zone_id]["npcs"]
+
+
 ## One real player.use_tool() against `cell`: stands the player on the cell directly north,
 ## faces south, selects the hotbar slot, swings. The interaction resolves synchronously inside
 ## use_tool() (only the animation lock persists across frames), so consecutive calls in one
 ## tick each land — the same state transitions as spaced-out presses, without per-swing stages.
+## get_global_cell_center (not cell_to_world_center) since the zone split: zones sit at
+## sibling position offsets, so a local cell center is only world-space by luck at the origin.
 func _use_on_cell(cell: Vector2i, hotbar_index: int) -> void:
-	player.global_position = test_map.cell_to_world_center(cell + Vector2i(0, -1))
+	player.global_position = test_map.get_global_cell_center(cell + Vector2i(0, -1))
 	player.velocity = Vector2.ZERO
 	player.facing = "south"
 	player.inventory.select_hotbar(hotbar_index)
@@ -634,7 +665,7 @@ func _use_on_cell(cell: Vector2i, hotbar_index: int) -> void:
 
 ## The real bed interaction: stand south of the bed, face it, use_tool -> sleep + auto-save.
 func _sleep_in_bed() -> void:
-	player.global_position = test_map.cell_to_world_center(BED_STAND)
+	player.global_position = test_map.get_global_cell_center(BED_STAND)
 	player.velocity = Vector2.ZERO
 	player.facing = "north"
 	player.use_tool()
@@ -668,8 +699,12 @@ func _hotbar_index_of(item_id: String) -> int:
 	return -1
 
 
-func _npc_by_id(id: String) -> Node:
-	for npc in npcs.npcs():
+## Looks up a spawned NPC by roster id — in the currently-bound zone's roster by default, or
+## in an explicit zone's (the zone split moved all NPCs out of the farm zone, so a farm-bound
+## stage that needs a town NPC node passes zone_id explicitly).
+func _npc_by_id(id: String, zone_id: String = "") -> Node:
+	var roster: Node = npcs if zone_id == "" else main.zones[zone_id]["npcs"]
+	for npc in roster.npcs():
 		if String(npc.npc_id) == id:
 			return npc
 	return null

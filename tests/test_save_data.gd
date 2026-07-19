@@ -103,31 +103,100 @@ func test_build_save_stamps_version() -> void:
 	assert_eq(data["day"], 3)
 
 
+## The SAVE_VERSION 2 nested-zones shape (the zone split — see save_data.gd's class doc),
+## through actual JSON text: per-zone map/farm/structures sections built with the same
+## encoders game_state.gd's gather loop calls, then parsed back and decoded per zone.
+## (Updated from the pre-split flat top-level map/farm/structures shape this test used to
+## model — a v1-shaped save no longer parses at all, see the rejection test below.)
 func test_parse_save_full_round_trip() -> void:
+	var empty_structures := {"pending": [], "completed": [], "storage": {}, "chest": {},
+		"shipping": {"contents": {}, "history": []}}
 	var save := SaveData.build_save({
 		"settlement_id": "forest_edge",
 		"day": 9,
 		"minutes_into_day": 360.0,
 		"player": {"x": 296.0, "y": 88.0, "facing": "north", "energy": 100.0,
+			"current_zone": "town",
 			"inventory": SaveData.encode_inventory([{"item_id": "wood", "count": 3}], 0)},
-		"map": {"tilled": SaveData.encode_cells([Vector2i(5, 20)])},
-		"farm": {"plots": SaveData.encode_plots(
-				{Vector2i(5, 20): {"crop_id": "mutant_potato", "stage": 1, "watered": false}}),
-			"resource_nodes": SaveData.encode_resource_nodes({Vector2i(20, 1): "tree"})},
-		"structures": {"pending": [], "completed": [], "storage": {}, "chest": {}},
+		"zones": {
+			"farm": {
+				"map": {"tilled": SaveData.encode_cells([Vector2i(5, 12)])},
+				"farm": {"plots": SaveData.encode_plots(
+						{Vector2i(5, 12): {"crop_id": "mutant_potato", "stage": 1, "watered": false}}),
+					"resource_nodes": SaveData.encode_resource_nodes({Vector2i(20, 1): "tree"})},
+				"structures": {"pending": [], "completed": [SaveData.encode_structure_entry(
+						{"building_id": "storage_shed", "kind": "storage_shed",
+							"top_left": Vector2i(30, 9), "size": Vector2i(2, 2), "placed_day": 7})],
+					"storage": {}, "chest": {},
+					"shipping": SaveData.encode_shipping({"mutant_potato": 2},
+						[{"day": 8, "items": {"dustwheat": 1}, "total": 10}])},
+			},
+			"path": {"map": {"tilled": []}, "farm": {"plots": {}, "resource_nodes": {}},
+				"structures": empty_structures},
+			"town": {"map": {"tilled": []}, "farm": {"plots": {}, "resource_nodes": {}},
+				"structures": empty_structures},
+			"ranch": {"map": {"tilled": []}, "farm": {"plots": {}, "resource_nodes": {}},
+				"structures": empty_structures},
+		},
 	})
 	var parsed := SaveData.parse_save(JSON.stringify(save, "\t"))
-	assert_false(parsed.is_empty(), "well-formed save text parses")
+	assert_false(parsed.is_empty(), "well-formed v2 save text parses")
 	assert_eq(String(parsed["settlement_id"]), "forest_edge")
 	assert_eq(int(parsed["day"]), 9)
-	assert_eq(SaveData.decode_cells(parsed["map"]["tilled"]), [Vector2i(5, 20)] as Array[Vector2i])
-	assert_eq(SaveData.decode_plots(parsed["farm"]["plots"])[Vector2i(5, 20)]["stage"], 1)
+	assert_eq(String(parsed["player"]["current_zone"]), "town",
+		"the player's zone survives the round trip")
+	var zones: Dictionary = parsed["zones"]
+	assert_eq(zones.size(), 4, "all 4 zone sections present")
+	for zone_id in ["farm", "path", "town", "ranch"]:
+		assert_true(zones.has(zone_id), "zone section '%s' present" % zone_id)
+	# The farm zone's real content decodes back to typed values:
+	var farm_zone: Dictionary = zones["farm"]
+	assert_eq(SaveData.decode_cells(farm_zone["map"]["tilled"]),
+		[Vector2i(5, 12)] as Array[Vector2i])
+	var plot: Dictionary = SaveData.decode_plots(farm_zone["farm"]["plots"])[Vector2i(5, 12)]
+	assert_eq(plot["stage"], 1)
+	assert_true(plot["stage"] is int, "per-zone plot stage re-normalised to int")
+	var entry: Dictionary = SaveData.decode_structure_entry(farm_zone["structures"]["completed"][0])
+	assert_eq(entry["top_left"], Vector2i(30, 9), "per-zone structure entry round-trips")
+	assert_true(entry["placed_day"] is int)
+	var shipping: Dictionary = SaveData.decode_shipping(farm_zone["structures"]["shipping"])
+	assert_eq(shipping["contents"], {"mutant_potato": 2}, "per-zone shipping contents round-trip")
+	assert_eq(shipping["history"][0]["total"], 10)
+	assert_true(shipping["history"][0]["total"] is int)
+	# The empty non-farm zones keep their uniform empty defaults (no per-zone branching):
+	var town_zone: Dictionary = zones["town"]
+	assert_true(SaveData.decode_plots(town_zone["farm"]["plots"]).is_empty(),
+		"a farmland-less zone round-trips its empty defaults")
+	assert_true(SaveData.decode_shipping(town_zone["structures"]["shipping"])["history"].is_empty())
 
 
 func test_parse_save_rejects_garbage() -> void:
 	assert_true(SaveData.parse_save("not json at all {{{").is_empty(), "unparseable text")
 	assert_true(SaveData.parse_save("").is_empty(), "empty file")
 	assert_true(SaveData.parse_save("[1, 2, 3]").is_empty(), "non-Dictionary root")
+
+
+## The zone split invalidated (did not migrate) v1 saves: a realistic, fully well-formed
+## pre-split save — old flat top-level map/farm/structures shape, version 1 — must come back
+## {} so callers fall through to the new-game picker (see save_data.gd's class doc and the
+## zone-transition plan's Stage 2 notes).
+func test_parse_save_rejects_version_1_save() -> void:
+	var v1_save := {
+		"version": 1,
+		"settlement_id": "forest_edge",
+		"day": 9,
+		"minutes_into_day": 360.0,
+		"saved_unix": 1783728000,
+		"player": {"x": 296.0, "y": 88.0, "facing": "north", "energy": 100.0,
+			"inventory": SaveData.encode_inventory([{"item_id": "wood", "count": 3}], 0)},
+		"map": {"tilled": SaveData.encode_cells([Vector2i(5, 20)])},
+		"farm": {"plots": SaveData.encode_plots(
+				{Vector2i(5, 20): {"crop_id": "mutant_potato", "stage": 1, "watered": false}}),
+			"resource_nodes": {}},
+		"structures": {"pending": [], "completed": [], "storage": {}, "chest": {}},
+	}
+	assert_true(SaveData.parse_save(JSON.stringify(v1_save, "\t")).is_empty(),
+		"a well-formed pre-split version:1 save is rejected outright (invalidated, not migrated)")
 
 
 func test_parse_save_rejects_bad_version_or_missing_settlement() -> void:

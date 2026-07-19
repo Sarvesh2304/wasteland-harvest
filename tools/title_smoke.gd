@@ -29,6 +29,7 @@ extends SceneTree
 
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
+const SaveData := preload("res://scripts/save_data.gd")
 
 const SAVES_DIR := "user://title_smoke_saves"
 
@@ -116,7 +117,9 @@ func _physics_process(_delta: float) -> bool:
 			_check(day_manager.day == 7, "slot 2's day restored (7, got %d)" % day_manager.day)
 			_check(game_state.chosen_settlement_id == "forest_edge",
 				"slot 2's settlement restored — NOT slot 1's")
-			_check(main.get_node("TestMap").layout == ForestEdgeLayout,
+			# Since the zone split the farm zone's map (FarmMap) is the settlement-specific one —
+			# the layout-identity check the old single TestMap carried lives there now.
+			_check(main.get_node("FarmMap").layout == ForestEdgeLayout,
 				"the world painted slot 2's layout")
 			_check(game_state.save_path == SAVES_DIR.path_join("slot_2.json"),
 				"save_path is the LOADED slot's file, so its auto-saves stay in their lane")
@@ -159,13 +162,12 @@ func _physics_process(_delta: float) -> bool:
 			if main == null or main.name != "Main":
 				return _finish()
 			_check(day_manager.day == 1, "the new game starts on day 1, not a loaded day")
-			_check(main.get_node("TestMap").layout == RiversideLayout,
+			_check(main.get_node("FarmMap").layout == RiversideLayout,
 				"the new game painted its OWN settlement's layout")
 			# First save materialises the slot — through the same GameState.save_game the bed
-			# uses (runtime_smoke stage 81's convention for a non-bed save).
-			var test_map: Node = main.get_node("TestMap")
-			_check(game_state.save_game(main.get_node("Player"), test_map,
-					test_map.get_node("Farm"), test_map.get_node("Structures")),
+			# uses (runtime_smoke stage 81's convention for a non-bed save), on the zone-split
+			# signature: the whole always-instantiated zones dict, not one map's node trio.
+			_check(game_state.save_game(main.get_node("Player"), main.zones),
 				"the new game's first save wrote")
 			_check(FileAccess.file_exists(SAVES_DIR.path_join("slot_3.json")),
 				"slot 3's file now exists")
@@ -265,7 +267,10 @@ func _write_slot(id: int, settlement_id: String, day: int, saved_unix: int) -> v
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SAVES_DIR))
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({
-		"version": 1, "settlement_id": settlement_id, "day": day,
+		# The CURRENT save version, not a literal: a seeded slot must stay loadable across
+		# version bumps (v1 slots are now correctly rejected by parse_save — that rejection has
+		# its own test in tests/test_save_data.gd, it isn't this file's job to re-prove).
+		"version": SaveData.SAVE_VERSION, "settlement_id": settlement_id, "day": day,
 		"minutes_into_day": 360.0, "saved_unix": saved_unix,
 	}, "\t"))
 	file.close()

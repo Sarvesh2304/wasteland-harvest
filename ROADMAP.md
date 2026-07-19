@@ -207,10 +207,23 @@ when.
       row (a real deviation the plan flagged for re-verification and which did NOT hold as
       simplified — the combined map had no wall between old farm/town rows, so this was a
       genuine finding, not an oversight). Saves reshaped to `SAVE_VERSION 2` (a `zones` dict
-      keyed per zone); old v1 saves invalidated, not migrated. Stage 2 (save-system hardening)
-      and Stage 3 (`tests/test_map_layouts.gd`/`runtime_smoke.gd`/`soak_test.gd` full migration)
-      are follow-on work, not yet done — `runtime_smoke.gd`/`soak_test.gd`/`sleep_smoke.gd` are
-      known-broken against the new `TestMap` node structure until Stage 2's mechanical sweep.
+      keyed per zone); old v1 saves invalidated, not migrated.
+- [x] **Zone-transition system, Stage 2 of 3 — save-system hardening.** `parse_save()`'s existing
+      version check already invalidated v1 saves correctly with no new migrator needed; confirmed
+      with a dedicated rejection test rather than just asserted. No stale local save files existed
+      on disk to clean up (verified directly, not assumed). Swept the remaining direct
+      `GameState.save_game(...)`/single-`TestMap` call sites in `soak_test.gd`, `runtime_smoke.gd`,
+      `title_smoke.gd`, and 9 `screenshot_*.gd` tools onto the zone-aware `main.zones` signature —
+      a real bug caught along the way: `title_smoke.gd`'s seeded save slots hardcoded
+      `"version": 1`, which v2 now (correctly) refuses to even list, fixed to write
+      `SaveData.SAVE_VERSION`. `soak_test.gd`/`runtime_smoke.gd` needed real re-anchoring (new
+      `_warp_to(zone_id)`/`_npc_by_id(id, zone_id)` helpers riding `main._bind_zone()`, coordinates
+      moved onto each zone's own clear ground) rather than a pure mechanical sweep — a purely
+      literal signature swap left them crash-looping on null town NPCs, so scope necessarily
+      pulled forward part of Stage 3's re-anchoring work while leaving *what's asserted*
+      unchanged. Stage 3 (`tests/test_map_layouts.gd`'s per-zone restructure + `zone_exits()`
+      graph checks, `sleep_smoke.gd`/`held_input_smoke.gd`, and driving real gate-walks instead of
+      direct `_bind_zone` calls in soak/runtime) remains open.
 
 **Zone-transition Stage 1 verified independently:** re-ran the full suite myself (252/252 tests)
 and the new `tools/zone_transition_smoke.gd` (86 checks — all 6 gate crossings, camera-bounds
@@ -227,6 +240,17 @@ plan's flagged "no row-shift" simplification genuinely did not hold and the +1 w
 fix that replaced it is correct. Known non-blocking rough edges (documented in the layout
 files): the ruined road reads as reddish planks (only existing decor tile at 16px; a dedicated
 tile is future polish), Riverside's west river gate has a cosmetic gap.
+
+**Zone-transition Stage 2 verified independently:** re-ran the full suite myself (253/253 tests,
++1 new — the `version:1`-rejection test) and each of `zone_transition_smoke.gd` (86 checks),
+`soak_test.gd`, `runtime_smoke.gd`, and `title_smoke.gd` individually (never batched) — all green,
+matching Fable's own report exactly. Read the full diffs on `test_save_data.gd` (the round-trip
+test now exercises real per-zone JSON through the actual encoders, typed-decode checks included,
+not just presence checks) and `title_smoke.gd` (confirmed the seeded-slot `version:1` bug and its
+fix are real). Independently confirmed on disk (`~/Library/Application Support/Godot/app_userdata/
+Wasteland Harvest/saves/`) that no stale save files existed, rather than trusting the "nothing to
+delete" claim. Confirmed `data/buildings.json`/`data/items.json`'s diffs are pure whitespace noise
+via `git diff -w` before excluding them from this commit.
 
 **Stage 1 verified independently:** re-ran the full suite myself (87/87 unit tests), read
 through the new core scripts (`game_state.gd`, `settlement_db.gd`, `structures.gd`,

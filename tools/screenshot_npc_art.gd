@@ -51,7 +51,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 10:
 				return false
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
+			test_map = main.get_node("TownMap")  # zone split: the town-core NPCs live here now
 			npcs = test_map.get_node("Npcs")
 			day_manager.minutes_into_day = 720.0  # noon: unmodulated palette for a clean shot
 			day_manager.time_paused = true

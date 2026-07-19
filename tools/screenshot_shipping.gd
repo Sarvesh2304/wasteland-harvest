@@ -52,7 +52,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 10:
 				return false
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
+			test_map = main.get_node("FarmMap")  # zone split: the shipping box is farm-zone content
 			shipping_ui = main.get_node("ShippingUI")
 			day_manager.minutes_into_day = 720.0  # noon: unmodulated palette for a clean shot
 			day_manager.time_paused = true

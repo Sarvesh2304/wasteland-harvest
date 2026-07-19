@@ -54,7 +54,7 @@ func _physics_process(_delta: float) -> bool:
 			player = main.get_node("Player")
 			hud = main.get_node("HUD")
 			# Stand in the open near the farmhouse, coffee in the hotbar for flavor.
-			player.global_position = main.get_node("TestMap").cell_to_world_center(Vector2i(17, 7))
+			player.global_position = main.get_node("FarmMap").cell_to_world_center(Vector2i(17, 7))
 			player.velocity = Vector2.ZERO
 			player.facing = "south"
 			player.inventory.remove_item("stone", 99)  # free a hotbar slot (Forest Edge bonus)

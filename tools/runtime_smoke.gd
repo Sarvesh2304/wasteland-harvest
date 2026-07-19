@@ -105,23 +105,24 @@ const ItemDB := preload("res://scripts/item_db.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const RiversideLayout := preload("res://scripts/map_layouts/riverside_layout.gd")
+## The forest_edge run's other two zones with content of their own (Path deliberately has no
+## buildings/NPCs). Forest Edge uses the STANDARD town/ranch variants (settlement_db.gd's
+## layout_for_zone) — the riverside variants only differ for the riverside start.
+const TownLayout := preload("res://scripts/map_layouts/town_layout_standard.gd")
+const RanchLayout := preload("res://scripts/map_layouts/ranch_layout_standard.gd")
 const NpcGrid := preload("res://scripts/npc_grid.gd")
 
 ## Standalone-TestMap sanity check for the other 2 starts (ROADMAP Phase 4: "correct layout
 ## loads" for whichever start was picked, not just the one driven through the full selection ->
-## main.tscn flow above). Each entry: settlement id, expected layout script, and the exact
-## painted-cell counts computed from that layout's ROWS (ground is always (w+1)*(h+1)).
-## Counts updated for the MAPS.md §3 Ranch/Sanctuary southern extension: every map grew from 36x32
-## to 36x49 (ground (36+1)*(49+1)=37*50), gained the shared ranch fencing (+158 F cells on the
-## F-west starts, +141 on Riverside whose extension west column is river not fence), the 17 extra
-## river cells down Riverside's west edge (water 32 -> 49), and the 3 ranch scenery buildings
-## (11 -> 14). Dock/decor plank count (3) is unchanged — the animal props are their own Props node,
-## not Decor-layer cells.
+## main.tscn flow above). Since the zone split a standalone test_map.tscn instance is the FARM
+## zone (zone_id's default) of whichever settlement is chosen, so this now checks each start's
+## farm-zone map. Painted-count expectations are derived from the layout's own authored data at
+## check time (fence_cells()/water_cells()/etc. — painting is a per-cell char match, so painted
+## == authored is exactly the "fully painted" invariant) rather than the old hand-counted
+## whole-combined-map literals the split obsoleted.
 const OTHER_LAYOUT_CHECKS := [
-	{"id": "open_plains", "layout": OpenPlainsLayout, "ground": 37 * 50, "obstacles": 0,
-		"fence": 287, "water": 20, "decor": 3, "buildings": 14},
-	{"id": "riverside", "layout": RiversideLayout, "ground": 37 * 50, "obstacles": 0,
-		"fence": 238, "water": 49, "decor": 3, "buildings": 14},
+	{"id": "open_plains", "layout": OpenPlainsLayout},
+	{"id": "riverside", "layout": RiversideLayout},
 ]
 var _other_layout_map: Node2D = null
 var _other_layout_index := 0
@@ -164,11 +165,20 @@ var failures: Array[String] = []
 var saved_day := 0
 var saved_position := Vector2.ZERO
 
-## Farming-loop test plot: a plain grass cell on Forest Edge's ROWS well clear of the pre-baked
-## farmland patches, treeline/salvage, buildings, and the SW creek (row 20 is open grass across
-## its whole interior width — see scripts/map_layouts/forest_edge_layout.gd's ROWS).
-const FARM_TEST_CELL := Vector2i(5, 20)
-const FARM_TEST_STAND_CELL := Vector2i(5, 19)
+## Farming-loop test plot: a plain grass cell on the farm zone's Forest Edge ROWS well clear of
+## the pre-baked farmland patches, treeline/salvage, buildings, and the SW creek (row 14 is open
+## grass across its whole interior width — see scripts/map_layouts/forest_edge_layout.gd's ROWS;
+## re-anchored from the pre-split row 20, which now belongs to the Town zone's frame).
+const FARM_TEST_CELL := Vector2i(5, 14)
+const FARM_TEST_STAND_CELL := Vector2i(5, 13)
+## Player-built-structure sites, re-anchored into the farm zone the same way: the 2x2 shed
+## lands at (30,9)-(31,10) (stand one north of its top-left, facing south), the 1x1 tent at
+## (24,14) — both verified open grass clear of farmland/creek/trees/ore/buildings.
+const SHED_STAND := Vector2i(30, 8)
+const SHED_CELL := Vector2i(30, 9)      # footprint top-left
+const SHED_CELL_SE := Vector2i(31, 10)  # footprint bottom-right
+const TENT_STAND := Vector2i(24, 13)
+const TENT_CELL := Vector2i(24, 14)
 
 
 func _initialize() -> void:
@@ -296,10 +306,13 @@ func _physics_process(_delta: float) -> bool:
 			player = main.get_node("Player")
 			camera = main.get_node("GameCamera")
 			day_night = main.get_node("DayNight")
-			test_map = main.get_node("TestMap")
-			farm = test_map.get_node("Farm")
-			structures = test_map.get_node("Structures")
-			npcs = test_map.get_node("Npcs")
+			# Since the zone split main.tscn holds 4 sibling zone maps (main.zones); this smoke's
+			# world refs point at the FARM zone's nodes (Stage 2's mechanical signature sweep —
+			# re-anchoring the stages themselves per-zone is the plan's Stage 3, still open).
+			test_map = main.zones["farm"]["map"]
+			farm = main.zones["farm"]["farm"]
+			structures = main.zones["farm"]["structures"]
+			npcs = main.zones["farm"]["npcs"]
 			dialogue_ui = main.get_node("DialogueUI")
 			store_ui = main.get_node("StoreUI")
 			shipping_ui = main.get_node("ShippingUI")
@@ -309,15 +322,15 @@ func _physics_process(_delta: float) -> bool:
 		2:
 			if ticks < 10:
 				return false
-			# -- The active map really is Forest Edge, not the default --
+			# -- The active FARM-zone map really is Forest Edge's, not the default --
 			_check(test_map.layout == ForestEdgeLayout,
-				"TestMap resolved the Forest Edge layout (not the default Open Plains)")
+				"FarmMap resolved the Forest Edge layout (not the default Open Plains)")
 			spawn = player.global_position
 			_check(spawn == test_map.get_spawn_position(), "player starts on the spawn cell")
 			_check(spawn == ForestEdgeLayout.cell_center(Vector2i(17, 5)),
 				"spawn position matches Forest Edge's authored spawn cell (17,5)")
-			_check(test_map.get_map_rect() == Rect2(0, 0, 576, 784),
-				"Forest Edge map bounds are 36x49 cells (grew south for the ranch, MAPS.md §3)")
+			_check(test_map.get_map_rect() == Rect2(0, 0, 576, 256),
+				"farm-zone map bounds are 36x16 cells (the zone split's farm-only frame)")
 			_check(hud.get_node("%DayLabel").text == "Day 1", "HUD day label bound")
 			_check(hud.get_node("%EnergyFill").value == 100.0, "energy bar full")
 			_check(player.farm == farm and player.test_map == test_map and player.structures == structures,
@@ -330,65 +343,98 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.inventory.count_of("wood") == 15, "Forest Edge bonus: 15 wood granted")
 			_check(player.inventory.count_of("scrap_metal") == 8, "Forest Edge bonus: 8 scrap metal granted")
 			_check(player.inventory.count_of("stone") == 8, "Forest Edge bonus: 8 stone granted")
-			# -- The map was actually painted correctly from Forest Edge's layout data --
-			_check(test_map.get_node("Ground").get_used_cells().size() == 37 * 50,
-				"dual-grid ground fully painted (37x50 visual tiles after the ranch extension)")
+			# -- The farm zone was actually painted correctly from its layout data (painting is a
+			#    per-cell char match, so painted == authored is the "fully painted" invariant; the
+			#    old hand-counted whole-combined-map literals died with the zone split) --
+			_check(test_map.get_node("Ground").get_used_cells().size() == 37 * 17,
+				"dual-grid ground fully painted (37x17 visual tiles, 36x16 farm zone)")
 			_check(test_map.get_node("Obstacles").get_used_cells().size() == 2,
 				"the 2 salvage-rubble '#' cells painted onto Obstacles")
-			_check(test_map.get_node("Fence").get_used_cells().size() == 287,
-				"all 287 fence cells painted (129 town perimeter + 158 ranch-extension fencing)")
-			_check(test_map.get_node("Water").get_used_cells().size() == 29,
-				"all 29 water cells (SW creek + town pool) painted")
-			_check(test_map.get_node("Decor").get_used_cells().size() == 3,
-				"all 3 dock plank cells painted")
-			# -- Town-core + farmland landmarks exist, positioned sensibly --
+			_check(test_map.get_node("Fence").get_used_cells().size()
+					== ForestEdgeLayout.fence_cells().size(),
+				"every authored farm-zone fence cell painted")
+			_check(test_map.get_node("Water").get_used_cells().size()
+					== ForestEdgeLayout.water_cells().size(),
+				"every authored farm-zone water cell painted (the SW creek)")
+			_check(test_map.get_node("Decor").get_used_cells().size()
+					== ForestEdgeLayout.dock_cells().size(),
+				"every authored farm-zone decor cell painted")
+			# -- Farm-zone landmarks; the town core and ranch live in their own zones now --
 			var buildings: Array[Dictionary] = ForestEdgeLayout.buildings()
-			_check(buildings.size() == 14,
-				"14 buildings defined (11 town + ranch house/barn/coop)")
-			_check(structures.get_child_count() == 14, "Structures spawned one body per building")
+			_check(buildings.size() == 4,
+				"4 farm-zone buildings defined (farmhouse + chest/box/bed service row)")
+			_check(structures.get_child_count() == 4, "Structures spawned one body per building")
 			var kinds := {}
 			for b in buildings:
 				kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
-			for required in ["farmhouse", "chest", "bed", "shipping_box", "mayor_house", "store",
-					"bulletin_board", "ranch_house", "ranch_barn", "ranch_coop"]:
+			for required in ["farmhouse", "chest", "bed", "shipping_box"]:
 				_check(kinds.get(required, 0) == 1, "exactly one %s" % required)
-			_check(kinds.get("shack", 0) == 4, "4 settler shacks")
 			var farmhouse: Dictionary = ForestEdgeLayout.building_at(16, 2)
 			_check(String(farmhouse.get("kind", "")) == "farmhouse", "farmhouse sits north of the spawn/farmland")
-			var mayor: Dictionary = ForestEdgeLayout.building_at(8, 16)
-			_check(String(mayor.get("kind", "")) == "mayor_house", "mayor's house sits in the town-core region")
 			_check(structures.is_chest_at(Vector2i(16, 4)), "chest is at its authored cell")
-			# -- Phase 5 Stage 1 + MAPS.md §3: the 3 town-core NPCs plus the ranch keeper --
-			_check(npcs.npcs().size() == 4, "4 NPCs spawned (town core + ranch keeper)")
-			for entry in ForestEdgeLayout.npcs():
-				var npc: Node = _npc_by_id(String(entry["id"]))
-				_check(npc != null, "npc '%s' exists" % entry["id"])
-				if npc != null:
-					_check(test_map.world_to_cell(npc.global_position) == entry["home"],
-						"npc '%s' spawned at its authored home cell %s" % [entry["id"], entry["home"]])
+			# -- Town zone: the town core's buildings, in ITS local frame --
+			var town_kinds := {}
+			for b in TownLayout.buildings():
+				town_kinds[String(b["kind"])] = town_kinds.get(String(b["kind"]), 0) + 1
+			for required in ["mayor_house", "store", "bulletin_board"]:
+				_check(town_kinds.get(required, 0) == 1, "exactly one %s (town zone)" % required)
+			_check(town_kinds.get("shack", 0) == 4, "4 settler shacks (town zone)")
+			_check(main.zones["town"]["structures"].get_child_count() == TownLayout.buildings().size(),
+				"town Structures spawned one body per town building")
+			var mayor: Dictionary = TownLayout.building_at(8, 1)
+			_check(String(mayor.get("kind", "")) == "mayor_house",
+				"mayor's house sits in the town core (town-local frame)")
+			# -- Ranch zone: the compound's three scenery buildings --
+			var ranch_kinds := {}
+			for b in RanchLayout.buildings():
+				ranch_kinds[String(b["kind"])] = ranch_kinds.get(String(b["kind"]), 0) + 1
+			for required in ["ranch_house", "ranch_barn", "ranch_coop"]:
+				_check(ranch_kinds.get(required, 0) == 1, "exactly one %s (ranch zone)" % required)
+			_check(main.zones["ranch"]["structures"].get_child_count() == RanchLayout.buildings().size(),
+				"ranch Structures spawned one body per ranch building")
+			# -- Phase 5 Stage 1 + MAPS.md §3: NPC rosters live per zone since the split —
+			#    none on the farm, the 3 town-core NPCs in town, the ranch keeper in the ranch --
+			_check(npcs.npcs().size() == 0, "no NPC lives in the farm zone")
+			for zone_id in ["town", "ranch"]:
+				var zmap: Node2D = main.zones[zone_id]["map"]
+				var entries: Array = zmap.layout.npcs()
+				_check(main.zones[zone_id]["npcs"].npcs().size() == entries.size(),
+					"%s zone spawned its full %d-NPC roster" % [zone_id, entries.size()])
+				for entry in entries:
+					var npc: Node = _npc_by_id(String(entry["id"]), zone_id)
+					_check(npc != null, "npc '%s' exists" % entry["id"])
+					if npc != null:
+						_check(zmap.world_to_cell(npc.global_position) == entry["home"],
+							"npc '%s' spawned at its authored home cell %s" % [entry["id"], entry["home"]])
 			_enter_stage(3)
 		3:
-			# -- Basic collision on buildings works: walk the player into the mayor's house --
+			# -- Basic collision on buildings works: walk the player into the mayor's house.
+			#    Town-zone content since the split: warp there (main._bind_zone, the same rebind
+			#    a gate crossing performs) and compare in the town map's LOCAL frame, since the
+			#    zone sits at a sibling world offset. --
 			if ticks < 5:
-				player.global_position = ForestEdgeLayout.cell_center(Vector2i(5, 17))
+				_warp_to("town")
+				player.global_position = test_map.get_global_cell_center(Vector2i(5, 2))
 				player.velocity = Vector2.ZERO
 				player.facing = "east"
 				Input.action_press("move_right")
 				return false
-			if ticks >= 150:  # ~2.5s: plenty to cross the ~48px gap to the building's west face
+			if ticks >= 150:  # ~2.5s: plenty to cross the ~32px gap to the building's west face
 				Input.action_release("move_right")
-				var mayor_west_face_x: float = 8 * 16.0  # top_left.x * CELL_SIZE
-				_check(player.global_position.x < mayor_west_face_x,
-					"mayor's house collision stopped the player (x=%.1f, west face at %.1f)" \
-						% [player.global_position.x, mayor_west_face_x])
-				_check(player.global_position.x > 90.0,
-					"player actually moved toward the building before being stopped (x=%.1f)" \
-						% player.global_position.x)
+				var x_local: float = test_map.to_local(player.global_position).x
+				var mayor_west_face_x: float = 8 * 16.0  # town-local top_left.x * CELL_SIZE
+				_check(x_local < mayor_west_face_x,
+					"mayor's house collision stopped the player (local x=%.1f, west face at %.1f)" \
+						% [x_local, mayor_west_face_x])
+				_check(x_local > 90.0,
+					"player actually moved toward the building before being stopped (local x=%.1f)" \
+						% x_local)
 				_enter_stage(4)
 		4:
 			# -- Chest interaction: opens/toggles a real second Inventory via the HUD --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(16, 5))
+				_warp_to("farm")  # home from the town collision check
+				player.global_position = test_map.get_global_cell_center(Vector2i(16, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"  # targets cell (16,4), the chest
 				return false
@@ -421,7 +467,10 @@ func _physics_process(_delta: float) -> bool:
 				# of energy — real behaviour, artificial clock position. (Can't pause instead:
 				# main.gd's _process re-derives time_paused from the modal gate every frame.)
 				player.set_energy(player.max_energy)
-				player.global_position = spawn
+				# Walk east along row 14, NOT the spawn's row 5: since the zone split the east
+				# wall has its gate-break to the Path zone on rows 4-5, so a row-5 walk would
+				# warp zones instead of hitting the fence. Row 14 is open clear to the wall.
+				player.global_position = Vector2(spawn.x, 14 * 16.0 + 8.0)
 				player.velocity = Vector2.ZERO
 				Input.action_press("move_right")
 				_enter_stage(7)
@@ -467,7 +516,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(hud.get_node("%ClockLabel").text.ends_with("PM"),
 					"HUD clock shows afternoon after noon reset")
 				# -- Phase 3 farming loop, re-run against the new map --
-				player.global_position = test_map.cell_to_world_center(FARM_TEST_STAND_CELL)
+				player.global_position = test_map.get_global_cell_center(FARM_TEST_STAND_CELL)
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				player.inventory.select_hotbar(0)  # hoe
@@ -554,9 +603,10 @@ func _physics_process(_delta: float) -> bool:
 			#    (rather than his authored home) so this check is robust even if he's already
 			#    taken a wander step by the time this stage runs.
 			if ticks < 5:
+				_warp_to("town")  # zone split: the town-core NPCs live in the Town zone now
 				var npc: Node = _npc_by_id("mayor_harlan")
 				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
-				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.global_position = test_map.get_global_cell_center(npc_cell + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -627,7 +677,7 @@ func _physics_process(_delta: float) -> bool:
 				var npc: Node = _npc_by_id("mayor_harlan")
 				_check(not bool(npc.talking), "NPC unfroze after the box closed")
 				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
-				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.global_position = test_map.get_global_cell_center(npc_cell + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -657,7 +707,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 5:
 				var npc: Node = _npc_by_id("marta")
 				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
-				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, -1))
+				player.global_position = test_map.get_global_cell_center(npc_cell + Vector2i(0, -1))
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				return false
@@ -776,7 +826,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 5:
 				var npc: Node = _npc_by_id("scout_kael")
 				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
-				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				player.global_position = test_map.get_global_cell_center(npc_cell + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -800,6 +850,7 @@ func _physics_process(_delta: float) -> bool:
 			# -- Player movement/interaction genuinely still works after all that dialogue (the
 			#    literal "shouldn't leave the player stuck" requirement) --
 			if ticks < 5:
+				_warp_to("farm")  # home from the town visits; the walk check runs at the spawn
 				player.global_position = spawn
 				player.velocity = Vector2.ZERO
 				Input.action_press("move_left")
@@ -809,10 +860,15 @@ func _physics_process(_delta: float) -> bool:
 				_check(player.global_position.x < spawn.x, "player can still walk after every conversation closed")
 				_check(player.facing == "west", "facing still tracks input normally")
 				# -- Wander check: record each NPC's cell now, verified to have moved (but stayed
-				#    in-zone / off solid terrain) after simulated time in stage 61. --
-				for entry in ForestEdgeLayout.npcs():
-					var npc: Node = _npc_by_id(String(entry["id"]))
-					_wander_start_cells[String(entry["id"])] = test_map.world_to_cell(npc.global_position)
+				#    in-zone / off solid terrain) after simulated time in stage 61. Rosters are
+				#    per zone since the split (town 3 + ranch 1); inactive zones aren't paused,
+				#    so NPCs keep wandering there while the player stands on the farm. --
+				for zone_id in ["town", "ranch"]:
+					var zmap: Node2D = main.zones[zone_id]["map"]
+					for entry in zmap.layout.npcs():
+						var npc: Node = _npc_by_id(String(entry["id"]), zone_id)
+						_wander_start_cells[String(entry["id"])] = \
+							zmap.world_to_cell(npc.global_position)
 				_enter_stage(60)
 		60:
 			# -- Let real time pass (well past IDLE_SECONDS_MAX) so every NPC gets at least one
@@ -822,34 +878,39 @@ func _physics_process(_delta: float) -> bool:
 		61:
 			if ticks >= 5:
 				var any_moved := false
-				for entry in ForestEdgeLayout.npcs():
-					var id := String(entry["id"])
-					var home: Vector2i = entry["home"]
-					var npc: Node = _npc_by_id(id)
-					var cell: Vector2i = test_map.world_to_cell(npc.global_position)
-					if cell != _wander_start_cells[id]:
-						any_moved = true
-					_check(NpcGrid.within_zone(cell, home, int(entry["wander_radius"])),
-						"%s's wander stayed within its authorized zone (at %s, home %s)" % [id, cell, home])
-					_check(not test_map.is_blocked_at(cell),
-						"%s never wandered onto solid/blocked terrain (at %s)" % [id, cell])
+				for zone_id in ["town", "ranch"]:
+					var zmap: Node2D = main.zones[zone_id]["map"]
+					for entry in zmap.layout.npcs():
+						var id := String(entry["id"])
+						var home: Vector2i = entry["home"]
+						var npc: Node = _npc_by_id(id, zone_id)
+						var cell: Vector2i = zmap.world_to_cell(npc.global_position)
+						if cell != _wander_start_cells[id]:
+							any_moved = true
+						_check(NpcGrid.within_zone(cell, home, int(entry["wander_radius"])),
+							"%s's wander stayed within its authorized zone (at %s, home %s)" % [id, cell, home])
+						_check(not zmap.is_blocked_at(cell),
+							"%s never wandered onto solid/blocked terrain (at %s)" % [id, cell])
 				_check(any_moved, "at least one NPC actually wandered over ~10s")
 				_enter_stage(62)
 		62:
 			# -- MAPS.md §3: visit the Ranch/Sanctuary compound and open the keeper's dialogue
-			#    through the real facing+use_tool path (same shape as stages 50/54/57). Silas
-			#    lives in the southern compound, well below the town — assert that too, so this
-			#    genuinely exercises the extended map, not a mis-placed NPC up in town. --
+			#    through the real facing+use_tool path (same shape as stages 50/54/57). Since
+			#    the zone split the compound is its own zone: Silas spawning from the RANCH
+			#    zone's roster (not town's) is what "he's in the compound, not misplaced up in
+			#    town" means now — the old absolute-row check (y >= 36) died with the combined
+			#    map's single frame. --
 			if ticks < 5:
+				_warp_to("ranch")
 				var npc: Node = _npc_by_id("rancher_silas")
-				_check(npc != null, "the ranch keeper spawned")
+				_check(npc != null, "the ranch keeper spawned in the RANCH zone's roster")
 				if npc == null:
 					_finish()
 					return true
 				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
-				_check(npc_cell.y >= 36,
-					"Silas is down in the southern ranch compound (cell %s)" % npc_cell)
-				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, 1))
+				_check(test_map.get_map_rect().has_point(test_map.cell_to_world_center(npc_cell)),
+					"Silas stands inside the ranch compound's own map (cell %s)" % npc_cell)
+				player.global_position = test_map.get_global_cell_center(npc_cell + Vector2i(0, 1))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -884,10 +945,11 @@ func _physics_process(_delta: float) -> bool:
 				_enter_stage(16)
 		16:
 			# -- Phase 4 Stage 2: building placement, end to end (see class doc) --
-			# Site: shed footprint (3,16)-(4,17) — open grass south of the creek, west of the
-			# mayor's house (x8-11), on Forest Edge's ROWS. Player stands one cell north.
+			# Site: shed footprint SHED_CELL..SHED_CELL_SE — open grass on the farm zone's east
+			# side, clear of farmland/creek/trees/ore. Player stands one cell north, facing south.
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(3, 15))
+				_warp_to("farm")  # home from the ranch visit: building happens on the farm
+				player.global_position = test_map.get_global_cell_center(SHED_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				return false
@@ -903,7 +965,7 @@ func _physics_process(_delta: float) -> bool:
 				_drive_builder_action("build_cycle")
 				_check(builder.current_id() == "storage_shed", "build_cycle steps to the shed")
 				# Placement-validity spot checks against the live map:
-				_check(structures.can_place(Vector2i(3, 16), Vector2i(2, 2)),
+				_check(structures.can_place(SHED_CELL, Vector2i(2, 2)),
 					"open grass site is placeable")
 				_check(not structures.can_place(Vector2i(2, 11), Vector2i(2, 2)),
 					"can't place onto the creek")
@@ -918,14 +980,14 @@ func _physics_process(_delta: float) -> bool:
 				_check(player.inventory.count_of("scrap_metal") == 6, "shed spent 2 scrap (8 -> 6)")
 				_check(player.energy == energy_before - player.ENERGY_BUILD,
 					"placement cost ENERGY_BUILD (%.2f -> %.2f)" % [energy_before, player.energy])
-				_check(test_map.is_blocked_at(Vector2i(3, 16)) and test_map.is_blocked_at(Vector2i(4, 17)),
+				_check(test_map.is_blocked_at(SHED_CELL) and test_map.is_blocked_at(SHED_CELL_SE),
 					"blueprint footprint registered as blocked")
-				_check(not structures.can_place(Vector2i(3, 16), Vector2i(2, 2)),
+				_check(not structures.can_place(SHED_CELL, Vector2i(2, 2)),
 					"occupied site can't be double-placed")
-				_check(not farm.can_till(Vector2i(4, 16)), "can't till under a blueprint")
+				_check(not farm.can_till(Vector2i(31, 9)), "can't till under a blueprint")
 				_check(structures._pending.size() == 1 and structures._completed.is_empty(),
 					"blueprint is pending, not complete")
-				_check(not structures.is_chest_at(Vector2i(3, 16)),
+				_check(not structures.is_chest_at(SHED_CELL),
 					"an under-construction shed isn't storage yet")
 				_check(not builder.confirm_placement(),
 					"second shed refused (unaffordable and preview overlaps the first)")
@@ -937,24 +999,24 @@ func _physics_process(_delta: float) -> bool:
 				day_manager.skip_to_next_morning()
 				_check(structures._pending.is_empty() and structures._completed.size() == 1,
 					"construction completed on the next day's start")
-				_check(structures.is_chest_at(Vector2i(3, 16)) and structures.is_chest_at(Vector2i(4, 17)),
+				_check(structures.is_chest_at(SHED_CELL) and structures.is_chest_at(SHED_CELL_SE),
 					"completed shed is storage on every footprint cell")
 				_enter_stage(17)
 		17:
 			# -- The completed shed is a real collidable body: walk the player into it --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(7, 16))
+				player.global_position = test_map.get_global_cell_center(Vector2i(33, 9))
 				player.velocity = Vector2.ZERO
 				player.facing = "west"
 				Input.action_press("move_left")
 				return false
-			if ticks >= 150:  # ~2.5s: plenty to cross the ~32px gap to the shed's east face
+			if ticks >= 150:  # ~2.5s: plenty to cross the ~16px gap to the shed's east face
 				Input.action_release("move_left")
-				var shed_east_face_x := 5 * 16.0  # (top_left.x + size.x) * CELL_SIZE
+				var shed_east_face_x := 32 * 16.0  # (top_left.x + size.x) * CELL_SIZE
 				_check(player.global_position.x > shed_east_face_x,
 					"completed shed collision stopped the player (x=%.1f, east face at %.1f)" \
 						% [player.global_position.x, shed_east_face_x])
-				_check(player.global_position.x < 110.0,
+				_check(player.global_position.x < 530.0,
 					"player actually moved toward the shed before being stopped (x=%.1f)" \
 						% player.global_position.x)
 				_enter_stage(18)
@@ -962,9 +1024,9 @@ func _physics_process(_delta: float) -> bool:
 			# -- Shed storage opens its OWN Inventory via the existing chest UI, then gather
 			#    wood (chop) so the tent build below starts from too-few resources --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(5, 17))
+				player.global_position = test_map.get_global_cell_center(Vector2i(32, 10))
 				player.velocity = Vector2.ZERO
-				player.facing = "west"  # targets (4,17), a shed footprint cell
+				player.facing = "west"  # targets (31,10), a shed footprint cell
 				return false
 			if ticks == 5:
 				player.use_tool()
@@ -972,13 +1034,13 @@ func _physics_process(_delta: float) -> bool:
 				_check(hud.get_node("%ChestGrid").visible, "shed storage UI opened")
 				_check(hud._chest_inventory != structures.chest_inventory,
 					"shed storage is its own Inventory, not the layout chest's")
-				_check(hud._chest_inventory == structures.storage_inventory_at(Vector2i(4, 17)),
+				_check(hud._chest_inventory == structures.storage_inventory_at(SHED_CELL_SE),
 					"HUD is bound to the shed's real Inventory instance")
 				player.use_tool()
 				_check(not hud.get_node("%ChestGrid").visible, "shed UI closes on re-interaction")
 				# Tent costs 6 wood; only 3 remain — chop the treeline tree at (33,2) for 3 more.
 				_check(player.inventory.count_of("wood") == 3, "3 wood left, tent unaffordable")
-				player.global_position = test_map.cell_to_world_center(Vector2i(32, 2))
+				player.global_position = test_map.get_global_cell_center(Vector2i(32, 2))
 				player.velocity = Vector2.ZERO
 				player.facing = "east"
 				player.inventory.select_hotbar(2)  # axe
@@ -990,9 +1052,9 @@ func _physics_process(_delta: float) -> bool:
 			if ticks >= 60:
 				_check(not player.using_tool, "chop swing finished")
 				_check(player.inventory.count_of("wood") == 6, "chop granted 3 wood (3 -> 6)")
-				player.global_position = test_map.cell_to_world_center(Vector2i(30, 20))
+				player.global_position = test_map.get_global_cell_center(TENT_STAND)
 				player.velocity = Vector2.ZERO
-				player.facing = "south"  # tent (1x1) lands on (30,21), open grass
+				player.facing = "south"  # tent (1x1) lands on TENT_CELL, open grass
 				_drive_builder_action("build_toggle")
 				_drive_builder_action("build_cycle")  # index 1 (shed) wraps back to 0 (tent)
 				_check(builder.current_id() == "shelter_tent", "build_cycle wraps around the catalog")
@@ -1001,13 +1063,13 @@ func _physics_process(_delta: float) -> bool:
 				_check(player.energy == 96.0,
 					"energy ledger holds: 100 - 1.25 (shed) - 1.5 (chop) - 1.25 (tent) = 96, got %.2f" \
 						% player.energy)
-				_check(test_map.is_blocked_at(Vector2i(30, 21)), "tent cell blocked while building")
+				_check(test_map.is_blocked_at(TENT_CELL), "tent cell blocked while building")
 				_drive_builder_action("build_toggle")
 				day_manager.skip_to_next_morning()
 				_check(structures._pending.is_empty() and structures._completed.size() == 2,
 					"both player-built structures completed")
-				_check(not structures.is_chest_at(Vector2i(30, 21)), "tent is not storage")
-				_check(not farm.can_till(Vector2i(30, 21)), "completed tent cell stays untillable")
+				_check(not structures.is_chest_at(TENT_CELL), "tent is not storage")
+				_check(not farm.can_till(TENT_CELL), "completed tent cell stays untillable")
 				_enter_stage(100)
 		100:
 			# -- 2026-07-12 in-game tabbed menu, part 1 (see class doc): open via the real
@@ -1109,7 +1171,7 @@ func _physics_process(_delta: float) -> bool:
 			#    the real facing+use_tool dispatch. Forest Edge's box is at (17,4), between the
 			#    chest and the bed; the player stands on the spawn cell (17,5) directly south. --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(17, 5))
+				player.global_position = test_map.get_global_cell_center(Vector2i(17, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -1169,7 +1231,7 @@ func _physics_process(_delta: float) -> bool:
 				farm.water(FARM_TEST_CELL)
 				player.inventory.remove_item("seed_mutant_potato", 1)  # match a real replant's cost
 				structures.chest_inventory.add_item("stone", 2)
-				structures.storage_inventory_at(Vector2i(3, 16)).add_item("wood", 1)
+				structures.storage_inventory_at(SHED_CELL).add_item("wood", 1)
 				player.set_energy(42.0)
 				# Phase 5 Stage 2: Credits must round-trip too — set a fresh, distinctive value
 				# here (independent of whatever balance the store stages above left behind).
@@ -1177,7 +1239,7 @@ func _physics_process(_delta: float) -> bool:
 				# sells overnight, so the post-sleep balance must be exactly 37 + 20.
 				player.set_credits(37)
 				# Stand one cell south of Forest Edge's bed at (18,4), facing it.
-				player.global_position = test_map.cell_to_world_center(Vector2i(18, 5))
+				player.global_position = test_map.get_global_cell_center(Vector2i(18, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -1272,9 +1334,9 @@ func _physics_process(_delta: float) -> bool:
 				_finish()
 				return true
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
-			farm = test_map.get_node("Farm")
-			structures = test_map.get_node("Structures")
+			test_map = main.zones["farm"]["map"]
+			farm = main.zones["farm"]["farm"]
+			structures = main.zones["farm"]["structures"]
 			hud = main.get_node("HUD")
 			_enter_stage(23)
 		23:
@@ -1320,18 +1382,18 @@ func _physics_process(_delta: float) -> bool:
 			# Player-built structures + storage:
 			_check(structures._pending.is_empty() and structures._completed.size() == 2,
 				"both completed structures restored")
-			_check(structures.is_chest_at(Vector2i(3, 16)) and structures.is_chest_at(Vector2i(4, 17)),
+			_check(structures.is_chest_at(SHED_CELL) and structures.is_chest_at(SHED_CELL_SE),
 				"restored shed is storage on its footprint")
-			_check(structures.storage_inventory_at(Vector2i(3, 16)) != null and
-				structures.storage_inventory_at(Vector2i(3, 16)).count_of("wood") == 1,
+			_check(structures.storage_inventory_at(SHED_CELL) != null and
+				structures.storage_inventory_at(SHED_CELL).count_of("wood") == 1,
 				"shed storage contents restored")
 			_check(structures.chest_inventory.count_of("stone") == 2, "layout chest contents restored")
-			_check(not structures.is_chest_at(Vector2i(30, 21)), "restored tent is not storage")
+			_check(not structures.is_chest_at(TENT_CELL), "restored tent is not storage")
 			# The _runtime_blocked overlay was re-derived from the restored structures, not
 			# serialised (see save_data.gd's class doc):
-			_check(test_map.is_blocked_at(Vector2i(3, 16)) and test_map.is_blocked_at(Vector2i(30, 21)),
+			_check(test_map.is_blocked_at(SHED_CELL) and test_map.is_blocked_at(TENT_CELL),
 				"restored footprints re-registered as blocked")
-			_check(not farm.can_till(Vector2i(4, 16)), "can't till under the restored shed")
+			_check(not farm.can_till(Vector2i(31, 9)), "can't till under the restored shed")
 			_check(structures.is_bed_at(Vector2i(18, 4)), "bed present again after reload")
 			# -- Phase 5 Stage 3: the sold-and-emptied box and its sale history survived too --
 			_check(structures.is_shipping_box_at(Vector2i(17, 4)),
@@ -1354,15 +1416,16 @@ func _physics_process(_delta: float) -> bool:
 			#    Marta's store, through the real dialogue-choice path — the phase milestone's
 			#    "farm, sell crops, earn currency, and buy seeds" chain closed in one run. --
 			if ticks < 5:
-				# Re-fetch the UI/roster nodes stage 22's reload rebuilt (it only re-fetched the
-				# world nodes the stage-23 checks needed).
-				npcs = test_map.get_node("Npcs")
+				# Re-fetch the UI nodes stage 22's reload rebuilt (it only re-fetched the world
+				# nodes the stage-23 checks needed), then walk over to town — Marta's store is
+				# Town-zone content since the split.
 				dialogue_ui = main.get_node("DialogueUI")
 				store_ui = main.get_node("StoreUI")
 				shipping_ui = main.get_node("ShippingUI")
+				_warp_to("town")
 				var npc: Node = _npc_by_id("marta")
 				var npc_cell: Vector2i = test_map.world_to_cell(npc.global_position)
-				player.global_position = test_map.cell_to_world_center(npc_cell + Vector2i(0, -1))
+				player.global_position = test_map.get_global_cell_center(npc_cell + Vector2i(0, -1))
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
 				return false
@@ -1393,9 +1456,11 @@ func _physics_process(_delta: float) -> bool:
 			if ticks == 1:  # exactly once: add_item is not idempotent (see stage 20's note)
 				# Seed 2 sunbloom to ship (same seed-distinctive-state convention as stage 20 —
 				# growing a second crop through stages 10-15 again would re-prove farming, not
-				# shipping) and stand at the box.
+				# shipping), head home (the box is farm-zone content — and saving farm-bound is
+				# what the reload below must restore), and stand at the box.
 				player.inventory.add_item("sunbloom", 2)
-				player.global_position = test_map.cell_to_world_center(Vector2i(17, 5))
+				_warp_to("farm")
+				player.global_position = test_map.get_global_cell_center(Vector2i(17, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				return false
@@ -1417,8 +1482,9 @@ func _physics_process(_delta: float) -> bool:
 				_check(not shipping_ui.active, "left the loading UI")
 				# Mid-session save through the SAME GameState call the bed makes — called
 				# directly, because the bed path would sell the load first, which is exactly
-				# the state this round trip must preserve un-sold.
-				_check(game_state.save_game(player, test_map, farm, structures),
+				# the state this round trip must preserve un-sold. Zone-split signature: the
+				# whole zones dict, not one map's node trio.
+				_check(game_state.save_game(player, main.zones),
 					"mid-session save written with the box still loaded")
 				saved_day = day_manager.day
 				_enter_stage(82)
@@ -1457,9 +1523,9 @@ func _physics_process(_delta: float) -> bool:
 				_finish()
 				return true
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
-			farm = test_map.get_node("Farm")
-			structures = test_map.get_node("Structures")
+			test_map = main.zones["farm"]["map"]
+			farm = main.zones["farm"]["farm"]
+			structures = main.zones["farm"]["structures"]
 			hud = main.get_node("HUD")
 			_enter_stage(84)
 		84:
@@ -1475,7 +1541,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(structures.sale_history.size() == 1,
 					"history still holds exactly the one earlier sale (no phantom sale on load)")
 				_check(player.credits == 49, "credits restored un-credited (49, got %d)" % player.credits)
-				player.global_position = test_map.cell_to_world_center(Vector2i(18, 5))
+				player.global_position = test_map.get_global_cell_center(Vector2i(18, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"  # targets (18,4), the bed
 				return false
@@ -1515,18 +1581,29 @@ func _physics_process(_delta: float) -> bool:
 			var check: Dictionary = OTHER_LAYOUT_CHECKS[_other_layout_index]
 			var id := String(check["id"])
 			_check(_other_layout_map.layout == check["layout"], "%s resolves its own layout script" % id)
-			_check(_other_layout_map.get_node("Ground").get_used_cells().size() == int(check["ground"]),
-				"%s ground fully painted" % id)
-			_check(_other_layout_map.get_node("Obstacles").get_used_cells().size() == int(check["obstacles"]),
-				"%s obstacles count matches" % id)
-			_check(_other_layout_map.get_node("Fence").get_used_cells().size() == int(check["fence"]),
-				"%s fence count matches" % id)
-			_check(_other_layout_map.get_node("Water").get_used_cells().size() == int(check["water"]),
-				"%s water count matches" % id)
-			_check(_other_layout_map.get_node("Decor").get_used_cells().size() == int(check["decor"]),
-				"%s dock/decor count matches" % id)
-			_check(_other_layout_map.get_node("Structures").get_child_count() == int(check["buildings"]),
-				"%s spawned all %d buildings" % [id, check["buildings"]])
+			# Painted == authored, derived from the layout's own data (see OTHER_LAYOUT_CHECKS'
+			# doc — a standalone test_map.tscn is that settlement's FARM zone since the split).
+			var layout_size: Vector2i = check["layout"].size()
+			_check(_other_layout_map.get_node("Ground").get_used_cells().size()
+					== (layout_size.x + 1) * (layout_size.y + 1),
+				"%s ground fully painted (dual-grid %dx%d)" % [id, layout_size.x + 1, layout_size.y + 1])
+			var expected_obstacles := 0
+			for row in check["layout"].ROWS:
+				expected_obstacles += String(row).count("#")
+			_check(_other_layout_map.get_node("Obstacles").get_used_cells().size() == expected_obstacles,
+				"%s obstacles count matches its authored '#' cells" % id)
+			_check(_other_layout_map.get_node("Fence").get_used_cells().size()
+					== check["layout"].fence_cells().size(),
+				"%s fence count matches its authored 'F' cells" % id)
+			_check(_other_layout_map.get_node("Water").get_used_cells().size()
+					== check["layout"].water_cells().size(),
+				"%s water count matches its authored 'W' cells" % id)
+			_check(_other_layout_map.get_node("Decor").get_used_cells().size()
+					== check["layout"].dock_cells().size(),
+				"%s dock/decor count matches its authored 'p' cells" % id)
+			_check(_other_layout_map.get_node("Structures").get_child_count()
+					== check["layout"].buildings().size(),
+				"%s spawned all %d buildings" % [id, check["layout"].buildings().size()])
 			var spawn_cell: Vector2i = check["layout"].spawn_cell()
 			_check(not check["layout"].is_solid(spawn_cell.x, spawn_cell.y), "%s spawn cell isn't blocked" % id)
 			_other_layout_map.queue_free()
@@ -1614,9 +1691,24 @@ func _drive_shipping_action(action: String) -> void:
 	shipping_ui._unhandled_input(event)
 
 
-## Looks up a spawned NPC by its dialogue/roster id (scripts/npcs.gd's spawn list).
-func _npc_by_id(id: String) -> Node:
-	for npc in npcs.npcs():
+## Rebinds the player into `zone_id` through main.gd's real _bind_zone (the same rebind a gate
+## crossing performs, minus the fade — zone_transition_smoke.gd owns driving the literal gate
+## walk) and re-points this smoke's world refs at that zone's nodes. Needed since the zone
+## split: the town core, its NPCs/store, and the ranch each live in their own sibling zone.
+func _warp_to(zone_id: String) -> void:
+	main._bind_zone(zone_id)
+	test_map = main.zones[zone_id]["map"]
+	farm = main.zones[zone_id]["farm"]
+	structures = main.zones[zone_id]["structures"]
+	npcs = main.zones[zone_id]["npcs"]
+
+
+## Looks up a spawned NPC by its dialogue/roster id (scripts/npcs.gd's spawn list) — in the
+## currently-bound zone's roster by default, or an explicit zone's (the zone split moved every
+## NPC out of the farm zone, so farm-bound stages pass zone_id explicitly).
+func _npc_by_id(id: String, zone_id: String = "") -> Node:
+	var roster: Node = npcs if zone_id == "" else main.zones[zone_id]["npcs"]
+	for npc in roster.npcs():
 		if String(npc.npc_id) == id:
 			return npc
 	return null

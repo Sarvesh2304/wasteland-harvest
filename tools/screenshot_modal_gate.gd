@@ -51,7 +51,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 10:
 				return false
 			player = main.get_node("Player")
-			test_map = main.get_node("TestMap")
+			test_map = main.get_node("TownMap")  # zone split: needs a town-core NPC for the dialogue
 			npcs = test_map.get_node("Npcs")
 			dialogue_ui = main.get_node("DialogueUI")
 			builder = main.get_node("Builder")
