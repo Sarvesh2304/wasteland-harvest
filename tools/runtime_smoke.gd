@@ -88,6 +88,20 @@ extends SceneTree
 ## contents intact, and still sells correctly (+60 Cr, second history entry) on the next real bed
 ## sleep after the reload.
 ##
+## Phase 8 Stage 2 (fencing & perimeter system; stages 130-132, spliced right after the tent
+## build (stage 19) and before the in-game menu (stage 100) — chosen so the Build tab's "0 wood"
+## affordability check just below still holds, since 5 wood is granted and fully spent here):
+## places a Wood Fence and a Wood Gate through the exact same real builder.gd flow the shed/tent
+## used (catalog cycle to the new fence_wood/gate_wood entries, confirm, wait a day), then proves
+## the actual walkability milestone end to end — real physical collision, not just the pure
+## solid()/durability_max() data checked by tests/test_building_db.gd or the isolated
+## _spawn_footprint_body/_is_footprint_occupied checks in tests/test_structures_fencing.gd: a
+## completed Fence still stops the player cold (stage 131, same collision-face pattern as stage
+## 17's shed check), while a completed Gate lets the player walk straight through with zero
+## collision (stage 132) — and along the way, confirms a completed/unblocked Gate still can't be
+## built over a second time (the _is_footprint_occupied guard, exercised live here rather than
+## only in isolation).
+##
 ## 2026-07-12 in-game tabbed menu (stages 100-101, spliced between the tent build (stage 19) and
 ## the shipping-box load (stage 70) — after stage 19 the inventory sits at exactly 0 wood, so the
 ## Build tab's affordability rows have a known, assertable state): opens scripts/menu_screen.gd
@@ -182,6 +196,15 @@ const SHED_CELL := Vector2i(30, 9)      # footprint top-left
 const SHED_CELL_SE := Vector2i(31, 10)  # footprint bottom-right
 const TENT_STAND := Vector2i(24, 13)
 const TENT_CELL := Vector2i(24, 14)
+
+## Phase 8 Stage 2 (fencing & perimeter system): two more sites on the same open row 14, well
+## clear of the tent (24,14), the farming-test cell (5,14), and each other — a Wood Fence to
+## prove a completed fence keeps colliding, and a Wood Gate a few cells further along to prove a
+## completed gate does NOT (see stage 130-132).
+const FENCE_STAND := Vector2i(27, 13)
+const FENCE_CELL := Vector2i(27, 14)
+const GATE_STAND := Vector2i(31, 13)
+const GATE_CELL := Vector2i(31, 14)
 
 ## Zone-transition plan, Stage 3: the first town round trip (stages 3/4) is driven through the
 ## REAL gate-cell path — the player is stood on the authored gate cell and player.gd's own
@@ -1100,11 +1123,12 @@ func _physics_process(_delta: float) -> bool:
 				player.velocity = Vector2.ZERO
 				player.facing = "south"  # tent (1x1) lands on TENT_CELL, open grass
 				_drive_builder_action("build_toggle")
-				# Phase 8 Stage 1 grew the catalog to 12 entries: from index 1 (the barn, still
-				# selected from stage 16), cycling all the way around back to index 0 (the cabin)
-				# takes 11 presses, not 1 — this still exercises the real wraparound (Q past the
-				# last entry lands back on the first), just over the bigger catalog.
-				for i in 11:
+				# Phase 8 Stage 1 grew the catalog to 12 entries, Stage 2's 4 fence/gate entries
+				# grew it again to 16: from index 1 (the barn, still selected from stage 16),
+				# cycling all the way around back to index 0 (the cabin) now takes 15 presses,
+				# not 1 — this still exercises the real wraparound (Q past the last entry lands
+				# back on the first), just over the bigger catalog.
+				for i in 15:
 					_drive_builder_action("build_cycle")
 				_check(builder.current_id() == "shelter_tent", "build_cycle wraps around the catalog")
 				_check(builder.confirm_placement(), "tent blueprint placed")
@@ -1119,6 +1143,101 @@ func _physics_process(_delta: float) -> bool:
 					"both player-built structures completed")
 				_check(not structures.is_chest_at(TENT_CELL), "tent is not storage")
 				_check(not farm.can_till(TENT_CELL), "completed tent cell stays untillable")
+				_enter_stage(130)
+		130:
+			# -- Phase 8 Stage 2 (fencing & perimeter system), part 1: place a Wood Fence and a
+			#    Wood Gate through the same real builder.gd flow as the shed/tent above, then
+			#    complete both overnight. Wood is granted directly (the gather loop itself is
+			#    already proven by stage 18's chop) — same "seed distinctive state to exercise"
+			#    convention stage 90 uses for Credits. --
+			if ticks < 5:
+				player.global_position = test_map.get_global_cell_center(FENCE_STAND)
+				player.velocity = Vector2.ZERO
+				player.facing = "south"
+				return false
+			if ticks == 5:
+				# Grant exactly enough for both (2 + 3 = 5) so wood lands back at exactly 0
+				# afterward — preserving stage 100's "0 wood after the tent build" invariant for
+				# the Build tab's missing-materials check, rather than leaving a residual amount
+				# that would only coincidentally still read as "missing" for the Shelter Cabin row.
+				player.inventory.add_item("wood", 5)
+				_check(not builder.active, "build mode starts inactive (stage 130)")
+				_drive_builder_action("build_toggle")
+				# From index 0 (shelter_tent, stage 19 left it wrapped there) to fence_wood
+				# (index 12 of 16): 12 presses.
+				for i in 12:
+					_drive_builder_action("build_cycle")
+				_check(builder.current_id() == "fence_wood", "build_cycle reached the Wood Fence")
+				_check(structures.can_place(FENCE_CELL, Vector2i.ONE), "fence site is placeable")
+				var wood_before: int = player.inventory.count_of("wood")
+				_check(builder.confirm_placement(), "fence blueprint placed")
+				_check(player.inventory.count_of("wood") == wood_before - 2, "fence spent 2 wood")
+				_check(test_map.is_blocked_at(FENCE_CELL),
+					"a construction site blocks like anything else while building")
+				# Reposition for the gate, still in the same build-mode session — 3 more presses
+				# from fence_wood (12) to gate_wood (15).
+				player.global_position = test_map.get_global_cell_center(GATE_STAND)
+				player.velocity = Vector2.ZERO
+				player.facing = "south"
+				for i in 3:
+					_drive_builder_action("build_cycle")
+				_check(builder.current_id() == "gate_wood", "build_cycle reached the Wood Gate")
+				_check(structures.can_place(GATE_CELL, Vector2i.ONE), "gate site is placeable")
+				wood_before = player.inventory.count_of("wood")
+				_check(builder.confirm_placement(), "gate blueprint placed")
+				_check(player.inventory.count_of("wood") == wood_before - 3, "gate spent 3 wood")
+				_check(test_map.is_blocked_at(GATE_CELL),
+					"the gate's construction site blocks too, while building")
+				_drive_builder_action("build_toggle")
+				day_manager.skip_to_next_morning()
+				_check(structures._pending.is_empty() and structures._completed.size() == 4,
+					"both the fence and gate completed alongside the earlier shed/tent")
+				_check(test_map.is_blocked_at(FENCE_CELL),
+					"a completed solid Fence stays blocked")
+				_check(not test_map.is_blocked_at(GATE_CELL),
+					"a completed non-solid Gate is unblocked — the literal walkability milestone")
+				# The gap this opens, and the guard that closes it (structures.gd's
+				# _is_footprint_occupied, unit-tested in isolation by
+				# tests/test_structures_fencing.gd): an unblocked Gate cell must still refuse a
+				# second building on top of it.
+				_check(not structures.can_place(GATE_CELL, Vector2i.ONE),
+					"can't rebuild on top of a completed, unblocked Gate")
+				_check(not structures.can_place(FENCE_CELL, Vector2i.ONE),
+					"can't rebuild on top of a completed Fence either")
+				# Approach the fence from the west along row 14 and confirm real physical
+				# collision stops the player (same pattern as stage 17's shed check).
+				player.global_position = test_map.get_global_cell_center(Vector2i(25, 14))
+				player.velocity = Vector2.ZERO
+				player.facing = "east"
+				Input.action_press("move_right")
+				_enter_stage(131)
+		131:
+			# -- The completed Fence is a real collidable body: walking east into it stops --
+			if ticks >= 200:
+				Input.action_release("move_right")
+				var fence_west_face_x := FENCE_CELL.x * 16.0
+				_check(player.global_position.x < fence_west_face_x,
+					"completed fence collision stopped the player (x=%.1f, west face at %.1f)" \
+						% [player.global_position.x, fence_west_face_x])
+				_check(player.global_position.x > 410.0,
+					"player actually moved toward the fence before being stopped (x=%.1f)" \
+						% player.global_position.x)
+				# Approach the gate the same way, from just west of it.
+				player.global_position = test_map.get_global_cell_center(Vector2i(29, 14))
+				player.velocity = Vector2.ZERO
+				player.facing = "east"
+				Input.action_press("move_right")
+				_enter_stage(132)
+		132:
+			# -- The completed Gate has NO collision: walking east straight through it works —
+			#    the actual end-to-end proof of Phase 8 Stage 2's walkability milestone. --
+			if ticks >= 250:
+				Input.action_release("move_right")
+				var gate_east_face_x := (GATE_CELL.x + 1) * 16.0
+				_check(player.global_position.x > gate_east_face_x + 20.0,
+					"the player walked straight through the completed gate with no collision " \
+						+ "(x=%.1f, gate east face at %.1f)" \
+						% [player.global_position.x, gate_east_face_x])
 				_enter_stage(100)
 		100:
 			# -- 2026-07-12 in-game tabbed menu, part 1 (see class doc): open via the real
@@ -1159,9 +1278,10 @@ func _physics_process(_delta: float) -> bool:
 					"Q cycles Inventory -> Build")
 				_check(menu_screen.build_tab.visible and not menu_screen.inventory_tab.visible,
 					"only the Build tab's content is showing")
-				# Phase 8 Stage 1 grew the catalog to the full 12-building library.
-				_check(menu_screen._build_row_labels.size() == 12,
-					"one Build row per catalog entry (12)")
+				# Phase 8 Stage 1 grew the catalog to the full 12-building library; Stage 2's 4
+				# fence/gate entries grew it again to 16.
+				_check(menu_screen._build_row_labels.size() == 16,
+					"one Build row per catalog entry (16)")
 				_check(menu_screen._build_row_labels[0].text
 						== "Shelter Cabin — 6 Wood  — missing materials",
 					"cabin row: builder.gd's exact cost string + the missing-materials flag " \
@@ -1430,8 +1550,8 @@ func _physics_process(_delta: float) -> bool:
 			_check(not farm.can_chop(Vector2i(33, 2)), "chopped tree stays gone after reload")
 			_check(farm.can_chop(Vector2i(20, 1)), "an unchopped tree is still standing")
 			# Player-built structures + storage:
-			_check(structures._pending.is_empty() and structures._completed.size() == 2,
-				"both completed structures restored")
+			_check(structures._pending.is_empty() and structures._completed.size() == 4,
+				"all 4 completed structures restored (shed, tent, fence, gate)")
 			_check(structures.is_chest_at(SHED_CELL) and structures.is_chest_at(SHED_CELL_SE),
 				"restored shed is storage on its footprint")
 			_check(structures.storage_inventory_at(SHED_CELL) != null and
@@ -1444,6 +1564,15 @@ func _physics_process(_delta: float) -> bool:
 			_check(test_map.is_blocked_at(SHED_CELL) and test_map.is_blocked_at(TENT_CELL),
 				"restored footprints re-registered as blocked")
 			_check(not farm.can_till(Vector2i(31, 9)), "can't till under the restored shed")
+			# Phase 8 Stage 2: solidity survives the round trip too (_restore_entry re-derives it
+			# from BuildingDB.solid(), never serialised) — the completed Fence is still blocked,
+			# the completed Gate is still walkable, and the occupied-footprint guard still holds.
+			_check(test_map.is_blocked_at(FENCE_CELL), "restored fence stays blocked")
+			_check(not test_map.is_blocked_at(GATE_CELL), "restored gate stays walkable")
+			_check(not structures.can_place(GATE_CELL, Vector2i.ONE),
+				"restored gate still refuses a second building on top of it")
+			_check(not structures.can_place(FENCE_CELL, Vector2i.ONE),
+				"restored fence still refuses a second building on top of it")
 			_check(structures.is_bed_at(Vector2i(18, 4)), "bed present again after reload")
 			# -- Phase 5 Stage 3: the sold-and-emptied box and its sale history survived too --
 			_check(structures.is_shipping_box_at(Vector2i(17, 4)),

@@ -576,8 +576,21 @@ relationship with them.
       time the checklist's "1–3 day construction time by size" range is actually exercised (1-day
       1×1s, 2-day 2×2s, 3-day larger civic buildings), so checked off here rather than left open
       against infrastructure that was already sound.
-- [ ] Fencing & perimeter system — fence segments/walls/gates around the settlement boundary;
-      wood/chain-link/concrete, differing durability (relevant to future raid events)
+- [x] **Fencing & perimeter system (Stage 2 of the Phase 8 plan)** — 3 fence tiers
+      (Wood/Chain-Link/Concrete, `kind: "fence"`, escalating cost/`durability_max`) plus a Wood
+      Gate (`kind: "gate"`), placed through the existing `builder.gd` single-cell flow — no new
+      drag/linear placement UX, deliberately out of scope. `durability_max` is stored/displayed
+      only this stage (no decay/damage system exists yet to consume it — data ahead of its
+      system, same precedent as `fertilizer`). The real new mechanic: `BuildingDB.solid()`
+      (default `true`, so no pre-existing building needed a data change) — a completed Gate
+      drops its `CollisionShape2D` and calls a new `test_map.unblock_cells()` (the `block_cells()`
+      counterpart) so it reads as a walkable opening in an otherwise-solid perimeter, while a
+      construction site always blocks regardless of its final solidity. Closes the gap this
+      opens (an unblocked Gate cell could otherwise be built over again) with a new
+      `structures.gd::_is_footprint_occupied()` guard in `can_place()`. Solidity is re-derived
+      from `BuildingDB.solid()` on save/load, never serialized, matching `_runtime_blocked`'s own
+      "derive, don't serialize" rule. The farm layout's existing `'g'` "closed later" gap stays
+      untouched — out of scope, per the plan.
 - [ ] Settler system — periodic Survivor NPC arrivals asking to join; accept/reject; accepted
       settlers add to population and unlock dialogue/economy options
 - [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
@@ -623,6 +636,21 @@ table. Confirmed Shelter Cabin/Storage Barn kept their exact original `size`/`co
 (only the display name and schema migrated) — the right call, since `runtime_smoke.gd`/
 `soak_test.gd` pin those exact numbers. `data/buildings.json`/`items.json` diffs re-confirmed real
 content via `git diff -w` (not noise) before committing.
+
+**Phase 8 Stage 2 verified independently:** re-ran the full suite myself (292/292 tests, +14 new)
+and `tools/runtime_smoke.gd`/`tools/soak_test.gd` individually (never batched) — all green,
+matching Fable's own report exactly. Read every diff: confirmed `_spawn_footprint_body`'s new
+`solid` param is real (a genuine skip of `CollisionShape2D` creation, not a cosmetic flag), that
+`_complete_construction`'s retire-and-respawn approach correctly keeps the `_bodies` tracking
+array consistent (verified `_bodies` is a real pre-existing field, `_spawn_footprint_body` always
+appends to it), and that `_is_footprint_occupied()`'s guard is wired into `can_place()` exactly
+where the unblocked-Gate gap needed closing. `tests/test_structures_fencing.gd`'s fake
+map/farm/layout stand-in exercises the real `place_blueprint → _complete_construction → can_place`
+flow unmodified (not mocked-out) — read in full, sound. `runtime_smoke.gd`'s stages 130-132 prove
+the actual walkability milestone with real physical collision (player driven into a completed
+Fence and stopped; driven through a completed Gate and passes clean), plus the save/reload
+persistence check confirms solidity is correctly re-derived, never serialized. `buildings.json`'s
+diff re-confirmed as real content via `git diff -w` before committing.
 
 ### Phase 9 — Expedition System: Ruined City & Combat
 - [ ] Ruined city map(s) — 2–3 distinct zones: Downtown Ruins, Industrial Quarter, Residential

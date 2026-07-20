@@ -70,7 +70,9 @@ var _tilled: Dictionary = {}
 ## scripts/structures.gd's place_blueprint). Same overlay-on-static-layout pattern as _tilled:
 ## the layout's ASCII stays the authored source of truth, runtime changes layer on top, and
 ## is_blocked_at() is the combined query everything (tilling guards, placement-validity checks)
-## reads. Nothing un-places a building yet, so there is deliberately no unblock counterpart.
+## reads. Nothing un-places a building, but Phase 8 Stage 2 (fencing & perimeter system) adds a
+## real unblock case: a completed non-solid structure (a Gate — see BuildingDB.solid()) lifts its
+## own footprint back out of this overlay via unblock_cells() below, so it reads as walkable.
 var _runtime_blocked: Dictionary = {}
 
 
@@ -140,6 +142,16 @@ func is_blocked_at(cell: Vector2i) -> bool:
 func block_cells(cells: Array[Vector2i]) -> void:
 	for cell in cells:
 		_runtime_blocked[cell] = true
+
+
+## Phase 8 Stage 2 (fencing & perimeter system): the block_cells() counterpart, called by
+## scripts/structures.gd's _complete_construction() when a completed structure's BuildingDB.solid()
+## reads false (so far, only the Gate) — its footprint stops reading as blocked, becoming walkable
+## the moment construction finishes. Mirrors block_cells()'s per-cell loop exactly; erase() is a
+## no-op for a cell that was never in the overlay, so this is always safe to call.
+func unblock_cells(cells: Array[Vector2i]) -> void:
+	for cell in cells:
+		_runtime_blocked.erase(cell)
 
 
 ## Till one logical cell (a hoe's effect): flips it into the soil overlay and repaints exactly

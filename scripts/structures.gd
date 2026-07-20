@@ -27,6 +27,15 @@ extends Node2D
 ## completed structure gets its kind's final BUILDING_COLORS fill; a completed storage structure
 ## (BuildingDB.is_storage) additionally becomes a working chest via the same chest_toggled
 ## signal/UI the layout chest already uses.
+##
+## Phase 8 Stage 2 (fencing & perimeter system): fence/gate catalog entries are placed through
+## this exact same builder.gd flow — nothing new there, just 4 more BuildingDB ids. What IS new:
+## a completed structure's collision now depends on BuildingDB.solid() (see
+## _spawn_footprint_body's `solid` param) — true for every pre-existing building and every fence,
+## false only for the Gate, whose completed cell is explicitly unblocked (test_map.unblock_cells)
+## so it reads as a walkable opening in an otherwise-solid perimeter. can_place()'s new
+## _is_footprint_occupied() guard is what stops a second structure from then being built on top
+## of that now-unblocked Gate cell.
 
 const Inventory := preload("res://scripts/inventory.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
@@ -91,6 +100,12 @@ const BUILDING_COLORS := {
 	"ranch_house": "#9c5a3c",     # weathered timber ranch house/shop
 	"ranch_barn": "#a23a2a",      # faded barn red
 	"ranch_coop": "#c9a24b",      # straw/wood coop
+	# Phase 8 Stage 2 (fencing & perimeter system): fence_wood/fence_chainlink/fence_concrete all
+	# share kind "fence" (a material/cost/durability variant, not a visually distinct kind per the
+	# plan), so all three placeholder-render identically here — matches the shared "kind" schema
+	# exactly, same as e.g. every crop sharing "chest"'s single fallback would if that existed.
+	"fence": "#6b5b47",           # weathered driftwood-brown — a plain perimeter barrier
+	"gate": "#b8935a",            # lighter worn-wood tan, distinct from fence's darker brown
 }
 
 ## Under-construction fill for a placed blueprint: the GDD §9 rain-sky blue-grey at ~half alpha,
@@ -168,8 +183,14 @@ func _spawn_building(building: Dictionary) -> void:
 ## BLUEPRINT_COLOR ColorRect — regardless of whether final art exists; only completion swaps in
 ## the textured sprite (see _complete_construction). Returns the visual node (CanvasItem: the
 ## blueprint ColorRect or the final Sprite2D) so completion can swap it in place.
+##
+## Phase 8 Stage 2 (fencing & perimeter system): `solid` (default true) gates whether the body
+## gets a CollisionShape2D at all — false skips it entirely, so a non-solid completed structure
+## (a Gate) never physically blocks the player's CharacterBody2D. Every pre-existing caller
+## (layout-authored buildings, blueprint placement) leans on the true default, so nothing but
+## _complete_construction's new solid=false path (see below) ever passes false.
 func _spawn_footprint_body(top_left: Vector2i, footprint_size: Vector2i, kind: String,
-		blueprint: bool = false) -> CanvasItem:
+		blueprint: bool = false, solid: bool = true) -> CanvasItem:
 	var px_size := Vector2(footprint_size) * float(CELL_SIZE)
 	# _test_map is typed as the generic Node2D (see class doc — avoids a circular preload with
 	# test_map.gd), so its cell_to_world_center() return type isn't statically known; an explicit
@@ -181,11 +202,12 @@ func _spawn_footprint_body(top_left: Vector2i, footprint_size: Vector2i, kind: S
 	body.collision_layer = 1  # "world" — see project.godot [layer_names]
 	body.collision_mask = 0
 	body.position = center
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = px_size - Vector2(2, 2)  # 1px margin each side, matches farm.gd's resource props
-	shape.shape = rect
-	body.add_child(shape)
+	if solid:
+		var shape := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = px_size - Vector2(2, 2)  # 1px margin each side, matches farm.gd's resource props
+		shape.shape = rect
+		body.add_child(shape)
 
 	var visual := _make_visual(kind, px_size, blueprint)
 	body.add_child(visual)
@@ -232,13 +254,19 @@ func _building_texture(kind: String, px_size: Vector2) -> Texture2D:
 ## water, fence, and former tree/ore cells, whose ASCII chars persist after clearing), not
 ## layout-solid or inside any building footprint (test_map.is_blocked_at, which also covers
 ## already-placed/pending runtime buildings via the _runtime_blocked overlay), not player-tilled,
-## and free of crops and standing tree/ore resource nodes.
+## free of crops and standing tree/ore resource nodes, and — Phase 8 Stage 2 — not already inside
+## a pending/completed structure's footprint (_is_footprint_occupied). That last check exists
+## specifically for the gap a completed non-solid Gate opens: once its cell is unblocked via
+## test_map.unblock_cells, is_blocked_at() alone no longer catches it, so a second building could
+## otherwise be placed directly on top of a working Gate.
 func can_place(top_left: Vector2i, footprint_size: Vector2i) -> bool:
 	if not BuildGrid.cells_within_map(top_left, footprint_size, _test_map.layout.size()):
 		return false
 	var farm: Node = _test_map.get_node("Farm")
 	for cell in BuildGrid.footprint_cells(top_left, footprint_size):
 		if _test_map.is_blocked_at(cell) or _test_map.is_tilled_at(cell):
+			return false
+		if _is_footprint_occupied(cell):
 			return false
 		if not FarmGrid.is_tillable_terrain(String(_test_map.terrain_at(cell))):
 			return false
@@ -247,6 +275,22 @@ func can_place(top_left: Vector2i, footprint_size: Vector2i) -> bool:
 		if farm.can_chop(cell) or farm.can_mine(cell):
 			return false
 	return true
+
+
+## Phase 8 Stage 2: whether `cell` sits inside any pending or completed structure's footprint —
+## the guard that closes the gap a completed non-solid Gate opens (see can_place()'s doc above).
+## Same cell-range-scan style storage_inventory_at() already uses over _completed, just widened
+## to _pending too (an under-construction site is already caught by test_map.is_blocked_at, but
+## scanning both here keeps this one query authoritative on its own, not order-dependent on the
+## caller having checked is_blocked_at first).
+func _is_footprint_occupied(cell: Vector2i) -> bool:
+	for entry in _pending + _completed:
+		var top_left: Vector2i = entry["top_left"]
+		var footprint_size: Vector2i = entry["size"]
+		if cell.x >= top_left.x and cell.x < top_left.x + footprint_size.x \
+				and cell.y >= top_left.y and cell.y < top_left.y + footprint_size.y:
+			return true
+	return false
 
 
 ## Place a structure blueprint: spawns the collidable under-construction body and registers its
@@ -328,17 +372,35 @@ func completed_entries() -> Array[Dictionary]:
 
 func _complete_construction(entry: Dictionary) -> void:
 	# Phase 6 Art pass 1: completion swaps the blueprint ColorRect for the kind's final visual
-	# (real texture or flat-color fallback) inside the same body — the body, its collision, and
-	# the footprint blocking all stay put; only the visual child changes.
+	# (real texture or flat-color fallback) — originally done by swapping the visual child
+	# in place on the SAME body, since every completed structure used to stay solid forever.
+	#
+	# Phase 8 Stage 2: a Gate (BuildingDB.solid() false) must drop its collision on completion —
+	# the blueprint body was spawned solid=true unconditionally (place_blueprint()'s "a
+	# construction site blocks like anything else while building" rule), so that CollisionShape2D
+	# already exists on it. Rather than reach in and pull the shape back out of a live body, the
+	# whole blueprint body is retired here and a fresh one spawned through the same
+	# _spawn_footprint_body(..., solid) codepath every other spawn site uses — one place decides
+	# whether a body gets a collision shape, not two.
 	var blueprint_visual: CanvasItem = entry["visual"]
-	var body := blueprint_visual.get_parent()
-	blueprint_visual.queue_free()
-	var final_visual := _make_visual(String(entry["kind"]),
-		Vector2(Vector2i(entry["size"])) * float(CELL_SIZE), false)
-	body.add_child(final_visual)
+	var old_body := blueprint_visual.get_parent()
+	var building_id := String(entry["building_id"])
+	var top_left := Vector2i(entry["top_left"])
+	var footprint_size := Vector2i(entry["size"])
+	var is_solid := BuildingDB.solid(building_id)
+	old_body.queue_free()
+	_bodies.erase(old_body)
+	var final_visual := _spawn_footprint_body(top_left, footprint_size,
+		String(entry["kind"]), false, is_solid)
 	entry["visual"] = final_visual
 	_completed.append(entry)
-	if BuildingDB.is_storage(String(entry["building_id"])):
+	if not is_solid:
+		# The footprint was blocked unconditionally at placement (place_blueprint()); a completed
+		# non-solid structure (a Gate) becomes walkable by lifting that overlay now. can_place()'s
+		# _is_footprint_occupied() guard (see its doc) is what stops a second building from then
+		# being placed on the now-unblocked cell.
+		_test_map.unblock_cells(BuildGrid.footprint_cells(top_left, footprint_size))
+	if BuildingDB.is_storage(building_id):
 		_storage_inventories[entry["top_left"]] = Inventory.new()
 
 
@@ -465,10 +527,20 @@ func load_state(data: Dictionary) -> void:
 
 
 func _restore_entry(entry: Dictionary, pending: bool) -> void:
+	# Phase 8 Stage 2: a pending (under-construction) entry is always solid regardless of its
+	# building's final solidity (place_blueprint()'s rule); a completed entry's real solidity
+	# comes straight from BuildingDB.solid(). Re-deriving this here (rather than serializing it)
+	# matches _runtime_blocked's own "derive, don't serialize" doc comment on test_map.gd — and
+	# for the same reason, a restored completed non-solid structure (a Gate) simply never gets
+	# block_cells() called for it, which is exactly the end state the live place->complete path
+	# reaches (blocked while pending, unblocked once BuildingDB.solid() is false at completion).
+	var building_id := String(entry.get("building_id", ""))
+	var is_solid := pending or BuildingDB.solid(building_id)
 	entry["visual"] = _spawn_footprint_body(entry["top_left"], entry["size"],
-		String(entry["kind"]), pending)
+		String(entry["kind"]), pending, is_solid)
 	(_pending if pending else _completed).append(entry)
-	_test_map.block_cells(BuildGrid.footprint_cells(entry["top_left"], entry["size"]))
+	if is_solid:
+		_test_map.block_cells(BuildGrid.footprint_cells(entry["top_left"], entry["size"]))
 
 
 func _apply_inventory_data(inv: Inventory, data: Dictionary) -> void:

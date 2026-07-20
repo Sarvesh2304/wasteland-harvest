@@ -1,10 +1,11 @@
 extends "res://tests/test_case.gd"
 ## BuildingDB data integrity (ROADMAP.md Phase 4 Stage 2, grown by Phase 8 Stage 1 into the full
-## 12-building library): the buildable-structure catalog is well-formed, costs resolve against
-## the real item database AND against resources the player can actually gather in-game, every
-## kind has a placeholder color in structures.gd, and the new interaction/daily_yield/
-## capacity_unlock/effect accessors read correctly — mirroring tests/test_settlement_db.gd's
-## data-integrity style.
+## 12-building library, then by Phase 8 Stage 2's fencing & perimeter system to 16): the
+## buildable-structure catalog is well-formed, costs resolve against the real item database AND
+## against resources the player can actually gather in-game, every kind has a placeholder color
+## in structures.gd, and the new interaction/daily_yield/capacity_unlock/effect (Stage 1) plus
+## solid/durability_max (Stage 2) accessors read correctly — mirroring
+## tests/test_settlement_db.gd's data-integrity style.
 
 const BuildingDB := preload("res://scripts/building_db.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -18,13 +19,13 @@ const GATHERABLE_RESOURCES := ["wood", "stone", "scrap_metal"]
 const EXPECTED_IDS: Array[String] = [
 	"shelter_tent", "storage_shed", "workshop", "clinic", "trading_post", "watchtower",
 	"greenhouse", "compost_pit", "rain_collector", "solar_panel", "antenna_tower",
-	"community_kitchen",
+	"community_kitchen", "fence_wood", "fence_chainlink", "fence_concrete", "gate_wood",
 ]
 
 
-func test_catalog_has_exactly_twelve_structures() -> void:
-	# Phase 8 Stage 1 scope: the full building-library milestone.
-	assert_eq(BuildingDB.ids().size(), 12)
+func test_catalog_has_exactly_sixteen_structures() -> void:
+	# Phase 8 Stage 1's 12-building library + Stage 2's 4 fence/gate entries.
+	assert_eq(BuildingDB.ids().size(), 16)
 
 
 func test_ids_order_matches_catalog() -> void:
@@ -137,9 +138,49 @@ func test_effect_matches_the_building_table() -> void:
 
 
 func test_only_wood_stone_scrap_metal_cost_items_across_the_whole_library() -> void:
-	# Stage 1's explicit constraint (buildings.json's own comment): every one of the 12
+	# Stage 1's explicit constraint (buildings.json's own comment): every one of the 16
 	# buildings' costs is gatherable, not just the original 2.
 	for id in BuildingDB.ids():
 		for item_id in BuildingDB.cost(id):
 			assert_true(item_id in GATHERABLE_RESOURCES,
 				"%s cost item '%s' is wood/stone/scrap_metal only" % [id, item_id])
+
+
+## -- Phase 8 Stage 2 (fencing & perimeter system): solid() / durability_max() --
+
+func test_solid_defaults_true_for_every_pre_stage_2_building() -> void:
+	# The whole point of solid()'s default: not one pre-existing entry needed a data change.
+	for id in EXPECTED_IDS:
+		if id in ["gate_wood"]:
+			continue
+		assert_true(BuildingDB.solid(id), "%s defaults to solid" % id)
+
+
+func test_gate_is_the_only_non_solid_building() -> void:
+	assert_false(BuildingDB.solid("gate_wood"), "the gate is not solid")
+	assert_true(BuildingDB.solid("fence_wood"), "a fence is solid")
+	assert_true(BuildingDB.solid("fence_chainlink"), "a fence is solid")
+	assert_true(BuildingDB.solid("fence_concrete"), "a fence is solid")
+
+
+func test_solid_defaults_true_for_an_unknown_id() -> void:
+	assert_true(BuildingDB.solid("nonexistent"), "unknown ids read as solid")
+
+
+func test_durability_max_matches_the_fence_gate_table() -> void:
+	assert_eq(BuildingDB.durability_max("fence_wood"), 20)
+	assert_eq(BuildingDB.durability_max("fence_chainlink"), 45)
+	assert_eq(BuildingDB.durability_max("fence_concrete"), 80)
+	assert_eq(BuildingDB.durability_max("gate_wood"), 20)
+
+
+func test_durability_max_is_zero_for_buildings_without_one() -> void:
+	assert_eq(BuildingDB.durability_max("shelter_tent"), 0)
+	assert_eq(BuildingDB.durability_max("nonexistent"), 0)
+
+
+func test_fence_and_gate_kinds_are_distinct() -> void:
+	assert_eq(BuildingDB.kind("fence_wood"), "fence")
+	assert_eq(BuildingDB.kind("fence_chainlink"), "fence")
+	assert_eq(BuildingDB.kind("fence_concrete"), "fence")
+	assert_eq(BuildingDB.kind("gate_wood"), "gate")

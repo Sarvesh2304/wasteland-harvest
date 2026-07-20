@@ -10,6 +10,9 @@ extends RefCounted
 ## scripts/building_effects.gd, rather than a hardcoded field here + a hardcoded branch in
 ## structures.gd/player.gd for every new kind.
 ##
+## Phase 8 Stage 2 (fencing & perimeter system) added solid()/durability_max() for the 4 new
+## fence/gate catalog entries — see those accessors below for the exact defaulting rules.
+##
 ## Not a `class_name` global (see scripts/item_db.gd's header for why) — callers must
 ## `const BuildingDB := preload("res://scripts/building_db.gd")`.
 
@@ -126,6 +129,22 @@ static func capacity_unlock(building_id: String) -> Dictionary:
 ## arrival roll) rather than ever being called from here.
 static func effect(building_id: String) -> String:
 	return String(get_building(building_id).get("effect", ""))
+
+
+## Phase 8 Stage 2 (fencing & perimeter system): the fence/gate's stored durability ceiling —
+## displayed only, no decay/damage system consumes it yet (no raid system exists), the same
+## data-ahead-of-its-system precedent as daily_yield's fertilizer/cooked_meal items. 0 for any
+## building with no durability_max field (every non-fence/gate kind today).
+static func durability_max(building_id: String) -> int:
+	return int(get_building(building_id).get("durability_max", 0))
+
+
+## Whether a completed structure of this kind blocks movement. Defaults to true for every
+## existing building (only the new gate_wood entry sets "solid": false in buildings.json), so
+## no pre-Stage-2 data needed to change. Read by scripts/structures.gd's _complete_construction
+## (skip the CollisionShape2D / unblock the footprint cells for a non-solid completed structure).
+static func solid(building_id: String) -> bool:
+	return bool(get_building(building_id).get("solid", true))
 
 
 ## Test-only hook, same as ItemDB.reload_from_disk (and named the same way, avoiding Script's
