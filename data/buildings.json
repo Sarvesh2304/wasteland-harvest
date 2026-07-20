@@ -1,19 +1,135 @@
 {
-  "_comment": "Phase 4 Stage 2 buildable-structure catalog (ROADMAP.md 'Basic building placement'). Loaded by scripts/building_db.gd, same shape/conventions as data/items.json + scripts/item_db.gd. Deliberately only 2 entries: Stage 2's job is to prove the place-blueprint -> spend-resources -> wait-a-day mechanic end-to-end; the real 12+ building library with actual gameplay functions is explicitly Phase 8's checklist item, and building it now would be scope creep into that phase. Fields: kind keys scripts/structures.gd's BUILDING_COLORS flat-color placeholder table (Phase 4's established building visual); size is [w, h] in 16px cells; cost items are deliberately limited to wood/stone/scrap_metal because those are the only resources the player can actually gather in-game right now (axe on a tree yields 3 wood; pickaxe on ore yields 2 stone + 1 scrap_metal - see scripts/farm.gd) - cloth_scrap/bottle_caps exist in items.json but have no gather source yet, so costing them would make a structure unbuildable. Cost tuning: Shelter Tent = 2 trees' worth of wood (a cheap first build to learn the mechanic); Storage Shed = 4 trees + 2 ore nodes, and sized so Forest Edge's 'ruin materials' starting bonus (15 wood / 8 stone / 8 scrap) covers it on day 1 - that start's lean is building materials, so it should be able to build first. build_days: 1 per the checklist's 'wait 1 in-game day'.",
+  "_comment": "Phase 8 Stage 1 buildable-structure catalog (ROADMAP.md 'Building, Settlement Expansion & Fencing System'), grown from Phase 4 Stage 2's 2-entry proof-of-mechanic set to the full 12-building library. Loaded by scripts/building_db.gd, same shape/conventions as data/items.json + scripts/item_db.gd. New optional, backward-additive fields per entry: interaction (\"\" | \"storage\" | \"trading_post\" - replaces the old is_storage bool; storage_shed migrated to \"interaction\": \"storage\"), daily_yield ({item_id: count} added to player inventory once per in-game day via structures.gd's day-tick, generically - no per-building code), capacity_unlock ({bonus_key: amount} one-time bonuses summed via scripts/building_effects.gd's recompute_capacity_unlocks, recomputed in FULL every time rather than incrementally applied), and effect (a string key into scripts/building_effects.gd's EFFECTS registry of bespoke per-tick callables, or a key read directly by a later stage's own logic - Watchtower/Antenna Tower's effect strings aren't tick callables, they're read by Stage 3's settler-arrival roll). Fields: kind keys scripts/structures.gd's BUILDING_COLORS flat-color placeholder table; size is [w, h] in 16px cells; cost items are deliberately limited to wood/stone/scrap_metal because those are the only resources the player can actually gather in-game right now (axe on a tree yields 3 wood; pickaxe on ore yields 2 stone + 1 scrap_metal - see scripts/farm.gd) - cloth_scrap/bottle_caps/fertilizer exist in items.json but have no gather source yet, so costing them would make a structure unbuildable. Sizing/build_days convention for the 10 new entries (Stage 1 plan): 1x1 kinds (Compost Pit, Rain Collector, Solar Panel) = 1 day; 2x2 kinds (Workshop, Clinic, Greenhouse, Watchtower) = 2 days; larger civic kinds (Trading Post, Community Kitchen, 3x2; Antenna Tower, 1x1 but complex to erect) = 3 days. Cost tuning for the 10 new entries is a fresh back-of-envelope balance pass (not derived from any external source): scaled roughly with build_days/footprint, using only wood/stone/scrap_metal per the constraint above, with each kind's material mix nodding at its theme (Rain Collector/Antenna Tower lean scrap for piping/wiring; Clinic/Community Kitchen lean stone for solid civic walls). shelter_tent (display name now \"Shelter Cabin\") and storage_shed (display name now \"Storage Barn\") keep their original kind/size/cost/build_days exactly - only the display name and the is_storage->interaction schema migration changed, specifically to avoid disturbing the existing place->spend->wait-a-day and chest-storage regression coverage (tools/runtime_smoke.gd, tools/soak_test.gd) that pins those two buildings' exact costs/day-counts.",
   "shelter_tent": {
-    "name": "Shelter Tent",
-    "kind": "shelter_tent",
-    "size": [1, 1],
-    "cost": {"wood": 6},
-    "build_days": 1,
-    "is_storage": false
+	"name": "Shelter Cabin",
+	"kind": "shelter_tent",
+	"size": [1, 1],
+	"cost": {"wood": 6},
+	"build_days": 1,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {"population_cap": 1},
+	"effect": ""
   },
   "storage_shed": {
-    "name": "Storage Shed",
-    "kind": "storage_shed",
-    "size": [2, 2],
-    "cost": {"wood": 12, "stone": 4, "scrap_metal": 2},
-    "build_days": 1,
-    "is_storage": true
+	"name": "Storage Barn",
+	"kind": "storage_shed",
+	"size": [2, 2],
+	"cost": {"wood": 12, "stone": 4, "scrap_metal": 2},
+	"build_days": 1,
+	"interaction": "storage",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": ""
+  },
+  "workshop": {
+	"name": "Workshop",
+	"kind": "workshop",
+	"size": [2, 2],
+	"cost": {"wood": 10, "scrap_metal": 4},
+	"build_days": 2,
+	"interaction": "",
+	"daily_yield": {"scrap_metal": 1},
+	"capacity_unlock": {},
+	"effect": ""
+  },
+  "clinic": {
+	"name": "Clinic",
+	"kind": "clinic",
+	"size": [2, 2],
+	"cost": {"wood": 8, "stone": 6, "scrap_metal": 4},
+	"build_days": 2,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {"energy_max": 10},
+	"effect": ""
+  },
+  "trading_post": {
+	"name": "Trading Post",
+	"kind": "trading_post",
+	"size": [3, 2],
+	"cost": {"wood": 14, "stone": 6, "scrap_metal": 6},
+	"build_days": 3,
+	"interaction": "trading_post",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": ""
+  },
+  "watchtower": {
+	"name": "Watchtower",
+	"kind": "watchtower",
+	"size": [2, 2],
+	"cost": {"wood": 12, "scrap_metal": 3},
+	"build_days": 2,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": "watchtower_lookout"
+  },
+  "greenhouse": {
+	"name": "Greenhouse",
+	"kind": "greenhouse",
+	"size": [2, 2],
+	"cost": {"wood": 8, "scrap_metal": 6},
+	"build_days": 2,
+	"interaction": "",
+	"daily_yield": {"seed_sunbloom": 1},
+	"capacity_unlock": {},
+	"effect": ""
+  },
+  "compost_pit": {
+	"name": "Compost Pit",
+	"kind": "compost_pit",
+	"size": [1, 1],
+	"cost": {"wood": 4, "stone": 2},
+	"build_days": 1,
+	"interaction": "",
+	"daily_yield": {"fertilizer": 1},
+	"capacity_unlock": {},
+	"effect": ""
+  },
+  "rain_collector": {
+	"name": "Rain Collector",
+	"kind": "rain_collector",
+	"size": [1, 1],
+	"cost": {"wood": 3, "scrap_metal": 3},
+	"build_days": 1,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": "rain_collector_water"
+  },
+  "solar_panel": {
+	"name": "Solar Panel",
+	"kind": "solar_panel",
+	"size": [1, 1],
+	"cost": {"stone": 2, "scrap_metal": 8},
+	"build_days": 1,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {"build_energy_discount": 0.25},
+	"effect": ""
+  },
+  "antenna_tower": {
+	"name": "Antenna Tower",
+	"kind": "antenna_tower",
+	"size": [1, 1],
+	"cost": {"stone": 4, "scrap_metal": 14},
+	"build_days": 3,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": "antenna_signal"
+  },
+  "community_kitchen": {
+	"name": "Community Kitchen",
+	"kind": "community_kitchen",
+	"size": [3, 2],
+	"cost": {"wood": 12, "stone": 8, "scrap_metal": 4},
+	"build_days": 3,
+	"interaction": "",
+	"daily_yield": {"cooked_meal": 1},
+	"capacity_unlock": {},
+	"effect": ""
   }
 }

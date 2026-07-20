@@ -30,6 +30,7 @@ extends Node2D
 
 const Inventory := preload("res://scripts/inventory.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
+const BuildingEffects := preload("res://scripts/building_effects.gd")
 const BuildGrid := preload("res://scripts/build_grid.gd")
 const FarmGrid := preload("res://scripts/farm_grid.gd")
 const SaveData := preload("res://scripts/save_data.gd")
@@ -41,6 +42,12 @@ signal chest_toggled(inventory: Inventory, cell: Vector2i)
 ## node player-agnostic the same way chest_toggled keeps it UI-agnostic. The itemized entry just
 ## appended to sale_history carries the full breakdown for anything that wants more than the sum.
 signal crops_sold(total: int)
+## Phase 8 Stage 1: the accumulated BuildingDB.daily_yield() across every completed structure in
+## this zone, emitted ONCE per morning if non-empty (a Workshop's scrap trickle, a Greenhouse's
+## seedling, etc. all land in the one dict). main.gd wires this straight to player.add_items,
+## exactly the crops_sold -> player.add_credits pattern above — this node stays inventory-
+## agnostic (never touches player directly), only ever emitting.
+signal building_yield_produced(items: Dictionary)
 
 const CELL_SIZE := 16
 
@@ -57,6 +64,21 @@ const BUILDING_COLORS := {
 	# Phase 4 Stage 2 player-buildable kinds (data/buildings.json):
 	"shelter_tent": "#95ac49",    # faded field green — a salvaged-tarp lean-to
 	"storage_shed": "#7d452a",    # rusted iron-brown — a scrap-sheet storage hut
+	# Phase 8 Stage 1: the 10 new functional building-library kinds (data/buildings.json),
+	# every hex distinct from the above and from each other at the 16px tile scale, drawing on
+	# GDD.md §9's locked settlement-anchor + seasonal palette where a hex was still unused there,
+	# with a few bespoke near-palette variants (workshop tools, a clinic's pale bandage-white, a
+	# scavenged-tech grey) following the same precedent as the existing ranch/shipping-box hexes:
+	"workshop": "#5d7d3a",        # deep leaf green — reclaimed timber and tool-shed greenery
+	"clinic": "#d9cfc1",          # pale bone/bandage tone — reads clean against the amber town
+	"trading_post": "#d4a017",    # golden ochre — an economic building, distinct from store's amber
+	"watchtower": "#6a4626",      # wet soil dark — a tall weathered-timber lookout
+	"greenhouse": "#6cb34d",      # fresh rain-fed green — glass-and-plant growing house
+	"compost_pit": "#488c55",     # damp moss green — an earthy compost heap
+	"rain_collector": "#7fa1b7",  # rain-sky blue-grey — the same rain-sky hue as its own function
+	"solar_panel": "#3a3f4b",     # dark scavenged-tech slate — salvaged panels, not GDD's warm set
+	"antenna_tower": "#707a7d",   # weathered antenna-grey — a technical mast, distinct from metal
+	"community_kitchen": "#895a2e", # tilled soil brown — a warm, homely hearth building
 	# Phase 4 Stage 3: the farmhouse bed (sleep = save + skip to morning), authored in each
 	# layout beside the farmhouse the same way the chest is:
 	"bed": "#f3acb7",             # mutant blossom pink (GDD §9 seasonal set) — reads as a blanket
@@ -260,6 +282,7 @@ func _on_day_started(day: int) -> void:
 		else:
 			still_pending.append(entry)
 	_pending = still_pending
+	_tick_building_yields_and_effects()
 	# Phase 5 Stage 3: the shipping box's overnight sale rides the same signal. Because signal
 	# emission is synchronous, this (and the crops_sold -> player.add_credits hop main.gd wires)
 	# has fully resolved before player._sleep_in_bed()'s skip_to_next_morning() call returns —
@@ -268,6 +291,39 @@ func _on_day_started(day: int) -> void:
 	# It fires identically on a natural midnight rollover or a pass-out, which is correct:
 	# morning came either way, so "Credits added next morning" holds (Stardew's rule too).
 	_resolve_shipping_sale(day)
+
+
+## Phase 8 Stage 1: the generalized building-effect dispatch, run once per morning after this
+## zone's pending constructions have resolved. ONE pass over _completed handles every functional
+## building kind: BuildingDB.daily_yield() sums generically into one dict (a 13th yield-granting
+## building needs zero new code here, only a buildings.json entry), and any completed entry whose
+## BuildingDB.effect() key matches a BuildingEffects.EFFECTS callable (so far, only the Rain
+## Collector) gets that callable invoked with itself + a small ctx (this zone's own Farm sibling
+## — effects that need to touch farmland do so through that, never through `player`). Emits
+## building_yield_produced ONCE with the accumulated total if non-empty; stays inventory-agnostic
+## (never touches player directly) so main.gd owns wiring the signal to player.add_items.
+func _tick_building_yields_and_effects() -> void:
+	var yields := {}
+	var ctx := {"farm": _test_map.get_node("Farm")}
+	for entry in _completed:
+		var building_id := String(entry["building_id"])
+		var yield_here := BuildingDB.daily_yield(building_id)
+		for item_id in yield_here:
+			yields[item_id] = int(yields.get(item_id, 0)) + int(yield_here[item_id])
+		var effect_key := BuildingDB.effect(building_id)
+		if BuildingEffects.EFFECTS.has(effect_key):
+			BuildingEffects.EFFECTS[effect_key].call(entry, ctx)
+	if not yields.is_empty():
+		building_yield_produced.emit(yields)
+
+
+## Phase 8 Stage 1: public getter for every completed structure in this zone — main.gd gathers
+## these across all 4 zones (its own _all_completed_entries() helper) for
+## BuildingEffects.recompute_capacity_unlocks()/settler_arrival_modifiers(). Returns the live
+## array itself, not a duplicate, matching every other read-only-by-convention getter here (e.g.
+## get_plot in farm.gd) — callers must not mutate entries.
+func completed_entries() -> Array[Dictionary]:
+	return _completed
 
 
 func _complete_construction(entry: Dictionary) -> void:

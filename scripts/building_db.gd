@@ -1,15 +1,14 @@
 extends RefCounted
-## Loader for data/buildings.json — the Phase 4 Stage 2 buildable-structure catalog (ROADMAP.md
-## "Basic building placement"). Mirrors scripts/item_db.gd's shape exactly: static functions,
-## JSON parsed once and cached, every consumer (scripts/builder.gd's placement mode,
-## scripts/structures.gd's blueprint spawning, tests) goes through these accessors rather than
-## touching the JSON directly.
+## Loader for data/buildings.json — the buildable-structure catalog (ROADMAP.md "Basic building
+## placement", grown by Phase 8 Stage 1 into the full 12-building library). Mirrors
+## scripts/item_db.gd's shape exactly: static functions, JSON parsed once and cached, every
+## consumer (scripts/builder.gd's placement mode, scripts/structures.gd's blueprint spawning,
+## tests) goes through these accessors rather than touching the JSON directly.
 ##
-## Scope note (same judgment-call style as structures.gd's header): the catalog holds just 2
-## structures — a cheap 1x1 Shelter Tent and a 2x2 Storage Shed that becomes a working storage
-## chest on completion. Stage 2 only needs to prove the place → spend → wait-a-day mechanic
-## end-to-end with both a trivial and a multi-cell/functional structure; the full 12+ building
-## library with real gameplay functions is explicitly Phase 8's checklist item, not this stage's.
+## Phase 8 Stage 1 generalized the per-building dispatch: a new functional building kind is now
+## data (daily_yield/capacity_unlock/effect below) plus at most one small bespoke callable in
+## scripts/building_effects.gd, rather than a hardcoded field here + a hardcoded branch in
+## structures.gd/player.gd for every new kind.
 ##
 ## Not a `class_name` global (see scripts/item_db.gd's header for why) — callers must
 ## `const BuildingDB := preload("res://scripts/building_db.gd")`.
@@ -85,10 +84,48 @@ static func build_days(building_id: String) -> int:
 	return int(get_building(building_id).get("build_days", 1))
 
 
-## True for structures that act as a storage chest (a second Inventory instance, opened via the
-## existing chest interaction — see scripts/structures.gd) once construction completes.
+## Phase 8 Stage 1: the generalized interaction dispatch — "" (no interaction), "storage" (a
+## second Inventory instance, opened via the existing chest interaction — see
+## scripts/structures.gd), or "trading_post" (data-only this stage; unreachable/unstaffed until
+## Stage 4 wires an actual UI to it).
+static func interaction(building_id: String) -> String:
+	return String(get_building(building_id).get("interaction", ""))
+
+
+## True for structures that act as a storage chest once construction completes. Kept as a thin
+## wrapper over interaction() so no existing call site (structures.gd's chest logic) needed to
+## change when the old "is_storage" bool was migrated to the "interaction" string field.
 static func is_storage(building_id: String) -> bool:
-	return bool(get_building(building_id).get("is_storage", false))
+	return interaction(building_id) == "storage"
+
+
+## Item-count bonus granted to the player's inventory once per in-game day for every completed
+## structure of this kind (structures.gd's day-tick loop sums this across all completed
+## entries) — {} for kinds with no daily yield. Numeric values normalized to int (JSON numbers
+## arrive as floats), matching cost()'s own normalization.
+static func daily_yield(building_id: String) -> Dictionary:
+	var out := {}
+	for item_id in get_building(building_id).get("daily_yield", {}):
+		out[String(item_id)] = int(get_building(building_id)["daily_yield"][item_id])
+	return out
+
+
+## One-time bonus(es) unlocked by completing this kind — e.g. {"population_cap": 1},
+## {"energy_max": 10}, {"build_energy_discount": 0.25} — summed across every completed structure
+## by scripts/building_effects.gd's recompute_capacity_unlocks(). {} for kinds with no unlock.
+## Returned as a fresh copy so a caller can't mutate the cached JSON data in place.
+static func capacity_unlock(building_id: String) -> Dictionary:
+	var raw: Dictionary = get_building(building_id).get("capacity_unlock", {})
+	return raw.duplicate()
+
+
+## The bespoke effect key for this kind, or "" if it has none. Two different consumers read this:
+## a key present in scripts/building_effects.gd's EFFECTS dict is a mutating day-tick callable
+## (only "rain_collector_water" so far); a key with no EFFECTS entry (e.g. "watchtower_lookout",
+## "antenna_signal") is instead read directly by a later stage's own logic (Stage 3's settler-
+## arrival roll) rather than ever being called from here.
+static func effect(building_id: String) -> String:
+	return String(get_building(building_id).get("effect", ""))
 
 
 ## Test-only hook, same as ItemDB.reload_from_disk (and named the same way, avoiding Script's

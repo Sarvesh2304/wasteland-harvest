@@ -1100,7 +1100,12 @@ func _physics_process(_delta: float) -> bool:
 				player.velocity = Vector2.ZERO
 				player.facing = "south"  # tent (1x1) lands on TENT_CELL, open grass
 				_drive_builder_action("build_toggle")
-				_drive_builder_action("build_cycle")  # index 1 (shed) wraps back to 0 (tent)
+				# Phase 8 Stage 1 grew the catalog to 12 entries: from index 1 (the barn, still
+				# selected from stage 16), cycling all the way around back to index 0 (the cabin)
+				# takes 11 presses, not 1 — this still exercises the real wraparound (Q past the
+				# last entry lands back on the first), just over the bigger catalog.
+				for i in 11:
+					_drive_builder_action("build_cycle")
 				_check(builder.current_id() == "shelter_tent", "build_cycle wraps around the catalog")
 				_check(builder.confirm_placement(), "tent blueprint placed")
 				_check(player.inventory.count_of("wood") == 0, "tent spent 6 wood")
@@ -1154,16 +1159,17 @@ func _physics_process(_delta: float) -> bool:
 					"Q cycles Inventory -> Build")
 				_check(menu_screen.build_tab.visible and not menu_screen.inventory_tab.visible,
 					"only the Build tab's content is showing")
-				_check(menu_screen._build_row_labels.size() == 2,
-					"one Build row per catalog entry (2)")
+				# Phase 8 Stage 1 grew the catalog to the full 12-building library.
+				_check(menu_screen._build_row_labels.size() == 12,
+					"one Build row per catalog entry (12)")
 				_check(menu_screen._build_row_labels[0].text
-						== "Shelter Tent — 6 Wood  — missing materials",
-					"tent row: builder.gd's exact cost string + the missing-materials flag " \
+						== "Shelter Cabin — 6 Wood  — missing materials",
+					"cabin row: builder.gd's exact cost string + the missing-materials flag " \
 						+ "(0 wood after the tent build), got '%s'" \
 						% menu_screen._build_row_labels[0].text)
 				_check(menu_screen._build_row_labels[1].text
-						== "Storage Shed — 12 Wood, 4 Stone, 2 Scrap Metal  — missing materials",
-					"shed row: exact cost string + missing-materials flag, got '%s'" \
+						== "Storage Barn — 12 Wood, 4 Stone, 2 Scrap Metal  — missing materials",
+					"barn row: exact cost string + missing-materials flag, got '%s'" \
 						% menu_screen._build_row_labels[1].text)
 				# -- Build -> Controls --
 				_drive_menu_action("build_cycle")

@@ -43,6 +43,12 @@ const LABEL_OUTLINE := Color("#281a0b")        # warm near-black, same as HUD ou
 var active := false
 var catalog_index := 0
 
+## Phase 8 Stage 1: one-time fractional discount off ENERGY_BUILD (0.0 = no discount, e.g. 0.25 =
+## 25% cheaper), summed and set by main.gd's _recompute_capacity_unlocks() from every completed
+## Solar Panel's capacity_unlock — public and assigned directly, same convention as modal_gate
+## below (main.gd owns setting it; this node just reads it at the moment of spending energy).
+var build_energy_discount := 0.0
+
 ## Phase 6: the shared modal mutual-exclusion registry (scripts/modal_gate.gd), assigned by
 ## main.gd alongside bind(). set_active(true) refuses while any OTHER modal surface (dialogue
 ## box, store, shipping UI) is open — before this, pressing "B" mid-conversation turned build
@@ -176,5 +182,5 @@ func confirm_placement() -> bool:
 	var cost: Dictionary = BuildingDB.cost(id)
 	for item_id in cost:
 		_player.inventory.remove_item(String(item_id), int(cost[item_id]))
-	_player.set_energy(_player.energy - _player.ENERGY_BUILD)
+	_player.set_energy(_player.energy - _player.ENERGY_BUILD * (1.0 - build_energy_discount))
 	return true

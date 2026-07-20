@@ -5,9 +5,9 @@ extends "res://tests/test_case.gd"
 const ItemDBScript := preload("res://scripts/item_db.gd")
 
 
-func test_loads_exactly_twenty_one_items() -> void:
-	assert_eq(ItemDBScript.all_items().size(), 21,
-		"ROADMAP Phase 3's first 20 items + the forced-sleep session's coffee (2026-07-11)")
+func test_loads_exactly_twenty_two_items() -> void:
+	assert_eq(ItemDBScript.all_items().size(), 22,
+		"ROADMAP Phase 3's first 20 items + coffee (2026-07-11) + Phase 8 Stage 1's fertilizer")
 
 
 func test_known_items_resolve() -> void:

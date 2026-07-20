@@ -14,6 +14,7 @@ extends Node2D
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const ModalGate := preload("res://scripts/modal_gate.gd")
+const BuildingEffects := preload("res://scripts/building_effects.gd")
 
 ## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
 ## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
@@ -55,6 +56,10 @@ func _ready() -> void:
 		var structures: Node = zones[zone_id]["structures"]
 		structures.chest_toggled.connect(hud.toggle_chest_ui)
 		structures.crops_sold.connect(player.add_credits)
+		# Phase 8 Stage 1: any zone's daily building yield (Workshop's scrap, Greenhouse's
+		# seedling, ...) lands in the same player inventory — the generalized-dispatch
+		# counterpart of crops_sold -> player.add_credits above.
+		structures.building_yield_produced.connect(player.add_items)
 	# Phase 4 Stage 2: build/placement mode (scripts/builder.gd) — bound both ways, since the
 	# builder reads the player's facing/inventory and the player suppresses tool swings while
 	# placement mode is active. Re-bound to the active zone on every transition (_bind_zone_refs).
@@ -109,6 +114,10 @@ func _ready() -> void:
 		_bind_zone("farm")
 		camera.set_target(player)
 		_grant_starting_resource_bonus()
+		# Phase 8 Stage 1: a fresh game starts with zero completed structures, but recomputing
+		# here (rather than assuming "zero bonuses") keeps this the one call site new-game boot
+		# ever needs, symmetric with _apply_save's own call below.
+		_recompute_capacity_unlocks()
 	else:
 		_apply_save(save_data)
 
@@ -191,6 +200,36 @@ func _apply_save(data: Dictionary) -> void:
 	player.load_state(data.get("player", {}))
 	_bind_zone_refs(player.current_zone_id)
 	camera.set_target(player)
+	# Phase 8 Stage 1: re-derive capacity bonuses from the JUST-RESTORED structures rather than
+	# trusting anything saved about them — same "recomputed in full, never incrementally
+	# serialized" rule BuildingEffects.recompute_capacity_unlocks documents.
+	_recompute_capacity_unlocks()
+
+
+## Phase 8 Stage 1: every completed structure across all 4 always-instantiated zones, flattened
+## into one Array — the exact shape BuildingEffects.recompute_capacity_unlocks()/
+## settler_arrival_modifiers() expect. The one place that knows "all 4 zones" for this purpose,
+## so later stages (Stage 3's arrival roll) can reuse it rather than re-deriving their own loop.
+func _all_completed_entries() -> Array:
+	var out: Array = []
+	for zone_id in zones:
+		var structures: Node = zones[zone_id]["structures"]
+		out.append_array(structures.completed_entries())
+	return out
+
+
+## Re-derives every completed structure's one-time capacity bonuses from scratch
+## (BuildingEffects.recompute_capacity_unlocks) and applies them: player.max_energy off
+## player.BASE_MAX_ENERGY, and the builder's build-cost energy discount — so a live completion,
+## a reload, or (Stage 3) an accepted settler's population cap can never drift from the actual
+## count of completed Clinics/Solar Panels/Shelter Cabins. Called once for a fresh game (_ready,
+## above) and once after restoring a save (_apply_save, above).
+func _recompute_capacity_unlocks() -> void:
+	var bonuses := BuildingEffects.recompute_capacity_unlocks(_all_completed_entries())
+	player.max_energy = player.BASE_MAX_ENERGY + float(bonuses.get("energy_max", 0))
+	player.energy = minf(player.energy, player.max_energy)
+	player.energy_changed.emit(player.energy, player.max_energy)
+	_builder.build_energy_discount = clampf(float(bonuses.get("build_energy_discount", 0.0)), 0.0, 1.0)
 
 
 ## The chosen settlement's resource-lean bonus (water access / ruin materials / better soil —

@@ -31,10 +31,13 @@ func test_tab_names_cover_exactly_the_real_tabs() -> void:
 func test_catalog_rows_cover_the_whole_catalog_in_order() -> void:
 	var rows := MenuScreen.catalog_rows(BuildingDB.ids(), {})
 	assert_eq(rows.size(), BuildingDB.ids().size(), "one row per catalog entry")
-	assert_eq(String(rows[0]["id"]), "shelter_tent", "catalog order preserved (tent first)")
-	assert_eq(String(rows[1]["id"]), "storage_shed", "catalog order preserved (shed second)")
-	assert_eq(String(rows[0]["name"]), "Shelter Tent")
-	assert_eq(String(rows[1]["name"]), "Storage Shed")
+	assert_eq(String(rows[0]["id"]), "shelter_tent", "catalog order preserved (cabin first)")
+	assert_eq(String(rows[1]["id"]), "storage_shed", "catalog order preserved (barn second)")
+	# Phase 8 Stage 1: display names renamed (Shelter Tent -> Shelter Cabin, Storage Shed ->
+	# Storage Barn) as part of the is_storage -> interaction schema migration; the ids/mechanics
+	# are unchanged (see data/buildings.json's own comment).
+	assert_eq(String(rows[0]["name"]), "Shelter Cabin")
+	assert_eq(String(rows[1]["name"]), "Storage Barn")
 
 
 func test_catalog_rows_cost_text_matches_builders_placement_label() -> void:

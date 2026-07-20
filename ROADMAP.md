@@ -552,11 +552,30 @@ building/settlement, seasons.
 relationship with them.
 
 ### Phase 8 — Building, Settlement Expansion & Fencing System
-- [ ] Building type library — 12+ structures: Shelter Cabin, Storage Barn, Workshop, Clinic,
-      Trading Post, Watchtower, Greenhouse, Compost Pit, Rain Collector, Solar Panel, Antenna
-      Tower, Community Kitchen
-- [ ] Building grid system — snap-to-grid placement, valid/blocked preview, resource cost shown,
-      1–3 day construction time by size
+- [x] **Building type library — 12+ structures (Stage 1 of the Phase 8 plan, see
+      `/Users/sarveshpardeshi/.claude/plans/compiled-brewing-rocket.md`)**: Shelter Cabin,
+      Storage Barn, Workshop, Clinic, Trading Post, Watchtower, Greenhouse, Compost Pit, Rain
+      Collector, Solar Panel, Antenna Tower, Community Kitchen. Landed alongside a genuine
+      generalization of the per-building dispatch that didn't exist before this stage: a new
+      `data/buildings.json` schema (`interaction`/`daily_yield`/`capacity_unlock`/`effect`,
+      backward-additive, migrated off the old `is_storage` bool) plus a new
+      `scripts/building_effects.gd` registry, so a 13th functional building is data + at most one
+      small bespoke callable, not three-file hardcoded wiring. `structures.gd` gained a
+      `completed_entries()` getter and a `building_yield_produced` signal (wired to
+      `player.add_items` in `main.gd`, the generalized-dispatch counterpart of the existing
+      `crops_sold → player.add_credits` pattern); one-time `capacity_unlock` bonuses
+      (Shelter Cabin's population cap, Clinic's +10 max energy, Solar Panel's 25% build-cost
+      discount) are recomputed in full from the completed-buildings list on every boot/load
+      rather than incrementally serialized, so they can never drift. Trading Post's
+      `interaction: "trading_post"` and Watchtower/Antenna Tower's `effect` strings are data-only
+      this stage — genuinely unreachable until Stage 4 (assignment) and Stage 3 (settler arrivals)
+      wire them up, by design, not an oversight.
+- [x] **Building grid system — already substantially built in Phase 4** (snap-to-grid placement
+      via `builder.gd`/`build_grid.gd`, green/red valid-placement preview, resource cost shown in
+      the build-mode HUD and the pause-menu catalog) — Stage 1's 12-building library is the first
+      time the checklist's "1–3 day construction time by size" range is actually exercised (1-day
+      1×1s, 2-day 2×2s, 3-day larger civic buildings), so checked off here rather than left open
+      against infrastructure that was already sound.
 - [ ] Fencing & perimeter system — fence segments/walls/gates around the settlement boundary;
       wood/chain-link/concrete, differing durability (relevant to future raid events)
 - [ ] Settler system — periodic Survivor NPC arrivals asking to join; accept/reject; accepted
@@ -589,6 +608,21 @@ relationship with them.
 
 **Milestone:** Settlement can grow — buildings, fences, and settlers all function together as a
 real base-building loop, and the player can buy and house their first livestock.
+
+**Phase 8 Stage 1 verified independently:** re-ran the full suite myself (278/278 tests, +19 new)
+and `tools/runtime_smoke.gd`/`tools/soak_test.gd` individually (never batched) — all green,
+matching Fable's own report exactly. Read the full diffs on every changed file: confirmed
+`building_effects.gd`'s self-referencing `Callable(Self, ...)` pattern is sound, `structures.gd`'s
+new day-tick pass stays inventory-agnostic (only ever emits, never touches `player`), and
+`main.gd`'s `_recompute_capacity_unlocks()` is genuinely called from both the fresh-game and
+loaded-game paths so capacity bonuses can't drift. Verified `_test_map.get_node("Farm")` (the Rain
+Collector's zone-scoping) is an existing, already-used pattern in this same file, not a new
+assumption. Cross-checked `buildings.json`'s new fields against `building_db.gd`'s new accessors
+and the `EFFECTS` registry by hand — all 12 buildings' dispatch shapes match the Stage 1 plan's
+table. Confirmed Shelter Cabin/Storage Barn kept their exact original `size`/`cost`/`build_days`
+(only the display name and schema migrated) — the right call, since `runtime_smoke.gd`/
+`soak_test.gd` pin those exact numbers. `data/buildings.json`/`items.json` diffs re-confirmed real
+content via `git diff -w` (not noise) before committing.
 
 ### Phase 9 — Expedition System: Ruined City & Combat
 - [ ] Ruined city map(s) — 2–3 distinct zones: Downtown Ruins, Industrial Quarter, Residential

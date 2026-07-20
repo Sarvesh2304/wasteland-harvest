@@ -122,7 +122,13 @@ const FACING_VECTORS := {
 }
 
 var facing := "south"
-var max_energy := 100.0
+## Phase 8 Stage 1: pulled out as a named constant so BuildingEffects.recompute_capacity_unlocks'
+## "energy_max" bonus (the Clinic) has a stable base to add on top of — main.gd recomputes
+## max_energy as BASE_MAX_ENERGY + that bonus (never incrementally mutated), so completing a
+## second Clinic, reloading a save, or anything else re-deriving the total can never drift from
+## the live count of completed Clinics.
+const BASE_MAX_ENERGY := 100.0
+var max_energy := BASE_MAX_ENERGY
 var energy := max_energy
 ## Phase 5 Stage 2: the player's Credits balance (GDD.md §7 — settled humanity's currency, not
 ## the earlier-drafted "Scrap Coins"). Starts at 0, deliberately: nothing grants Credits yet
@@ -583,6 +589,16 @@ func set_credits(value: int) -> void:
 ## path that comment promised Stage 3 would use.
 func add_credits(amount: int) -> void:
 	set_credits(credits + amount)
+
+
+## Phase 8 Stage 1: main.gd wires structures.gd's building_yield_produced(items) signal straight
+## here — the generalized-dispatch counterpart of add_credits() above, letting any zone's daily
+## building yield (Workshop's scrap, Greenhouse's seedling, Community Kitchen's meal, ...) land
+## in the backpack with no per-building code in player.gd. Overflow is silently lost exactly like
+## _grant_item()'s harvest/gather path (Phase 3 has no ground-drop system yet).
+func add_items(items: Dictionary) -> void:
+	for item_id in items:
+		inventory.add_item(String(item_id), int(items[item_id]))
 
 
 ## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --

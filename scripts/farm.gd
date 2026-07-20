@@ -95,6 +95,20 @@ func is_watered(cell: Vector2i) -> bool:
 	return bool(_plots.get(cell, {}).get("watered", false))
 
 
+## Phase 8 Stage 1: every planted-but-not-yet-watered cell in THIS zone's farmland (can_water()'s
+## own rule — a mature crop no longer needs watering, so it's excluded too), in Dictionary
+## iteration order. Consumed by scripts/building_effects.gd's Rain Collector tick, which is the
+## only reason a caller outside this node needs to enumerate plots rather than check one cell at
+## a time — kept here (not exposed as raw _plots access) so farm.gd stays the single owner of
+## what "waterable" means.
+func waterable_cells() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for cell in _plots.keys():
+		if can_water(cell):
+			out.append(cell)
+	return out
+
+
 ## -- Harvesting --
 
 func can_harvest(cell: Vector2i) -> bool:
