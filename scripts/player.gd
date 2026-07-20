@@ -172,6 +172,12 @@ var current_zone_id := "farm"
 ## always point at the CURRENT zone's nodes only (rebound on every transition) — this dict is
 ## for whole-world operations, i.e. _end_day's save gather.
 var zones: Dictionary = {}
+## Phase 8 Stage 3: the settlement-wide settler roster (scripts/settlers.gd), set once by
+## main.gd at boot like `zones` above — _end_day's save gather passes it straight through to
+## GameState.save_game() so the "settlers" save section stays current. null when unbound (tests
+## instantiating a bare player) — _end_day()/menu_screen.gd's save call both tolerate that
+## (GameState.save_game's own `settlers` param defaults null).
+var settlers: Node = null
 ## True from the instant a gate-cell exit is detected until main.gd's _bind_zone completes the
 ## rebind at the fade's black midpoint. Movement/input freezes for the duration, matching every
 ## other modal state — and critically, the exit detection itself stands down: the fade leaves
@@ -466,7 +472,7 @@ func _end_day() -> void:
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
 	if not zones.is_empty():
-		GameState.save_game(self, zones)
+		GameState.save_game(self, zones, settlers)
 
 
 ## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs

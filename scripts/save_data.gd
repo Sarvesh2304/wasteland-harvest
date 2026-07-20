@@ -34,6 +34,11 @@ extends RefCounted
 ##     "path":  {"map": ..., "farm": ..., "structures": ...},   # structures sections, per zone)
 ##     "town":  {"map": ..., "farm": ..., "structures": ...},
 ##     "ranch": {"map": ..., "farm": ..., "structures": ...}
+##   },
+##   "settlers": {                             # Phase 8 Stage 3 — additive, no version bump (see
+##     "next_arrival_day": 12,                 # its own encode/decode section below)
+##     "roster": [{"id", "name", "home_cell": [x,y], "assigned_building": {...}}, ...],
+##     "pending_visitor": {} | {"id", "name", "home_cell": [x,y]}
 ##   }
 ## }
 ## Per-zone section shapes (unchanged from v1, just nested per zone — the encoders below are
@@ -244,6 +249,63 @@ static func decode_shipping(data: Dictionary) -> Dictionary:
 			"total": int(entry.get("total", 0)),
 		})
 	return {"contents": contents, "history": history}
+
+
+## -- Settlers (scripts/settlers.gd's roster/pending_visitor/next_arrival_day, Phase 8 Stage 3) --
+## A new additive top-level "settlers" key, parallel to "zones" — no SAVE_VERSION bump (see class
+## doc: parse_save's exact-match check isn't touched, an old save simply decodes this new key as
+## its empty default via decode_settlers' own .get() fallbacks). A roster/pending-visitor entry
+## carries a Vector2i home_cell (JSON-array-encoded like every other cell field here) and an
+## assigned_building dict — always {} this stage (Stage 4's NPC-building assignment owns its
+## actual shape), encoded/decoded as an opaque copy so this pair doesn't need to change again the
+## moment that field starts holding real data.
+
+static func encode_settler_entry(entry: Dictionary) -> Dictionary:
+	var home_cell: Vector2i = entry.get("home_cell", Vector2i.ZERO)
+	return {
+		"id": String(entry.get("id", "")),
+		"name": String(entry.get("name", "")),
+		"home_cell": [home_cell.x, home_cell.y],
+		"assigned_building": (entry.get("assigned_building", {}) as Dictionary).duplicate(),
+	}
+
+
+static func decode_settler_entry(data: Dictionary) -> Dictionary:
+	var home_cell: Array = data.get("home_cell", [0, 0])
+	return {
+		"id": String(data.get("id", "")),
+		"name": String(data.get("name", "")),
+		"home_cell": Vector2i(int(home_cell[0]), int(home_cell[1])),
+		"assigned_building": (data.get("assigned_building", {}) as Dictionary).duplicate(),
+	}
+
+
+static func encode_settlers(next_arrival_day: int, roster: Array, pending_visitor: Dictionary) -> Dictionary:
+	var roster_out: Array = []
+	for entry in roster:
+		roster_out.append(encode_settler_entry(entry))
+	var pending_out := {} if pending_visitor.is_empty() else encode_settler_entry(pending_visitor)
+	return {
+		"next_arrival_day": next_arrival_day,
+		"roster": roster_out,
+		"pending_visitor": pending_out,
+	}
+
+
+static func decode_settlers(data: Dictionary) -> Dictionary:
+	# Typed Array[Dictionary], not a plain Array: scripts/settlers.gd's `roster` field is declared
+	# Array[Dictionary], and Godot 4 refuses to assign a plain (untyped) Array into a typed Array
+	# variable even when every element already matches — this must be typed at the source.
+	var roster_out: Array[Dictionary] = []
+	for entry_data in data.get("roster", []):
+		roster_out.append(decode_settler_entry(entry_data))
+	var pending_data: Dictionary = data.get("pending_visitor", {})
+	var pending_out := {} if pending_data.is_empty() else decode_settler_entry(pending_data)
+	return {
+		"next_arrival_day": int(data.get("next_arrival_day", 1)),
+		"roster": roster_out,
+		"pending_visitor": pending_out,
+	}
 
 
 ## -- Top-level assembly / parsing --

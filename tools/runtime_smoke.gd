@@ -1663,7 +1663,7 @@ func _physics_process(_delta: float) -> bool:
 				# directly, because the bed path would sell the load first, which is exactly
 				# the state this round trip must preserve un-sold. Zone-split signature: the
 				# whole zones dict, not one map's node trio.
-				_check(game_state.save_game(player, main.zones),
+				_check(game_state.save_game(player, main.zones, main.get_node("Settlers")),
 					"mid-session save written with the box still loaded")
 				saved_day = day_manager.day
 				_enter_stage(82)

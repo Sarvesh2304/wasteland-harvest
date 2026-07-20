@@ -98,6 +98,25 @@ const RANCH_DECOR: Array[Dictionary] = [
 	{"kind": "ranch_goat", "cell": Vector2i(27, 12)},
 ]
 
+## Phase 8 Stage 3 (settler arrivals): a small fixed pool of TOWN-ZONE-LOCAL home cells for
+## settler NPCs — population growth is a town-plaza concept (see scripts/settlers.gd's class
+## doc), so every visitor/accepted settler spawns into the Town zone regardless of which zone's
+## buildings actually unlocked the population cap. Shared verbatim by both Town variants (the
+## town-core template is one shared layout — see town_layout_standard.gd's class doc — and every
+## cell below is verified open plain grass in BOTH the standard and riverside ROWS, since the
+## riverside variant's differing west column/water feature don't reach any of these columns).
+## Chosen clear of TOWN_NPCS's 3 homes and every BUILDINGS footprint, each cell kept >=3 apart
+## from the others and from TOWN_NPCS (wander_radius 1 below, same disjoint-zone spacing
+## TOWN_NPCS's own doc comment reasons through) so no two wander zones can ever overlap. Only 4
+## slots exist because population growth is bounded by actual Shelter Cabins built — see
+## settlers.gd's _next_home_cell() for the (rare-edge) cycling fallback if it's ever exhausted.
+const SETTLER_HOME_CELLS: Array[Vector2i] = [
+	Vector2i(5, 6),
+	Vector2i(13, 7),
+	Vector2i(21, 7),
+	Vector2i(13, 12),
+]
+
 
 static func size(rows: Array[String]) -> Vector2i:
 	return Vector2i(rows[0].length(), rows.size())

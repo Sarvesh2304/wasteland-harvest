@@ -123,7 +123,7 @@ func has_save() -> bool:
 ## already holds. The gather loop is deliberately uniform across zones (no per-zone branching):
 ## a zone with no farmland/chest just serialises empty defaults, keeping the shape
 ## forward-compatible (see the plan's save-shape note).
-func save_game(player: Node, zones: Dictionary) -> bool:
+func save_game(player: Node, zones: Dictionary, settlers: Node = null) -> bool:
 	var zones_out := {}
 	for zone_id in zones:
 		var zone: Dictionary = zones[zone_id]
@@ -141,6 +141,11 @@ func save_game(player: Node, zones: Dictionary) -> bool:
 		"saved_unix": int(Time.get_unix_time_from_system()),
 		"player": player.save_state(),
 		"zones": zones_out,
+		# Phase 8 Stage 3: additive "settlers" key (see save_data.gd's class doc) — settlers is
+		# optional (defaults null) purely so any call site that genuinely has no settlement-wide
+		# roster to save (none exist in this codebase, but keeps the signature change backward-
+		# defensive) doesn't crash rather than silently writing {}.
+		"settlers": settlers.save_state() if settlers != null else {},
 	})
 	# Slot files live in a subdirectory that won't exist before the first-ever save (slot
 	# allocation is eager, file creation lazy — see start_new_slot()); a no-op for paths whose

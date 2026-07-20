@@ -99,3 +99,24 @@ static func visible_chars(total: int, elapsed: float, chars_per_second: float) -
 static func reload_from_disk() -> void:
 	_loaded = false
 	_ensure_loaded()
+
+
+## -- Runtime-only registration (Phase 8 Stage 3: settler arrivals) --
+## An additive layer on top of the disk-loaded cache: a settler visitor/flavor tree doesn't exist
+## as authored data/dialogue.json content, so scripts/settlers.gd registers/unregisters it here
+## directly, in memory only — reload_from_disk()/a fresh boot wipes it like any other in-memory-
+## only state in this codebase (npc.gd's own class doc notes NPC state itself isn't persisted
+## either). `data` must already be the same node shape every other entry uses (see class doc).
+
+## Merges `data` into the in-memory cache under `npc_id`, overwriting any existing runtime OR
+## authored entry for that id (in memory only — never touches data/dialogue.json on disk).
+static func register_runtime(npc_id: String, data: Dictionary) -> void:
+	_ensure_loaded()
+	_dialogues[npc_id] = data
+
+
+## Removes a runtime-registered id from the in-memory cache. No-op if the id was never
+## registered (or was already removed) — never errors on a stale double-call.
+static func unregister_runtime(npc_id: String) -> void:
+	_ensure_loaded()
+	_dialogues.erase(npc_id)

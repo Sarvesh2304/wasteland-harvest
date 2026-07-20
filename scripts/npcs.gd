@@ -24,7 +24,7 @@ func _ready() -> void:
 		_spawn_npc(entry)
 
 
-func _spawn_npc(entry: Dictionary) -> void:
+func _spawn_npc(entry: Dictionary) -> Node:
 	var home: Vector2i = entry["home"]
 	var npc := Npc.new()
 	npc.setup(String(entry["id"]), home, int(entry.get("wander_radius", 2)), _test_map)
@@ -34,6 +34,28 @@ func _spawn_npc(entry: Dictionary) -> void:
 	npc.position = _test_map.cell_to_world_center(home)
 	add_child(npc)
 	_npcs.append(npc)
+	return npc
+
+
+## Phase 8 Stage 3 (settler arrivals): spawns a single settler NPC on demand — a visiting
+## arrival (scripts/settlers.gd's day-tick roll) or, on save load, a restored roster member/
+## pending visitor — reusing _spawn_npc's exact layout-driven spawn shape with a synthetic
+## entry instead of one read from layout.npcs(). Always targets THIS Npcs node's own zone (Town,
+## for every settler-system caller — see settlers.gd's class doc for why population growth is
+## town-specific).
+func spawn_settler(id: String, home_cell: Vector2i, radius: int) -> Node:
+	return _spawn_npc({"id": id, "home": home_cell, "wander_radius": radius})
+
+
+## Phase 8 Stage 3: removes a settler NPC permanently (a rejected visitor "moving on" — a player
+## choice, never a punishment, per the cozy contract — see settlers.gd's resolve_visitor).
+## Frees the node and drops it from _npcs so npc_at()/npcs() never see a dangling reference.
+## No-op if npc is null or already freed.
+func despawn_npc(npc: Node) -> void:
+	if npc == null or not is_instance_valid(npc):
+		return
+	_npcs.erase(npc)
+	npc.queue_free()
 
 
 ## All spawned NPC nodes (tests/runtime_smoke inspect these directly).

@@ -40,6 +40,13 @@ const INSTANT_REVEAL_ELAPSED := 999.0
 ## domain-agnostic pure traversal module with no concept of "a store."
 const OPEN_STORE_SENTINEL := "OPEN_STORE"
 
+## Phase 8 Stage 3 (settler arrivals): the same runtime-sentinel pattern as OPEN_STORE_SENTINEL
+## above, recognized only here — a visiting settler's greeting tree (scripts/settlers.gd's
+## _greeting_dialogue, registered via dialogue_db.gd's register_runtime) ends its 2-choice branch
+## on one of these instead of another node id.
+const SETTLER_ACCEPT_SENTINEL := "SETTLER_ACCEPT"
+const SETTLER_REJECT_SENTINEL := "SETTLER_REJECT"
+
 const CHOICE_COLOR := Color("#7b5025")            # worn wood (dark) — unselected choice
 const CHOICE_SELECTED_COLOR := Color("#c5520f")   # rust red — reads as "this one's highlighted"
 
@@ -47,6 +54,11 @@ const CHOICE_SELECTED_COLOR := Color("#c5520f")   # rust red — reads as "this 
 ## wires this to scripts/store_ui.gd's open_store(), the same one-level-deeper handoff shape as
 ## player.gd's own npc_dialogue_requested -> main.gd -> DialogueUI.open_dialogue().
 signal store_requested(npc: Node)
+
+## Phase 8 Stage 3: fired when a conversation's choice leads to SETTLER_ACCEPT_SENTINEL/
+## SETTLER_REJECT_SENTINEL — main.gd wires this to scripts/settlers.gd's resolve_visitor(),
+## the same one-level-deeper handoff shape as store_requested above.
+signal settler_decision_requested(npc: Node, accepted: bool)
 
 @onready var box: Control = %Box
 @onready var name_label: Label = %NameLabel
@@ -142,6 +154,10 @@ func _advance() -> void:
 	var next_id := DialogueDB.advance_from(_current_node(), _choice_index)
 	if next_id == OPEN_STORE_SENTINEL:
 		_open_store()
+	elif next_id == SETTLER_ACCEPT_SENTINEL:
+		_resolve_settler_decision(true)
+	elif next_id == SETTLER_REJECT_SENTINEL:
+		_resolve_settler_decision(false)
 	elif next_id == "":
 		close()
 	else:
@@ -154,6 +170,15 @@ func _open_store() -> void:
 	var target_npc := npc
 	close()
 	store_requested.emit(target_npc)
+
+
+## Closes the conversation and hands off to scripts/settlers.gd's resolve_visitor() (see class
+## doc / the sentinels' comment above). Captures `npc` before close() clears the field, same
+## shape as _open_store().
+func _resolve_settler_decision(accepted: bool) -> void:
+	var target_npc := npc
+	close()
+	settler_decision_requested.emit(target_npc, accepted)
 
 
 func _goto_node(node_id: String) -> void:

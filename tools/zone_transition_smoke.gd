@@ -212,7 +212,8 @@ func _physics_process(_delta: float) -> bool:
 			var town_structures: Node = _zone("town")["structures"]
 			var placed: bool = town_structures.place_blueprint("storage_shed", SHED_CELL)
 			_check(placed, "roundtrip: Storage Shed blueprint placed in town at %s" % SHED_CELL)
-			_check(bool(game_state.save_game(player, main.zones)), "roundtrip: save written")
+			_check(bool(game_state.save_game(player, main.zones, main.get_node("Settlers"))),
+				"roundtrip: save written")
 			# Tear down and deliberately scramble state a reload must restore.
 			root.remove_child(main)
 			main.free()

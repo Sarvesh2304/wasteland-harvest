@@ -25,6 +25,11 @@ var zones: Dictionary = {}
 @onready var camera: Camera2D = $GameCamera
 @onready var hud: CanvasLayer = $HUD
 @onready var zone_fade: CanvasLayer = $ZoneFade
+## Phase 8 Stage 3: the settlement-wide settler roster (scripts/settlers.gd) — a direct child of
+## Main (NOT per-zone like structures/npcs), since population is a settlement-wide concept.
+## settlers.gd's own _ready() reads get_parent() (this node) to reach _all_completed_entries()
+## below, matching structures.gd/npcs.gd's own "get_parent() is the owning coordinator" pattern.
+@onready var settlers: Node = $Settlers
 
 ## Phase 6: the shared modal mutual-exclusion registry (see modal_gate.gd's class doc). Owned
 ## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
@@ -70,12 +75,19 @@ func _ready() -> void:
 	# transition signal (fade + rebind). See player.gd's _zone_transitioning guard doc.
 	player.zones = zones
 	player.zone_exit_requested.connect(_on_zone_exit_requested)
+	# Phase 8 Stage 3: the settlement-wide settler roster, so player.gd's _end_day()/
+	# menu_screen.gd's save call site can pass it straight through to GameState.save_game().
+	player.settlers = settlers
 	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
 	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
 	# signal that says one should start.
 	var dialogue_ui: Node = $DialogueUI
 	player.npc_dialogue_requested.connect(dialogue_ui.open_dialogue)
 	player.dialogue_ui = dialogue_ui
+	# Phase 8 Stage 3: a visiting settler's accept/reject choice (reached via the same dialogue
+	# box every NPC uses — see dialogue_ui.gd's SETTLER_ACCEPT/REJECT sentinels) hands off to
+	# settlers.resolve_visitor(), one level deeper than store_requested below, same shape.
+	dialogue_ui.settler_decision_requested.connect(settlers.resolve_visitor)
 	# Phase 5 Stage 2: Marta's store (scripts/store_ui.gd) — bound both ways like DialogueUI
 	# above, one level deeper (dialogue_ui.store_requested rather than a direct player signal),
 	# since the store is reached via a dialogue choice, not a direct use_tool interaction.
@@ -198,6 +210,12 @@ func _apply_save(data: Dictionary) -> void:
 		zones[zone_id]["farm"].load_state(zone_data.get("farm", {}))
 		zones[zone_id]["structures"].load_state(zone_data.get("structures", {}))
 	player.load_state(data.get("player", {}))
+	# Phase 8 Stage 3: restores roster/pending-visitor state and re-spawns each as a real NPC in
+	# Town, re-registering their runtime dialogue trees — AFTER the zone loop above (Town's Npcs
+	# node already exists from _ready(), but its own load_state() above touches no NPC state; see
+	# npc.gd's class doc for why NPC position itself is never persisted). Must run before
+	# _recompute_capacity_unlocks() below reads a population cap this roster is checked against.
+	settlers.load_state(data.get("settlers", {}))
 	_bind_zone_refs(player.current_zone_id)
 	camera.set_target(player)
 	# Phase 8 Stage 1: re-derive capacity bonuses from the JUST-RESTORED structures rather than

@@ -591,8 +591,28 @@ relationship with them.
       from `BuildingDB.solid()` on save/load, never serialized, matching `_runtime_blocked`'s own
       "derive, don't serialize" rule. The farm layout's existing `'g'` "closed later" gap stays
       untouched — out of scope, per the plan.
-- [ ] Settler system — periodic Survivor NPC arrivals asking to join; accept/reject; accepted
-      settlers add to population and unlock dialogue/economy options
+- [x] **Settler system (Stage 3 of the Phase 8 plan)** — periodic visiting Survivor NPCs, gated by
+      a live-recomputed population cap (`BuildingEffects.recompute_capacity_unlocks()`, Shelter
+      Cabins) via the day-tick hook every other zone system already uses. Per the cozy "no fail
+      state" contract (Silas's own "won't sell without a barn" precedent): a visitor is only ever
+      offered with room in the roster AND no visitor already pending — one at a time, no queue.
+      The roll/cooldown is split into small pure functions (`should_attempt_roll`/`roll_succeeds`/
+      `next_arrival_day_after`) taking the random value as a parameter, so `tests/test_settlers.gd`
+      can force success/failure deterministically without touching global RNG — this stage is
+      `settler_arrival_modifiers()`'s first real consumer (Watchtower raises the chance, Antenna
+      Tower shortens the cooldown, both implemented but unused since Stage 1). Accept/reject
+      reuses the existing dialogue box wholesale — zero `player.gd` changes: a new
+      `DialogueDB.register_runtime()`/`unregister_runtime()` additive layer lets a visitor's
+      greeting/2-choice branch exist only in memory, and two new sentinels
+      (`SETTLER_ACCEPT`/`SETTLER_REJECT`) in `dialogue_ui.gd` follow the existing
+      `OPEN_STORE_SENTINEL` pattern exactly. Settlers always spawn into the Town zone (population
+      growth is a town-plaza concept) at one of 4 verified-open `SETTLER_HOME_CELLS`. New
+      additive top-level `"settlers"` save key (no `SAVE_VERSION` bump — the exact-match version
+      check isn't touched, an old save just decodes the empty default).
+- [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
+      functioning shop. **Specific narrative instance (added per `GDD.md` §§2–4/§11):** hiring a
+      settler/newcomer for a weekly Credits salary to run the farm's own till/water/harvest loop
+      — the payoff to the Day-28 beat above (Phase 5), a real simulated farming loop rather than
 - [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
       functioning shop. **Specific narrative instance (added per `GDD.md` §§2–4/§11):** hiring a
       settler/newcomer for a weekly Credits salary to run the farm's own till/water/harvest loop
@@ -651,6 +671,22 @@ the actual walkability milestone with real physical collision (player driven int
 Fence and stopped; driven through a completed Gate and passes clean), plus the save/reload
 persistence check confirms solidity is correctly re-derived, never serialized. `buildings.json`'s
 diff re-confirmed as real content via `git diff -w` before committing.
+
+**Phase 8 Stage 3 verified independently:** re-ran the full suite myself (313/313 tests, +21 new)
+and `tools/runtime_smoke.gd`/`tools/soak_test.gd`/`tools/settler_smoke.gd`/`tools/title_smoke.gd`/
+`tools/zone_transition_smoke.gd` individually (never batched) — all green, matching Fable's own
+report exactly. Read every diff: confirmed `settlers.gd`'s roll/cooldown gating is split into
+genuinely pure, parameter-fed functions (not just wrapped RNG), that `population_cap()` is never
+cached (recomputed from `_all_completed_entries()` every call, same rule as `player.max_energy`),
+and that `dialogue_ui.gd`'s new `SETTLER_ACCEPT`/`SETTLER_REJECT` sentinels are wired exactly like
+the existing `OPEN_STORE_SENTINEL` precedent. Verified the 4 new `SETTLER_HOME_CELLS` by hand
+against the real Town `ROWS` data — all open grass, clear of every `TOWN_NPCS` home and building
+footprint. Confirmed a real bug fix: `decode_settlers`' roster must be built as a typed
+`Array[Dictionary]` (Godot 4.7 refuses a plain-Array assignment into a typed field even when every
+element matches) — this would have crashed on load otherwise. `settler_smoke.gd` drives the full
+accept/reject flow through the actual input pipeline (real `use_tool`, real dialogue advance,
+real choice-selection) rather than calling `settlers.gd` methods directly — read in full, sound.
+Save-file hygiene re-confirmed clean after all runs.
 
 ### Phase 9 — Expedition System: Ruined City & Combat
 - [ ] Ruined city map(s) — 2–3 distinct zones: Downtown Ruins, Industrial Quarter, Residential

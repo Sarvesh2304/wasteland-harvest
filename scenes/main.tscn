@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://scenes/shipping_ui.tscn" id="10_shipping"]
 [ext_resource type="PackedScene" path="res://scenes/menu_screen.tscn" id="11_menu"]
 [ext_resource type="Script" path="res://scripts/zone_fade.gd" id="12_zonefade"]
+[ext_resource type="Script" path="res://scripts/settlers.gd" id="13_settlers"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -53,3 +54,6 @@ script = ExtResource("5_daynight")
 
 [node name="ZoneFade" type="CanvasLayer" parent="."]
 script = ExtResource("12_zonefade")
+
+[node name="Settlers" type="Node" parent="."]
+script = ExtResource("13_settlers")
