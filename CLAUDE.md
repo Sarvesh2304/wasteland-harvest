@@ -27,10 +27,16 @@ arrives.
 ## Team model: who does what
 
 Same model as Blood Fields: Empires, carried over because it worked well there:
-- **Fable 5** (via the `Agent` tool with `model: "fable"`) is the primary hands-on builder:
+- **Fable 5** (via the `Agent` tool with `model: "fable"`) was the primary hands-on builder:
   GDScript, scene construction, art-direction calls, content writing (dialogue, lore notes,
   quest text), PixelLab art-generation calls.
-- **Sonnet** (orchestrating session) reviews Fable 5's output independently before trusting it
+- **Fable unavailable (2026-08-09, confirmed account-wide, not this project's own quota lapse):**
+  Sarvesh confirmed Fable is down everywhere right now, same situation as Blood Fields: Empires
+  (see that project's `CLAUDE.md` for the identical note) — and wants the shared ~$100 Anthropic
+  API credit preserved for later. Builder-seat work routes to **Opus** (`Agent` tool,
+  `model: "opus"`) per the existing fallback rule below, now as the standing default rather than
+  a temporary detour. Revisit if Fable comes back or Sarvesh says otherwise.
+- **Sonnet** (orchestrating session) reviews the builder's output independently before trusting it
   (re-run tests yourself, re-check diffs — don't just relay Fable's own summary), runs
   tests/builds, verifies milestones, handles git operations, and gates anything risky.
 - **Fable-unavailable fallback:** Fable 5 has a separate weekly usage limit from the rest of
