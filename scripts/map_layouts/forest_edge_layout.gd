@@ -9,36 +9,76 @@ extends RefCounted
 ##
 ## FARM ZONE ONLY since the Farm/Path/Town/Ranch zone split: the town core and Ranch/Sanctuary
 ## rows moved to town_layout_standard.gd / ranch_layout_standard.gd (this start uses the
-## standard variants — see settlement_db.gd's layout_for_zone()). Row 15 is now the farm's own
-## south perimeter wall, and the east wall gains the 2-cell 'G' zone-exit gate at rows 4-5 —
-## see open_plains_layout.gd's class doc for the full frame notes (rows 4-5's x33-34 approach
-## verified clear here too: the treeline's nearest trees sit at (33,4) and (34,3)/(34,6),
-## leaving the two gate-approach cells open).
+## standard variants — see settlement_db.gd's layout_for_zone()).
+##
+## ## 72x32 (pre-Stage-4 farm expansion, 2026-08-09)
+##
+## Was 36x16 — see open_plains_layout.gd's class doc for the shared frame notes (why it grew,
+## the perimeter, and the two gates, whose cells are IDENTICAL across all three farm variants).
+## Re-authored for the new size, keeping this start's character and gaining room to state it
+## properly:
+##   - the TREELINE now runs the full north edge as three thinning rows (y1-3) and the full east
+##     edge as seven thinning columns (x64-70), woven with '#' collapsed-wall rubble and 'O'
+##     salvage — 124 nodes in all, the resource lean made literal;
+##   - the CREEK enters at the west bank around y10 and winds out through the south-west corner
+##     to the south wall, with a plank footbridge at (6-9, 21) so the west bank stays one walk;
+##   - the FARMLAND is 9 small irregular patches scattered across the clearing (222 pre-tilled
+##     cells, up from 79 — still comfortably the worst plantable total of the three);
+##   - rows 13-14 are the old suburb's BURIED MAIN STREET, a clear double verge running the full
+##     width, with the surviving stretch of pavement ('p') exposed on row 15;
+##   - a collapsed FOUNDATION with salvage still inside it stands out in the south-east scrub.
+##
+## Every cell tools/runtime_smoke.gd and tools/soak_test.gd anchor against (this is the farm
+## they both play) was re-verified against this grid and deliberately kept clear during the
+## re-author, so none of those constants had to move: the homestead cells, the build clearing at
+## x23-35/y7-12 (shed, tent), the row 13-14 verge (farming plots, fence/gate walk-through), the
+## (33,2) chop tree with its standing cell at (32,2), the never-chopped control tree at (20,1),
+## and the creek cell at (2,11).
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all 3 starts)
 
 const ROWS: Array[String] = [
-	"FFFFFFFFFFFFFFFFFgFFFFFFFFFFFFFFFFFF",
-	"F...................T#T.T#T.O.T.T..F",
-	"F...............H................T.F",
-	"F.................................TF",
-	"F...............CSD..............T.G",
-	"F................@.................G",
-	"F.....ffffff.....................OTF",
-	"F.....ffffff.ffffff................F",
-	"F.....ffffff.ffffff..............T.F",
-	"F.....ffffff.ffffff...............TF",
-	"F......ffff......................O.F",
-	"F.WWW..ffff..fffffff...............F",
-	"F.WWW..ffff..fffffff.............TTF",
-	"F.WWW..ffff..fffffff...............F",
-	"F..................................F",
-	# Since the zone split: the farm's own south perimeter wall (was open ground continuing into
-	# the town rows — see the class doc). The town core + ranch rows now live in
-	# town_layout_standard.gd / ranch_layout_standard.gd.
-	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFgFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	# The treeline: three thinning rows along the whole north edge (and cols 64-70 down the
+	# east), woven with collapsed-wall rubble '#' and salvage 'O' — this start's whole
+	# resource lean is that all of it is inside walking distance (MAPS.md §1).
+	"FTTTTTTTT..TT.......T...T..T.T.TT#..TO..TTTT.TT.TTT..TTT......T.T..TT..F",
+	"FT.#..T....T.T..H....T.T..TO...#.T#.O...T.....T....TT........T.OT.T..TTF",
+	"F.TT.T....T.TT........TT.T...TT..T.......T#.............T.......T#.T.T.F",
+	"F...............CSD...............................................T..T.F",
+	"F................@...............................................T...TTF",
+	"F......fffff...........................fffffff......T..................F",
+	"F.....fffffff.........................ffffffff.......T............T.TT.F",
+	"F.....fffffff..fffff..................ffffffff.........T..........TT.TTF",
+	"F.....fffffff..ffffff.................fffffff...................T..TTTTF",
+	"F.WW..fffffff..ffffff.........................T......................T#F",
+	"F.WWW..ffffff..ffffff........................T..T.................#..TTF",
+	"F.WWW...........fffff.......................T..T...................#T..F",
+	# Rows 13-14 are the old suburb's buried main street: a clear double verge running the
+	# full width, with the surviving stretch of its pavement exposed on row 15.
+	"F.WWW..................................................................F",
+	"F..WW..................................................................F",
+	"F..WWW......ppppppppppppppppppp...ppppppppppp..........................G",
+	"F...WWW................................................................G",
+	"F....WW...................fffff.................ffffff................TF",
+	"F....WWW.......ffffff.....ffffff................ffffff................#F",
+	"F.....WW......fffffff.....ffffff......fffff.....fffff..............T.T.F",
+	"F.....WWW.....fffffff.....ffffff......ffffff.......................O.TTF",
+	"F.....pppp....ffffff..................ffffff.....................TT.TTTF",
+	"F......WW.............................ffffff.......................T..TF",
+	"F.......WW.............................fffff.........................T.F",
+	"F.......WW..............ffffff........................................TF",
+	# A collapsed suburban foundation out in the south-east scrub, salvage still inside it
+	# — the same 'under the moss there are foundations' image as the treeline ruins.
+	"F........WW.............ffffff....................#######..............F",
+	"F........WW.....fffff....fffff....................#.O...#.........TT..TF",
+	"F.........WW....fffff.............................#...O.#..............F",
+	"F.........WW.....ffff.............................##.####.............TF",
+	"F..........WW....................................................T.....F",
+	"F..........WW......................................................TT..F",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 ## Farm-zone buildings only since the zone split — the town core and ranch buildings moved to
@@ -58,10 +98,12 @@ const BUILDINGS: Array[Dictionary] = [
 
 
 ## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
-## east-wall gate-break to the new Path corridor, landing just inside Path's own west gate.
+## east-wall gate-break to the Path corridor, landing just inside Path's own west gate. The
+## south gate ((35,31)/(36,31) — the same two columns open_plains_layout.gd uses, since both
+## pair with the shared ranch_layout_standard.gd) carries no entry yet; that is the next stage.
 static func zone_exits() -> Array[Dictionary]:
 	return [
-		{"gate_cells": [Vector2i(35, 4), Vector2i(35, 5)], "target_zone": "path",
+		{"gate_cells": [Vector2i(71, 15), Vector2i(71, 16)], "target_zone": "path",
 			"entry_cell": Vector2i(1, 4)},
 	]
 

@@ -24,7 +24,7 @@ var stage_started_at := 0
 
 ## [zone_id, player cell (zone-local), facing, file name] — Open Plains pass.
 const SHOTS_OPEN_PLAINS := [
-	["farm", Vector2i(33, 4), "east", "shot_zone_farm_east_gate_4x.png"],
+	["farm", Vector2i(69, 15), "east", "shot_zone_farm_east_gate_4x.png"],
 	["path", Vector2i(2, 4), "east", "shot_zone_path_west_arrival_4x.png"],
 	["path", Vector2i(11, 6), "north", "shot_zone_path_car_checkpoint_4x.png"],
 	["path", Vector2i(21, 5), "east", "shot_zone_path_east_gate_4x.png"],

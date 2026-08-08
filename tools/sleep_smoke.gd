@@ -35,7 +35,9 @@ extends SceneTree
 ##
 ## Zone split (the Farm/Path/Town/Ranch scene separation — this file's Stage 3 sweep): world
 ## refs come from main.zones (the old single TestMap node is gone), the stage-(c) grass cell is
-## re-anchored to the farm zone's own 36x16 grid, and stage (e) warps to the TOWN zone first —
+## re-anchored to the farm zone's own grid (72x32 since the 2026-08-09 expansion; the stage-(c)
+## cell (5,13) sits on the re-authored Forest Edge grid's open buried-street verge and did not
+## need to move), and stage (e) warps to the TOWN zone first —
 ## Scout Kael lives there now, not on the farm. Positioning goes through get_global_cell_center
 ## since zones sit at sibling world offsets.
 ##

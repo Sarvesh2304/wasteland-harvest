@@ -175,7 +175,9 @@ when.
       `scenes/main.tscn`.
 - [x] Full farmland map — player's home area: farm plots, derelict home structure, storage
       chest, a small perimeter fence gap (closed later). **Stage 1.** All 3 starts
-      (`scripts/map_layouts/{open_plains,forest_edge,riverside}_layout.gd`, 36×32 cells each)
+      (`scripts/map_layouts/{open_plains,forest_edge,riverside}_layout.gd`, 72×32 cells each —
+      originally 36×16 per farm zone after the Phase 8 zone split, re-authored at 4× the area on
+      2026-08-09 after Sarvesh played the build and found the farm smaller than intended)
       have a real farmhouse + chest (a genuine second `Inventory` instance, opened via the
       existing tool-use interaction) and match their `MAPS.md` terrain sketches (Open Plains'
       one large plot; Forest Edge's irregular patches + treeline/rubble; Riverside's narrow

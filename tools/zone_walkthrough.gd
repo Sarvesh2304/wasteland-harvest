@@ -21,8 +21,12 @@ const SAVE_PATH := "user://zone_walkthrough_save.json"
 
 ## [zone_id, cell] — consecutive same-zone waypoints are axis-aligned; gate cells warp.
 const WAYPOINTS := [
-	["farm", Vector2i(34, 5)],
-	["farm", Vector2i(35, 5)],   # east gate -> path
+	# Re-anchored for the 2026-08-09 72x32 farm expansion: the east gate moved from rows 4-5 to
+	# rows 15-16, so the walk out of the homestead now drops south onto the gate row first, then
+	# runs the full width of the (much wider) farm to reach it.
+	["farm", Vector2i(17, 15)],  # south out of the homestead yard onto the gate row
+	["farm", Vector2i(70, 15)],  # east along row 15, straight across the field
+	["farm", Vector2i(71, 15)],  # east gate -> path
 	["path", Vector2i(22, 4)],
 	["path", Vector2i(23, 4)],   # east gate -> town
 	["town", Vector2i(1, 6)],
@@ -40,7 +44,7 @@ const WAYPOINTS := [
 	["town", Vector2i(0, 4)],    # west gate -> path
 	["path", Vector2i(1, 4)],
 	["path", Vector2i(0, 4)],    # west gate -> farm
-	["farm", Vector2i(30, 4)],
+	["farm", Vector2i(50, 15)],
 ]
 
 var shot_dir: String = OS.get_environment("WH_SHOT_DIR")

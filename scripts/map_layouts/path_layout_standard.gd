@@ -57,14 +57,17 @@ const BUILDINGS: Array[Dictionary] = []
 
 
 ## Zone transitions (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested):
-##   - west gate → Farm's east-wall gate-break landing (farm-local (34, 4), verified open in
-##     all 3 farm layouts);
+##   - west gate → Farm's east-wall gate-break landing. That entry cell is a FARM-LOCAL literal
+##     picked by hand to sit just inside the farm's east gate — it is not derived from the farm's
+##     geometry, so it has to move whenever the farm's gate does. It moved from (34, 4) to
+##     (70, 15) with the 2026-08-09 72x32 farm expansion (see open_plains_layout.gd's class doc);
+##     verified open, non-gate ground in all 3 farm layouts;
 ##   - east gate → Town's west-wall gate-break landing (town-local (1, 4)).
 ## The sealed checkpoint gateway (row 1) is deliberately NOT an exit — see the class doc.
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(0, 4), Vector2i(0, 5)], "target_zone": "farm",
-			"entry_cell": Vector2i(34, 4)},
+			"entry_cell": Vector2i(70, 15)},
 		{"gate_cells": [Vector2i(23, 4), Vector2i(23, 5)], "target_zone": "town",
 			"entry_cell": Vector2i(1, 4)},
 	]

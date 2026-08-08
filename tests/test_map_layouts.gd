@@ -352,20 +352,77 @@ func test_farm_layouts_have_farmland_resource_nodes_and_gap() -> void:
 		assert_true(layout.farm_gap_cells().size() > 0, "%s has the farm's perimeter fence gap" % FARM_NAMES[i])
 
 
-func test_farm_layouts_have_the_east_path_gate() -> void:
-	# The zone split's new east-wall gate-break: exactly 2 'G' cells, in the east wall column,
-	# targeting the Path zone.
+func test_farm_layouts_are_the_expanded_72x32_grid() -> void:
+	# Pre-Stage-4 farm expansion (2026-08-09): all 3 farm variants share one 72x32 frame, and the
+	# homestead template (farmhouse + the chest/box/bed service row + the spawn) is what every
+	# companion tool anchors against — so the size and that template are asserted together here
+	# rather than left implicit. The other structural tests above are size-agnostic by design and
+	# deliberately stay that way; this is the single place the number itself is pinned.
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		assert_eq(layout.size(), Vector2i(72, 32), "%s is the expanded 72x32 farm" % FARM_NAMES[i])
+		assert_eq(layout.map_rect(), Rect2(0, 0, 72 * 16, 32 * 16),
+			"%s world-space bounds follow the new size" % FARM_NAMES[i])
+
+
+func test_farm_layouts_have_the_east_path_gate_and_the_south_ranch_gate() -> void:
+	# The zone split's east-wall gate-break (2 'G' cells, targeting the Path zone) plus the
+	# expansion's new south-wall gate-break (2 more 'G' cells). The south gate carries NO
+	# zone_exits() entry yet — the Farm<->Ranch wiring is the next stage — so the exit count
+	# stays 1 while the gate-cell count is now 4.
 	for i in FARM_LAYOUTS.size():
 		var layout = FARM_LAYOUTS[i]
 		var gates: Array[Vector2i] = layout.gate_cells()
-		assert_eq(gates.size(), 2, "%s has exactly the 2-cell east gate" % FARM_NAMES[i])
+		assert_eq(gates.size(), 4,
+			"%s has the 2-cell east gate + the 2-cell south gate" % FARM_NAMES[i])
 		var east_x: int = layout.size().x - 1
+		var south_y: int = layout.size().y - 1
+		var east_gates: Array[Vector2i] = []
+		var south_gates: Array[Vector2i] = []
 		for cell in gates:
-			assert_eq(cell.x, east_x, "%s gate cell %s sits in the east wall" % [FARM_NAMES[i], cell])
-		assert_eq(layout.zone_exits().size(), 1, "%s has one zone exit" % FARM_NAMES[i])
+			if cell.x == east_x:
+				east_gates.append(cell)
+			elif cell.y == south_y:
+				south_gates.append(cell)
+			else:
+				assert_true(false,
+					"%s gate cell %s is in neither perimeter wall" % [FARM_NAMES[i], cell])
+		assert_eq(east_gates.size(), 2, "%s east gate is 2 cells" % FARM_NAMES[i])
+		assert_eq(south_gates.size(), 2, "%s south gate is 2 cells" % FARM_NAMES[i])
+		for cell in south_gates:
+			assert_false(layout.is_solid(cell.x, cell.y - 1),
+				"%s south gate cell %s has open ground just inside it" % [FARM_NAMES[i], cell])
+		for cell in east_gates:
+			assert_false(layout.is_solid(cell.x - 1, cell.y),
+				"%s east gate cell %s has open ground just inside it" % [FARM_NAMES[i], cell])
+		assert_eq(layout.zone_exits().size(), 1,
+			"%s has one zone exit (the south gate is wired next stage)" % FARM_NAMES[i])
 		assert_eq(String(layout.zone_exits()[0]["target_zone"]), "path")
 		assert_true(layout.npcs().is_empty(), "%s farm hosts no NPCs since the split" % FARM_NAMES[i])
 		assert_true(layout.decor_props().is_empty(), "%s farm has no decor props" % FARM_NAMES[i])
+
+
+func test_open_plains_and_forest_edge_share_south_gate_columns() -> void:
+	# The hard constraint behind the expansion's south-gate placement: VARIANT_ZONE_MAPS pairs
+	# BOTH the "standard" (Open Plains) and "forest_edge" farms with the same
+	# RanchStandardLayout, and the Ranch's single return exit into the farm can carry only ONE
+	# entry_cell — so the two farms' south gates must sit at identical columns or one of the two
+	# playable worlds gets a misaligned seam the moment Stage 3 wires it. Asserted here, before
+	# that wiring exists, because once it does the failure mode is a wrong arrival cell rather
+	# than an obvious crash.
+	var columns: Array = []
+	for layout in [OpenPlainsLayout, ForestEdgeLayout]:
+		var south_y: int = layout.size().y - 1
+		var cols: Array[int] = []
+		for cell in layout.gate_cells():
+			if cell.y == south_y:
+				cols.append(cell.x)
+		cols.sort()
+		columns.append(cols)
+	assert_eq(columns[0].size(), 2, "open_plains has a 2-cell south gate")
+	assert_eq(columns[0], columns[1],
+		"open_plains and forest_edge place their south gate at the same columns (%s vs %s)"
+			% [str(columns[0]), str(columns[1])])
 
 
 ## -- Town-zone checks --

@@ -30,12 +30,12 @@ const SAVE_PATH := "user://zone_smoke_save.json"
 ## The six crossings, in walk order: [from_zone, gate cell (from-zone-local), to_zone,
 ## expected entry cell (to-zone-local)] — mirrors the layouts' authored zone_exits().
 const CROSSINGS := [
-	["farm", Vector2i(35, 4), "path", Vector2i(1, 4)],
+	["farm", Vector2i(71, 15), "path", Vector2i(1, 4)],
 	["path", Vector2i(23, 4), "town", Vector2i(1, 4)],
 	["town", Vector2i(17, 16), "ranch", Vector2i(17, 1)],
 	["ranch", Vector2i(17, 0), "town", Vector2i(17, 15)],
 	["town", Vector2i(0, 4), "path", Vector2i(22, 4)],
-	["path", Vector2i(0, 4), "farm", Vector2i(34, 4)],
+	["path", Vector2i(0, 4), "farm", Vector2i(70, 15)],
 ]
 
 ## Town cell for the round-trip Storage Shed (open plaza grass, clear of every authored

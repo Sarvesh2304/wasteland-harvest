@@ -206,6 +206,15 @@ const FENCE_CELL := Vector2i(27, 14)
 const GATE_STAND := Vector2i(31, 13)
 const GATE_CELL := Vector2i(31, 14)
 
+## Where the east-wall walk (stages 6-8) starts. Every farm-local constant above survived the
+## 2026-08-09 72x32 farm expansion unchanged — the re-authored Forest Edge grid deliberately
+## keeps the homestead cells, the x23-35/y7-12 build clearing and the row 13-14 verge clear,
+## and each was re-verified against the new ROWS — but this walk could not: it exists to run
+## into the east perimeter fence, which moved from x35 to x71. Starting it 11 cells short of
+## the wall keeps the stage's runtime where it was instead of adding ~15 s of walking.
+const EAST_WALK_CELL := Vector2i(60, 14)
+var _east_walk_start_x := 0.0
+
 ## Zone-transition plan, Stage 3: the first town round trip (stages 3/4) is driven through the
 ## REAL gate-cell path — the player is stood on the authored gate cell and player.gd's own
 ## _physics_process detection fires zone_exit_requested → main's fade → _bind_zone, the genuine
@@ -218,7 +227,7 @@ const GATE_CELL := Vector2i(31, 14)
 ## coordinates hold for every settlement variant (the layouts author identical gate positions).
 const GATE_WALK_STAGE := 200
 const ROUTE_FARM_TO_TOWN := [
-	["farm", Vector2i(35, 4), "path"],
+	["farm", Vector2i(71, 15), "path"],
 	["path", Vector2i(23, 4), "town"],
 ]
 const ROUTE_TOWN_TO_FARM := [
@@ -384,8 +393,8 @@ func _physics_process(_delta: float) -> bool:
 			_check(spawn == test_map.get_spawn_position(), "player starts on the spawn cell")
 			_check(spawn == ForestEdgeLayout.cell_center(Vector2i(17, 5)),
 				"spawn position matches Forest Edge's authored spawn cell (17,5)")
-			_check(test_map.get_map_rect() == Rect2(0, 0, 576, 256),
-				"farm-zone map bounds are 36x16 cells (the zone split's farm-only frame)")
+			_check(test_map.get_map_rect() == Rect2(0, 0, 1152, 512),
+				"farm-zone map bounds are 72x32 cells (the 2026-08-09 farm expansion)")
 			_check(hud.get_node("%DayLabel").text == "Day 1", "HUD day label bound")
 			_check(hud.get_node("%EnergyFill").value == 100.0, "energy bar full")
 			_check(player.farm == farm and player.test_map == test_map and player.structures == structures,
@@ -401,10 +410,18 @@ func _physics_process(_delta: float) -> bool:
 			# -- The farm zone was actually painted correctly from its layout data (painting is a
 			#    per-cell char match, so painted == authored is the "fully painted" invariant; the
 			#    old hand-counted whole-combined-map literals died with the zone split) --
-			_check(test_map.get_node("Ground").get_used_cells().size() == 37 * 17,
-				"dual-grid ground fully painted (37x17 visual tiles, 36x16 farm zone)")
-			_check(test_map.get_node("Obstacles").get_used_cells().size() == 2,
-				"the 2 salvage-rubble '#' cells painted onto Obstacles")
+			_check(test_map.get_node("Ground").get_used_cells().size() == 73 * 33,
+				"dual-grid ground fully painted (73x33 visual tiles, 72x32 farm zone)")
+			# Derived, not a hand-counted literal: the expansion grew Forest Edge's rubble from
+			# 2 cells to a whole treeline's worth plus the south-east foundation, and a literal
+			# here would only be a second place to forget to update.
+			var authored_rubble := 0
+			for rubble_row in ForestEdgeLayout.ROWS:
+				authored_rubble += String(rubble_row).count("#")
+			_check(authored_rubble > 0, "Forest Edge authors salvage-rubble cells")
+			_check(test_map.get_node("Obstacles").get_used_cells().size() == authored_rubble,
+				"every authored salvage-rubble '#' cell painted onto Obstacles (%d)" \
+					% authored_rubble)
 			_check(test_map.get_node("Fence").get_used_cells().size()
 					== ForestEdgeLayout.fence_cells().size(),
 				"every authored farm-zone fence cell painted")
@@ -524,34 +541,44 @@ func _physics_process(_delta: float) -> bool:
 				# of energy — real behaviour, artificial clock position. (Can't pause instead:
 				# main.gd's _process re-derives time_paused from the modal gate every frame.)
 				player.set_energy(player.max_energy)
-				# Walk east along row 14, NOT the spawn's row 5: since the zone split the east
-				# wall has its gate-break to the Path zone on rows 4-5, so a row-5 walk would
-				# warp zones instead of hitting the fence. Row 14 is open clear to the wall.
-				player.global_position = Vector2(spawn.x, 14 * 16.0 + 8.0)
+				# Walk east along row 14, NOT the spawn's row: the east wall has its gate-break
+				# to the Path zone on rows 15-16, so a walk on those rows would warp zones
+				# instead of hitting the fence. Row 14 (the buried-street verge) is open clear
+				# to the wall. Started from EAST_WALK_CELL rather than the spawn column since
+				# the 72-wide expansion: at 56 px/s a walk from the spawn would need ~15 real
+				# seconds to reach the far wall, and this stage is about the wall and the
+				# camera clamp, not how long the map takes to cross.
+				player.global_position = test_map.get_global_cell_center(EAST_WALK_CELL)
+				_east_walk_start_x = player.global_position.x
 				player.velocity = Vector2.ZERO
 				Input.action_press("move_right")
 				_enter_stage(7)
 		7:
 			if ticks >= 120:  # ~2s of walking east
-				_check(player.global_position.x > spawn.x + 60.0,
-					"player walked east (x %.1f from %.1f)" % [player.global_position.x, spawn.x])
+				_check(player.global_position.x > _east_walk_start_x + 60.0,
+					"player walked east (x %.1f from %.1f)" \
+						% [player.global_position.x, _east_walk_start_x])
 				_check(player.facing == "east", "facing tracked input")
 				_check(player.get_node("Sprite").animation == &"walk_east", "walk_east playing")
 				_enter_stage(8)
 		8:
 			if ticks >= 300:  # ~5 more seconds: must have hit the east perimeter fence by now
 				var x := player.global_position.x
-				var fence_face_x := 35 * 16.0
-				_check(x > 400.0 and x < fence_face_x,
+				var fence_face_x := 71 * 16.0
+				_check(x > _east_walk_start_x + 120.0 and x < fence_face_x,
 					"border fence stopped the player (x=%.1f, wall face at %.1f)" % [x, fence_face_x])
 				Input.action_release("move_right")
-				# Camera clamp: map is 576x784 (36x49 after the ranch extension), view is
-				# 320x192 -> half=(160,96); max center x = 576 - 160 = 416. The player is up at the
-				# spawn walking east, so camera y stays clamped near the top (~96) here.
-				_check(absf(camera.global_position.x - 416.0) < 1.0,
+				# Camera clamp: the farm zone is 72x32 cells = 1152x512 px since the 2026-08-09
+				# expansion (was 36x16/576x256; the stale comment that used to sit here still
+				# described the PRE-zone-split 36x49 combined map, and the loose y bound it
+				# implied). View is 320x192 -> half=(160,96), so the clamped centre band is
+				# x in [160, 1152-160=992] and y in [96, 512-96=416]. The player is pinned
+				# against the east wall here, so x must sit exactly on its upper limit; the
+				# row-14 walk puts y mid-band, and 416 is now the farm's REAL upper bound.
+				_check(absf(camera.global_position.x - 992.0) < 1.0,
 					"camera clamped at east limit (x=%.1f)" % camera.global_position.x)
 				_check(camera.global_position.y >= 96.0 and camera.global_position.y <= 416.0,
-					"camera y within clamp band")
+					"camera y inside the farm's real clamp band (y=%.1f)" % camera.global_position.y)
 				_enter_stage(9)
 		9:
 			if ticks >= 10:  # idle settled

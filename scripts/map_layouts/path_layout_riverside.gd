@@ -34,11 +34,12 @@ const BUILDINGS: Array[Dictionary] = []
 
 
 ## Same gate cells / targets as the standard variant (the east entry lands on the bridge
-## planks, then the town-side landing) — see path_layout_standard.gd's doc.
+## planks, then the town-side landing) — see path_layout_standard.gd's doc, including why the
+## farm-local west entry cell (70, 15) is a hand-maintained literal rather than a derived one.
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(0, 4), Vector2i(0, 5)], "target_zone": "farm",
-			"entry_cell": Vector2i(34, 4)},
+			"entry_cell": Vector2i(70, 15)},
 		{"gate_cells": [Vector2i(23, 4), Vector2i(23, 5)], "target_zone": "town",
 			"entry_cell": Vector2i(1, 4)},
 	]

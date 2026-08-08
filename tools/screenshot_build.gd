@@ -47,8 +47,12 @@ func _physics_process(_delta: float) -> bool:
 			builder = main.get_node("Builder")
 			day_manager.minutes_into_day = 720.0  # noon: unmodulated palette for a clean shot
 			day_manager.time_paused = true
-			# Same site as tools/runtime_smoke.gd's stage 16: shed at (3,16)-(4,17).
-			player.global_position = main.get_node("FarmMap").cell_to_world_center(Vector2i(3, 15))
+			# Same site as tools/runtime_smoke.gd's stage 16: SHED_STAND (30,8), facing south,
+			# so the 2x2 shed preview lands on the open build clearing at (30,9)-(31,10).
+			# (Re-anchored with the 2026-08-09 72x32 farm expansion — the old (3,15) stand cell
+			# is inside Forest Edge's re-authored creek now, and its "shed at (3,16)" comment
+			# had already drifted from what runtime_smoke's stage 16 actually does.)
+			player.global_position = main.get_node("FarmMap").cell_to_world_center(Vector2i(30, 8))
 			player.velocity = Vector2.ZERO
 			player.facing = "south"
 			builder.set_active(true)

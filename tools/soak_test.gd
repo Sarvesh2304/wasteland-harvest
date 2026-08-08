@@ -60,12 +60,15 @@ const ItemDB := preload("res://scripts/item_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 
-## Coordinates re-anchored to the FARM ZONE's local grid after the zone split (the farm is
-## 36x16 now; the old combined map's town rows 16+ live in the Town zone). Rows 9/10 and 14
-## are open grass on the farm's Forest Edge ROWS, clear of the pre-baked farmland patches,
-## the SW creek, treeline/salvage, and every building. The old NPC-clearance constraint is
-## gone with the split — no NPC lives in the farm zone anymore (town visits warp, see
-## _warp_to below).
+## Coordinates are FARM-ZONE-LOCAL (the old combined map's town rows 16+ live in the Town zone
+## since the split). All of them were RE-VERIFIED against the 2026-08-09 72x32 farm expansion
+## and none had to move: the re-authored Forest Edge grid deliberately keeps row 14 (the buried
+## main street's verge) open across the map's whole width, keeps the x23-35/y7-12 build clearing
+## open, and keeps the homestead cells and the (33,2) treeline tree exactly where they were —
+## see scripts/map_layouts/forest_edge_layout.gd's class doc. They stay clear of the pre-baked
+## farmland patches, the SW creek, treeline/salvage, and every building. The old NPC-clearance
+## constraint is gone with the split — no NPC lives in the farm zone anymore (town visits warp,
+## see _warp_to below).
 const POTATO_CELLS: Array[Vector2i] = [Vector2i(5, 14), Vector2i(6, 14), Vector2i(7, 14)]
 const DUSTWHEAT_CELLS: Array[Vector2i] = [Vector2i(9, 14), Vector2i(10, 14)]
 const SHED_STAND := Vector2i(30, 8)   # facing south -> 2x2 shed lands at (30,9)-(31,10)
@@ -87,7 +90,7 @@ const BOX_STAND := Vector2i(17, 5)    # facing north -> shipping box at (17,4)
 ## settlement variant (the layouts author identical gate positions).
 const GATE_WALK_STAGE := 20
 const ROUTE_FARM_TO_TOWN := [
-	["farm", Vector2i(35, 4), "path"],
+	["farm", Vector2i(71, 15), "path"],
 	["path", Vector2i(23, 4), "town"],
 ]
 const ROUTE_TOWN_TO_FARM := [

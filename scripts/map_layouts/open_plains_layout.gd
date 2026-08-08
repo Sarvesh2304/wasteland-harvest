@@ -3,44 +3,87 @@ extends RefCounted
 ##
 ## The original Phase 2/3 engine-proving test map, kept as this start's identity per Phase 4's
 ## explicit scope note ("Open Plains is the most similar in spirit to a generic flat test map").
-## Largest contiguous farm plot of the three starts (x6-29, y6-14), fewest resource nodes
+## Largest contiguous farm plot of the three starts by a wide margin, few resource nodes
 ## (wood/stone/scrap are scarce here — everything else is bought, traded, or hauled back from
 ## expeditions).
 ##
 ## FARM ZONE ONLY since the Farm/Path/Town/Ranch zone split: the town core and Ranch/Sanctuary
-## rows that used to continue south of row 15 now live in their own zone layouts
+## rows that used to continue south of the farm now live in their own zone layouts
 ## (town_layout_standard.gd / ranch_layout_standard.gd — this start uses the standard variants,
-## see settlement_db.gd's layout_for_zone()). Row 15, previously open ground continuing into
-## the town rows, is now the farm's own south perimeter wall (verified empty of content in all
-## 3 starts before conversion, so no farm coordinate moved). The east wall (column 35, already
-## solid pre-split) gains a 2-cell 'G' gate-break at rows 4-5 — the zone exit to the new Path
-## corridor (see zone_exits()); rows 4-5 verified clear of farmland/resource nodes at the
-## x33-34 approach in all 3 starts.
+## see settlement_db.gd's layout_for_zone()).
+##
+## ## 72x32 (pre-Stage-4 farm expansion, 2026-08-09)
+##
+## Was 36x16. Sarvesh played the build and found the farm noticeably smaller than intended;
+## the target size (roughly double per axis — 4x the area) was confirmed with him directly. The
+## grid is RE-AUTHORED at the new size rather than tiled twice: the homestead keeps its authored
+## cells (farmhouse x16-18/y2-3, the chest/box/bed service row on y4, the '@' spawn at (17,5) —
+## every companion tool anchors off those, and none of them needed to move), and everything
+## below it is recomposed for the space:
+##   - one contiguous field, x8-57 / y10-25 (768 pre-tilled cells, up from 216), with chamfered
+##     corners and a cart-track notch at x30-33 so it reads as a worked holding rather than a
+##     bare rectangle — MAPS.md §1's "big, clean, rectangular farm plots";
+##   - a wide open apron north, west, east and south of it: the sightlines-are-total identity,
+##     and the working ground the two gates open onto;
+##   - 12 scattered resource nodes (was 3), all out on the margins — still the sparsest wood/
+##     stone/scrap of the three starts once Forest Edge's treeline is counted.
+##
+## ## Perimeter and gates
+##
+## Row 0 carries the small 'g' fence gap (x17, "closed later" — no gameplay meaning yet); row 31
+## is the south perimeter wall and column 71 the east wall.
+##   - EAST GATE, 'G' at (71,15)/(71,16): the zone exit to the Path corridor (see zone_exits()).
+##     It moved from the old rows 4-5 to the new grid's vertical middle. path_layout_standard.gd
+##     and path_layout_riverside.gd both hardcode a farm-local `entry_cell` just inside it —
+##     that literal was updated by hand to (70,15) along with this move; it is NOT derived.
+##   - SOUTH GATE, 'G' at (35,31)/(36,31): authored here, deliberately the SAME two columns as
+##     forest_edge_layout.gd, because both farms pair with the one shared ranch_layout_standard.gd
+##     (see tests/test_map_layouts.gd's VARIANT_ZONE_MAPS) and the Ranch's single return exit can
+##     only carry one entry_cell. It carries NO zone_exits() entry yet — the Ranch relocation is
+##     the next stage; until then this is a gate-break in the wall and nothing more.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all 3 starts)
 
 const ROWS: Array[String] = [
-	"FFFFFFFFFFFFFFFFFgFFFFFFFFFFFFFFFFFF",
-	"F..................................F",
-	"F...............H..................F",
-	"F..................................F",
-	"F...............CSD................G",
-	"F................@.................G",
-	"F.....ffffffffffffffffffffffff.....F",
-	"F...T.ffffffffffffffffffffffff.....F",
-	"F.....ffffffffffffffffffffffff.....F",
-	"F.....ffffffffffffffffffffffff.T...F",
-	"F.....ffffffffffffffffffffffff.....F",
-	"F.....ffffffffffffffffffffffff.....F",
-	"F...O.ffffffffffffffffffffffff.....F",
-	"F.....ffffffffffffffffffffffff.....F",
-	"F.....ffffffffffffffffffffffff.....F",
-	# Since the zone split: the farm's own south perimeter wall (was open ground continuing into
-	# the town rows — see the class doc). The town core + ranch rows now live in
-	# town_layout_standard.gd / ranch_layout_standard.gd.
-	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFgFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"F......................................................................F",
+	"F...............H......................................................F",
+	"F......................................................T...............F",
+	"F...............CSD....................................................F",
+	"F................@............................................T........F",
+	"F..T...................................................................F",
+	"F......................................................................F",
+	"F......................................................................F",
+	"F......................................................................F",
+	# The field proper: one contiguous block, x8-57 / y10-25, corners chamfered and one
+	# cart track notched in from the homestead — 768 pre-tilled cells, by a wide margin
+	# the largest plantable area of the three starts (MAPS.md §1).
+	"F...........ffffffffffffffffff....ffffffffffffffffffff.................F",
+	"F...........ffffffffffffffffffffffffffffffffffffffffff.................F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.....T.......F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
+	"F...O...ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............G",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............G",
+	"F.T.....ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.......O.....F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
+	"F....T..ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.O...........F",
+	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.........T...F",
+	"F..........ffffffffffffffffffffffffffffffffffffffffffff................F",
+	"F..........ffffffffffffffffffffffffffffffffffffffffffff................F",
+	# South of the field: open working ground running to the new south perimeter wall and
+	# its gate-break at x35-36 (see zone_exits() — Stage 3 wires the Ranch behind it).
+	"F......................................................................F",
+	"F......................................................................F",
+	"F.....T................................................................F",
+	"F...........................................................T..........F",
+	"F......................................................................F",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 ## Farm-zone buildings only since the zone split — the town core (mayor's house, store, shacks,
@@ -61,10 +104,12 @@ const BUILDINGS: Array[Dictionary] = [
 
 
 ## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
-## east-wall gate-break to the new Path corridor, landing just inside Path's own west gate.
+## east-wall gate-break to the Path corridor, landing just inside Path's own west gate.
+## The south gate ((35,31)/(36,31)) has no entry here yet — the Farm<->Ranch wiring is the next
+## stage's job (see the class doc).
 static func zone_exits() -> Array[Dictionary]:
 	return [
-		{"gate_cells": [Vector2i(35, 4), Vector2i(35, 5)], "target_zone": "path",
+		{"gate_cells": [Vector2i(71, 15), Vector2i(71, 16)], "target_zone": "path",
 			"entry_cell": Vector2i(1, 4)},
 	]
 
