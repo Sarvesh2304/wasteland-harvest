@@ -78,6 +78,10 @@ extends CanvasLayer
 const Inventory := preload("res://scripts/inventory.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 const DayDial := preload("res://scripts/day_dial.gd")
+## Script-level preload (not the DayManager autoload instance) purely so the pure static rules
+## below — crossed_into_night() — can read DAY_START_MINUTES/is_late_night() from a headless
+## test with no autoload running. Same pattern as player.gd's own DayManagerScript const.
+const DayManagerScript := preload("res://scripts/day_manager.gd")
 
 const HOTBAR_SIZE := Inventory.HOTBAR_SIZE
 const SLOT_SIZE := 14.0
@@ -96,12 +100,20 @@ const CELL_SIZE := 16.0
 ## reads as "done with the chest" and closes it.
 const CHEST_CLOSE_DISTANCE := 3.0 * CELL_SIZE
 
+## How long the "GETTING SLEEPY..." cue stays up after midnight strikes (2026-08-09 HUD polish,
+## from Sarvesh's playtest: the cue used to sit on screen for the WHOLE midnight-to-6-AM window —
+## up to 6 real minutes — because hud.gd just mirrored DayManager.is_late_night() every tick).
+## 8 seconds is ~6 full pulse cycles at sleepy_pulse_alpha's ~0.8 Hz: unmissable, then gone. It
+## fires ONCE per night, on the midnight-crossing edge (see crossed_into_night below) — the
+## ongoing consequence of staying up is the energy bar visibly sliding, which is always on screen
+## anyway, so the cue's job is to announce the window, not to nag through it.
+const SLEEPY_CUE_SECONDS := 8.0
+
 @onready var day_label: Label = %DayLabel
 @onready var clock_label: Label = %ClockLabel
 @onready var day_dial: Control = %DayDial
 @onready var energy_fill: ProgressBar = %EnergyFill
 @onready var credits_label: Label = %CreditsLabel
-@onready var sleepy_label: Label = %SleepyLabel
 @onready var hotbar_row: HBoxContainer = %Hotbar
 @onready var inventory_grid: GridContainer = %InventoryGrid
 @onready var chest_grid: GridContainer = %ChestGrid
@@ -121,6 +133,33 @@ var _chest_cell := Vector2i.ZERO
 ## The player node, kept from bind_player() for the walk-away distance check.
 var _player: Node = null
 
+## The "GETTING SLEEPY..." cue (2026-08-09 HUD polish). NOT a HUD node any more: it now lives in
+## the world as a Label child of the Player scene (scenes/player.tscn's third child, alongside
+## Sprite/CollisionShape2D), so it floats above the character's head instead of banner-ing across
+## the top of the screen — Sarvesh's playtest read the old top-of-screen version as a system
+## message rather than something happening to his character. Parenting it to the Player makes it
+## track him for free under any camera pan/clamp, with no screen-projection math.
+##
+## Authoring notes for that node, kept HERE rather than as .tscn comments — no other scene file
+## in this repo carries any, and Godot's editor silently strips them the moment the scene is
+## opened (the same comment-eating behaviour that already bit this project's project.godot):
+##   - Offsets put its 10px band at local y -28..-18, tucked just above the 24px sprite (drawn at
+##     offset (0,-5), so the head tops out at y=-17). A first screenshot pass at -32..-22 left a
+##     visibly floating gap.
+##   - font_size drops 16 -> native 8 (the theme's other sanctioned crisp size, per
+##     art/ui/README.md — NOT a new fractional one) so it reads as a small personal cue.
+##   - The authored font_color is what the player actually sees: _show_sleepy_cue() divides the
+##     day/night CanvasModulate back out (see tint_compensation).
+##
+## hud.gd still owns show/hide/pulse — the cue is a clock readout like the day sign and energy
+## bar, and keeping one script in charge of "what the clock means on screen" beat scattering a
+## second copy of the night rules into player.gd. Resolved in bind_player(); stays null (and
+## every touch below no-ops) in the headless/unbound case, which is why the guards are there.
+var sleepy_label: Label = null
+## One-shot SLEEPY_CUE_SECONDS timer, built in _ready. Started by the midnight edge, stopped
+## early if the clock leaves the late-night window first (a bed/pass-out jump back to 6 AM).
+var _sleepy_timer: Timer = null
+
 
 ## The "WORLD SAVED" notice's timing (Phase 4 Stage 3): fully visible for HOLD seconds, then
 ## fades out over FADE seconds. Brief-but-unmissable; total ~2.4s.
@@ -131,7 +170,19 @@ var _save_notice_tween: Tween = null
 
 
 func _ready() -> void:
+	_sleepy_timer = Timer.new()
+	_sleepy_timer.one_shot = true
+	_sleepy_timer.wait_time = SLEEPY_CUE_SECONDS
+	_sleepy_timer.timeout.connect(_hide_sleepy_cue)
+	add_child(_sleepy_timer)
 	DayManager.time_changed.connect(_on_time_changed)
+	# The sleepy cue's ONE-SHOT trigger rides time_advanced, not time_changed: only that signal
+	# carries the previous clock reading (so the midnight wrap is detectable as an edge rather
+	# than a state), and only that signal is emitted exclusively for lived-through time — a
+	# sleep transition's jump back to 6 AM or a save-load's clock restore must never be mistaken
+	# for the player staying up. Exactly the reasoning player.gd's night rules already use; see
+	# day_manager.gd's time_advanced doc.
+	DayManager.time_advanced.connect(_on_time_advanced)
 	_on_time_changed(DayManager.day, DayManager.minutes_into_day)
 	# Phase 4 Stage 3: transient "WORLD SAVED" notice, driven by the GameState autoload's
 	# game_saved signal (fired from the bed's auto-save) — the save system stays UI-agnostic.
@@ -157,7 +208,7 @@ func _process(_delta: float) -> void:
 	if chest_grid.visible and _player != null \
 			and chest_out_of_range(_player.global_position, _chest_cell):
 		chest_grid.visible = false
-	if sleepy_label.visible:
+	if sleepy_label != null and sleepy_label.visible:
 		sleepy_label.modulate.a = sleepy_pulse_alpha(Time.get_ticks_msec() / 1000.0)
 
 
@@ -167,6 +218,43 @@ func _process(_delta: float) -> void:
 ## (min alpha 0.1) so the cue can't be missed by glancing up during the trough.
 static func sleepy_pulse_alpha(seconds: float) -> float:
 	return 0.55 + 0.45 * sin(seconds * TAU * 0.8)
+
+
+## Pure one-shot edge rule for the sleepy cue (headless-testable): whether a lived-through
+## clock interval is the tick that just crossed midnight INTO the late-night window — the single
+## moment per night the cue fires. The deliberate counterpart to player.gd's survived_night()
+## (the 6 AM edge that ends a stay-awake charge), written in the same shape on purpose.
+##
+## Why an edge and not is_late_night(new_minutes): that state is true for the whole 6-hour
+## window, which is exactly the bug this replaces — mirroring it into a Label's visibility every
+## tick is what pinned the banner on screen all night. advance_minutes() only ever moves the
+## clock forward, so new < prev IS a genuine midnight crossing (its own doc says so); the
+## is_late_night() conjunct then rejects the pathological case of a single tick so large it
+## jumped clean over the whole window (>6 game-hours in one emission — impossible from a frame
+## delta, reachable only from test tooling), where "you're getting sleepy" would be a lie.
+static func crossed_into_night(prev_minutes: float, new_minutes: float) -> bool:
+	return new_minutes < prev_minutes and DayManagerScript.is_late_night(new_minutes)
+
+
+## Pure: the self_modulate that cancels a CanvasModulate tint, so a world-space Control keeps
+## the colour it was actually authored with (2026-08-09, and a CONFIRMED problem, not a
+## precaution — the first screenshot of the relocated sleepy cue showed it washed down to a
+## barely-there dark blue). Moving the cue out of the HUD CanvasLayer and into the world is what
+## bought the follow-the-player behaviour; the cost is that main.tscn's DayNight CanvasModulate
+## now multiplies it too, and midnight's sky is (0.16, 0.17, 0.30) — a ~5x knock-down on a cue
+## whose entire job is to be noticed. Dividing it back out is exact rather than eyeballed, and
+## costs one line at show-time instead of a hand-tuned magic colour that would silently rot the
+## next time the sky gradient is retuned.
+##
+## Values above 1.0 are intentional and safe here: the multiply happens in-shader before the
+## framebuffer write, so the product lands back at the authored colour rather than clamping.
+## max_gain caps how far a near-black sky can push it (a guard for future gradient edits, not a
+## case today's keyframes can reach).
+static func tint_compensation(sky: Color, max_gain: float = 8.0) -> Color:
+	return Color(
+		minf(max_gain, 1.0 / maxf(sky.r, 0.001)),
+		minf(max_gain, 1.0 / maxf(sky.g, 0.001)),
+		minf(max_gain, 1.0 / maxf(sky.b, 0.001)))
 
 
 ## Pure distance rule for the walk-away close (headless-testable, no scene required): whether
@@ -180,6 +268,11 @@ static func chest_out_of_range(player_pos: Vector2, chest_cell: Vector2i,
 ## Called by main.gd once the player exists.
 func bind_player(player: Node) -> void:
 	_player = player
+	# The sleepy cue lives on the player now (see sleepy_label's declaration) — get_node_or_null
+	# rather than a hard $ path so an older/stripped Player scene degrades to "no cue" instead of
+	# crashing the whole HUD bind.
+	sleepy_label = player.get_node_or_null("SleepyLabel") as Label
+	_hide_sleepy_cue()
 	player.energy_changed.connect(_on_energy_changed)
 	_on_energy_changed(player.energy, player.max_energy)
 	player.credits_changed.connect(_on_credits_changed)
@@ -224,19 +317,63 @@ func _make_slot_widget(parent: Control) -> Dictionary:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(icon)
 
+	# -- Placeholder name tag (2026-08-09 HUD polish) --
+	# data/items.json's own header comment has always described placeholder_label as "drawn
+	# in-engine by hud.gd" for items shipping without icon art — which is every tool in the game
+	# today — but no code ever read the field, so the hotbar was a row of anonymous colour
+	# swatches and Sarvesh's playtest couldn't tell the hoe from the watering can. Deliberately a
+	# SECOND Label rather than reusing the count/durability one below: both have to coexist in
+	# the same 14px square, so this one takes the top edge (centered) and leaves the bottom-right
+	# corner to the badge that already owned it. Native 8px theme font — art/ui/README.md's pixel
+	# font is only crisp at 8 or 16, and 16 would not fit a 3-char tag in 14px.
+	#
+	# The backing strip first: without it the tag's contrast depends entirely on whichever
+	# placeholder_color the item happens to carry, and screenshot review showed that failing on
+	# the light swatches (the Watering Can's pale blue) and on the selected slot's gold frame. A
+	# fixed band gives every tag the same legible ground, and doubles as a visual separator
+	# between the tag row and the badge below it. Top 7px of the slot, inset 1px like `bg` so the
+	# selection frame still reads.
+	var tag_bg := ColorRect.new()
+	tag_bg.position = Vector2(1, 1)
+	tag_bg.size = Vector2(SLOT_SIZE - 2, 7)
+	tag_bg.color = Color("#281a0b", 0.85)
+	tag_bg.visible = false  # only raised alongside a non-empty tag (see _paint_slot)
+	tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(tag_bg)
+
+	var tag := Label.new()
+	tag.position = Vector2(0, 0)
+	tag.size = Vector2(SLOT_SIZE, 8)
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.clip_text = true  # a long/hand-edited tag crops instead of bleeding into the next slot
+	tag.add_theme_color_override("font_color", Color("#ffedb1"))
+	tag.add_theme_color_override("font_outline_color", Color("#281a0b"))
+	# Outline 1, not the badge's 2: a 3-character tag nearly fills the 14px slot, and a 2px halo
+	# on every glyph made neighbouring slots' tags read as one run-on word in the first
+	# screenshot pass. 1px still separates the text from the placeholder_color swatch behind it.
+	tag.add_theme_constant_override("outline_size", 1)
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(tag)
+
 	var label := Label.new()
 	# Count/durability text inherits the project theme's pixel font at its native 8px base size
 	# (art/ui/ui_theme.tres) — no per-node size override, so it stays crisp at the 4x stretch.
 	label.position = Vector2(0, SLOT_SIZE - 8)
 	label.size = Vector2(SLOT_SIZE - 1, 8)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# Pre-existing overflow, caught by this session's screenshot review rather than introduced by
+	# it: the Scavenger's Bag's durability_max is 999999 (deliberately unbreakable), and an
+	# unclipped 6-digit badge spilled left across the whole neighbouring slot. Clipping to the
+	# slot is the same containment the tag above uses; nothing legitimate is lost, since every
+	# real count/durability in the game is at most 3 digits.
+	label.clip_text = true
 	label.add_theme_color_override("font_color", Color("#ffedb1"))
 	label.add_theme_color_override("font_outline_color", Color("#281a0b"))
 	label.add_theme_constant_override("outline_size", 2)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(label)
 
-	return {"frame": frame, "bg": bg, "icon": icon, "label": label}
+	return {"frame": frame, "bg": bg, "icon": icon, "tag_bg": tag_bg, "tag": tag, "label": label}
 
 
 func _refresh_all_slots() -> void:
@@ -255,6 +392,8 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 	var frame: ColorRect = widget["frame"]
 	var bg: ColorRect = widget["bg"]
 	var icon: TextureRect = widget["icon"]
+	var tag_bg: ColorRect = widget["tag_bg"]
+	var tag: Label = widget["tag"]
 	var label: Label = widget["label"]
 
 	frame.color = SELECTED_COLOR if selected else Color.TRANSPARENT
@@ -262,6 +401,8 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 	if slot.is_empty():
 		bg.color = EMPTY_BG_COLOR
 		icon.texture = null
+		tag.text = ""
+		tag_bg.visible = false
 		label.text = ""
 		return
 
@@ -271,9 +412,13 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 	if icon_path != "" and ResourceLoader.exists(icon_path):
 		icon.texture = load(icon_path)
 		bg.color = EMPTY_BG_COLOR
+		# Real art speaks for itself — the tag is a stand-in for a missing icon, not a caption.
+		tag.text = ""
 	else:
 		icon.texture = null
 		bg.color = Color(String(item_def.get("placeholder_color", "#8c8478")))
+		tag.text = String(item_def.get("placeholder_label", ""))
+	tag_bg.visible = tag.text != ""
 
 	if slot.has("durability"):
 		label.text = str(int(slot["durability"]))
@@ -341,18 +486,49 @@ func _on_time_changed(day: int, minutes_into_day: float) -> void:
 	var clock := DayManager.format_clock(minutes_into_day)
 	if clock_label.text != clock:
 		clock_label.text = clock
-	# Night rules (2026-07-11): the pulsing sleepy cue tracks the same midnight-to-6-AM window
-	# player.gd's passive drain uses, so the on-screen warning and the sliding energy bar always
-	# tell one story. Time-driven (not player-state-driven) on purpose: the cue is about the
-	# hour, and it disappears the instant any sleep/pass-out lands the clock back on 6 AM.
-	var sleepy := DayManager.is_late_night(minutes_into_day)
-	if sleepy_label.visible != sleepy:
-		sleepy_label.visible = sleepy
+	# Night rules (2026-07-11, retimed 2026-08-09): the sleepy cue is RAISED by the midnight edge
+	# in _on_time_advanced below and drops itself after SLEEPY_CUE_SECONDS. All that's left here
+	# is the floor rule that has to hold at every clock reading however it was reached: outside
+	# the midnight-to-6-AM window the cue is never up. That covers the teleporting paths
+	# time_advanced deliberately never fires for — a bed sleep, a pass-out, a save-load — each of
+	# which lands the clock on 6 AM and must clear a mid-countdown cue instantly rather than
+	# leave it pulsing over a sunrise.
+	if not DayManager.is_late_night(minutes_into_day):
+		_hide_sleepy_cue()
 	# Day-progress dial (2026-07-11 HUD redesign): re-derived every tick straight from the clock,
 	# same as day_label/clock_label above — no separate "day changed" wiring needed since the
 	# fraction naturally wraps back to 0 the instant a new day's minutes_into_day resets.
 	day_dial.set_fraction(DayDial.day_progress_fraction(
 		minutes_into_day, DayManager.MINUTES_PER_DAY, DayManager.DAY_START_MINUTES))
+
+
+## Lived-time driver for the one-shot sleepy cue, connected to DayManager.time_advanced in
+## _ready() (see the comment there for why that signal). Fires the cue on the midnight edge and
+## nowhere else; a second wrap can't arrive until the next night, so no re-trigger guard beyond
+## the edge test itself is needed.
+func _on_time_advanced(prev_minutes: float, new_minutes: float) -> void:
+	if crossed_into_night(prev_minutes, new_minutes):
+		_show_sleepy_cue()
+
+
+func _show_sleepy_cue() -> void:
+	if sleepy_label == null:
+		return
+	# Computed once here rather than per-frame: the cue's whole 8-second life sits inside the
+	# flat deep-night stretch of DayManager's gradient (constant from 20:30 to 5:00), so the
+	# compensation cannot drift while it's up. See tint_compensation's doc.
+	sleepy_label.self_modulate = tint_compensation(DayManager.current_sky_color())
+	sleepy_label.modulate.a = 1.0  # _process's pulse takes over from the next frame
+	sleepy_label.visible = true
+	_sleepy_timer.start(SLEEPY_CUE_SECONDS)
+
+
+func _hide_sleepy_cue() -> void:
+	if _sleepy_timer != null:
+		_sleepy_timer.stop()
+	if sleepy_label == null:
+		return
+	sleepy_label.visible = false
 
 
 func _on_energy_changed(current: float, max_energy: float) -> void:

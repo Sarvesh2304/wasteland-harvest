@@ -60,3 +60,80 @@ func test_sleepy_pulse_stays_visible_and_in_alpha_range() -> void:
 	assert_true(lowest >= 0.0999, "the trough never fully hides the cue (min ~0.1)")
 	assert_true(highest > 0.95, "the peak reaches full visibility")
 	assert_true(highest - lowest > 0.5, "the pulse actually breathes rather than sitting still")
+
+
+## -- 2026-08-09 HUD polish: the sleepy cue's one-shot midnight-edge rule --
+##
+## The bug this replaces: hud.gd mirrored DayManager.is_late_night() into the label's visibility
+## every tick, so the cue sat on screen for the entire midnight-to-6-AM window. The new rule is
+## an EDGE, deliberately shaped like player.gd's own survived_night() (its 6 AM counterpart) —
+## see tests/test_player.gd's night-rule cases for the sibling coverage.
+
+func test_the_midnight_wrap_fires_the_cue_exactly_once() -> void:
+	assert_true(HudScript.crossed_into_night(1439.5, 0.5),
+		"the tick that wraps 11:59 PM -> 12:00 AM raises the cue")
+	assert_false(HudScript.crossed_into_night(0.5, 1.5),
+		"the very next tick does NOT re-raise it — this is the whole point of the fix")
+	assert_false(HudScript.crossed_into_night(90.0, 91.0),
+		"a 1:30 AM tick deep inside the window is not an edge")
+	assert_false(HudScript.crossed_into_night(359.0, 359.5),
+		"nor is the last minute before 6 AM")
+
+
+func test_daytime_and_evening_ticks_never_fire_the_cue() -> void:
+	assert_false(HudScript.crossed_into_night(720.0, 721.0), "noon is not a midnight crossing")
+	assert_false(HudScript.crossed_into_night(1200.0, 1201.0), "8 PM is not either")
+	assert_false(HudScript.crossed_into_night(1438.0, 1439.0),
+		"11:58 PM -> 11:59 PM stays on the near side of midnight")
+
+
+func test_the_six_am_wake_edge_is_not_a_night_crossing() -> void:
+	# The mirror-image edge player.gd::survived_night() owns: leaving the window, not entering
+	# it. Both are forward-moving ticks; only the wrap belongs to this cue.
+	assert_false(HudScript.crossed_into_night(359.5, 360.5),
+		"crossing 6 AM ends the night — it must never raise the cue")
+
+
+func test_a_tick_that_jumps_the_whole_window_is_rejected() -> void:
+	# Unreachable from a frame delta (>6 game-hours in one emission) but reachable from test
+	# tooling: the clock wrapped, yet the player is already past 6 AM, so "getting sleepy" would
+	# be a lie. The is_late_night() conjunct in the rule exists for exactly this case.
+	assert_false(HudScript.crossed_into_night(1400.0, 400.0),
+		"a wrap that lands clean past 6 AM is not a sleepy-window entry")
+	assert_true(HudScript.crossed_into_night(1400.0, 359.0),
+		"...but a wrap landing inside the window still counts, however large the jump")
+
+
+## -- 2026-08-09 HUD polish: cancelling the day/night wash on the world-space cue --
+
+const DayManagerScript := preload("res://scripts/day_manager.gd")
+
+
+func test_compensation_restores_the_authored_colour_at_midnight() -> void:
+	# The real case: the cue only ever shows just past midnight, where the sky sits flat at
+	# DayManager's deep-night keyframe. Authored colour * sky * compensation must come back out
+	# as the authored colour — that's the whole contract.
+	var sky := DayManagerScript.sky_color(0.0)
+	var comp := HudScript.tint_compensation(sky)
+	var authored := Color(0.694118, 0.72549, 0.909804)  # the SleepyLabel's font_color
+	var seen := Color(authored.r * sky.r * comp.r, authored.g * sky.g * comp.g,
+		authored.b * sky.b * comp.b)
+	assert_true(seen.is_equal_approx(authored),
+		"the cue renders in its authored colour under the night wash (got %s)" % seen)
+	assert_true(comp.r > 1.0 and comp.g > 1.0 and comp.b > 1.0,
+		"night genuinely needs a gain above 1 (got %s) — this isn't a no-op" % comp)
+
+
+func test_compensation_is_a_no_op_under_an_untinted_sky() -> void:
+	# Noon is unmodulated white; nothing to cancel.
+	var comp := HudScript.tint_compensation(Color.WHITE)
+	assert_true(comp.is_equal_approx(Color(1, 1, 1)),
+		"an untinted sky needs no gain (got %s)" % comp)
+
+
+func test_compensation_is_capped_against_a_black_sky() -> void:
+	# Not reachable from today's keyframes — a guard so a future gradient edit can't produce an
+	# absurd multiplier (or a division by zero).
+	var comp := HudScript.tint_compensation(Color(0.0, 0.0, 0.0), 8.0)
+	assert_true(comp.r == 8.0 and comp.g == 8.0 and comp.b == 8.0,
+		"a black sky clamps at max_gain instead of exploding (got %s)" % comp)

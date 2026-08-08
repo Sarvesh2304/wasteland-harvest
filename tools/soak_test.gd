@@ -330,7 +330,8 @@ func _physics_process(_delta: float) -> bool:
 				# Prove the pass-out itself writes a save: start provably save-free (the bed's
 				# stage-4 save would otherwise mask it).
 				game_state.delete_save()
-				var sleepy_label: Label = hud.get_node("%SleepyLabel")
+				# 2026-08-09 HUD polish: world-space Label on the Player, resolved by hud.gd.
+				var sleepy_label: Label = hud.sleepy_label
 				_check(not sleepy_label.visible, "no sleepy cue during the day-2 evening")
 				var guard := 0
 				# Stay up to midnight: the rollover ticks growth exactly once...

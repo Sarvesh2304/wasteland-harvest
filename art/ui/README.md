@@ -74,7 +74,9 @@ Three changes, no new PixelLab assets:
   since the bottom third of the plaque bitmap is decorative baked nameplate art the day/clock text
   never rendered into anyway. The energy bar frame shrank ~10% on both axes since it has no text
   to protect. All `theme_override_font_sizes` stayed at their existing sanctioned values (8 native
-  / 16 for the Credits/save-notice/sleepy-cue text) — this project's pixel font only stays crisp
+  / 16 for the Credits/save-notice/sleepy-cue text; the sleepy cue has since dropped to native 8
+  as part of the 2026-08-09 HUD polish that moved it out of the HUD and above the player's head,
+  which is the other sanctioned size, not a new one) — this project's pixel font only stays crisp
   at those exact sizes (see above), and a fractional `Control.scale` or font_size change was
   exactly the blur bug this convention exists to prevent, so it wasn't used here even though it
   would have been the simplest way to hit a literal "10% smaller" everywhere.

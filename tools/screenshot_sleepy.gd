@@ -2,9 +2,10 @@ extends SceneTree
 ## Windowed screenshot driver for the 2026-07-11 forced-sleep rules (NOT headless — the GL
 ## renderer must actually draw). Boots scenes/main.tscn on Forest Edge and saves two viewport
 ## captures (4x nearest-neighbor upscaled from the native 320x192):
-##   1. shot_sleepy_130am_4x.png — 1:30 AM: the pulsing "GETTING SLEEPY..." cue (captured at a
-##      pulse peak so it reads clearly), the night-tinted world, a visibly drained energy bar
-##      from the passive post-midnight drain, and a Scav-Brew Coffee in the hotbar.
+##   1. shot_sleepy_midnight_4x.png — just past midnight: the pulsing "GETTING SLEEPY..." cue
+##      (captured at a pulse peak so it reads clearly), now a small world-space Label floating
+##      above the player's head rather than a top-of-screen banner (2026-08-09 HUD polish), the
+##      night-tinted world, a drained energy bar, and a Scav-Brew Coffee in the hotbar.
 ##   2. shot_forced_passout_4x.png — immediately after the 2 AM forced pass-out: 6:00-AM dawn
 ##      tint, energy refilled, and the "WORLD SAVED" notice from the pass-out's new auto-save.
 ##
@@ -59,15 +60,22 @@ func _physics_process(_delta: float) -> bool:
 			player.facing = "south"
 			player.inventory.remove_item("stone", 99)  # free a hotbar slot (Forest Edge bonus)
 			player.inventory.add_item("coffee", 1)
-			# 1:30 AM, mid-drain: teleport the clock, then charge the energy bar with exactly
-			# the drain those 90 post-midnight minutes would have cost, as if lived through.
-			day_manager.minutes_into_day = 90.0
-			player.set_energy(player.max_energy - 90.0 * player.SLEEPY_DRAIN_PER_GAME_MINUTE)
+			# Retimed 2026-08-09: the cue is now a one-shot 8-second cue fired by the midnight
+			# EDGE (hud.gd's crossed_into_night), so it can only be photographed just after
+			# midnight — the old "teleport straight to 1:30 AM" setup would both skip the edge
+			# (a teleport emits no time_advanced, on purpose) and land long past the cue's
+			# window. Park the clock at 11:55 PM, drop the energy bar to a long-day-of-work
+			# level for the shot, then LIVE through midnight in 1-minute ticks so the real
+			# signal path fires.
+			day_manager.minutes_into_day = 1435.0
+			player.set_energy(62.0)
+			for i in 10:  # 11:55 PM -> 12:05 AM
+				day_manager.advance_minutes(1.0)
 			_enter_stage(1)
 		1:
 			# ~0.5s so the camera settles, then wait for a pulse PEAK so the cue reads clearly.
-			if ticks >= 30 and hud.get_node("%SleepyLabel").modulate.a > 0.9:
-				_capture("shot_sleepy_130am_4x.png")
+			if ticks >= 30 and hud.sleepy_label.visible and hud.sleepy_label.modulate.a > 0.9:
+				_capture("shot_sleepy_midnight_4x.png")
 				# Cross the cutoff through the real lived-time path: the 2 AM forced pass-out
 				# fires mid-loop, jumping the clock to 6:00 AM and writing the auto-save.
 				var guard := 0

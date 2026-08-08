@@ -21,3 +21,17 @@ autoplay = "idle_south"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, 2)
 shape = SubResource("RectangleShape2D_feet")
+
+[node name="SleepyLabel" type="Label" parent="."]
+visible = false
+offset_left = -48.0
+offset_top = -28.0
+offset_right = 48.0
+offset_bottom = -18.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.694118, 0.72549, 0.909804, 1)
+theme_override_colors/font_outline_color = Color(0.156863, 0.101961, 0.043137, 1)
+theme_override_constants/outline_size = 2
+text = "GETTING SLEEPY..."
+horizontal_alignment = 1
+vertical_alignment = 1

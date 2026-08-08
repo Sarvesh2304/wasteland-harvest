@@ -22,6 +22,11 @@ extends SceneTree
 ##   (e) TIME-PAUSED INTERPLAY — 2 AM cannot arrive mid-conversation: a real NPC dialogue holds
 ##       the clock at 1:58 AM indefinitely (via main.gd's modal-gate poll), and only after the
 ##       dialogue closes do real frames carry the clock into the cutoff.
+##   (f) ONE-SHOT SLEEPY CUE (2026-08-09 HUD polish) — the cue is now a small world-space Label
+##       parented to the Player (not a top-of-screen HUD banner), raised once on the midnight
+##       EDGE and retired ~8 real seconds later even though the midnight-to-6-AM window runs on
+##       for hours. Stages (a)/(b) above can't tell the new behaviour from the old always-on
+##       one; this stage is the part that can, so it runs on real frames.
 ##
 ## Clock-manipulation convention: teleports (direct minutes_into_day writes) position scenes
 ## and legitimately DON'T count as lived time (DayManager.time_advanced never fires for them);
@@ -81,7 +86,8 @@ func _enter_stage(next: int) -> void:
 ## Watchdog (ported from tools/runtime_smoke.gd/soak_test.gd after this file itself hung for
 ## real: the zone split removed the old single TestMap node, stage 0's fetch crash-looped every
 ## frame at near-zero CPU, and without a bound the process spun silently forever). Comfortably
-## above the longest legitimate in-stage wait here (330 ticks) so it never fires on a healthy
+## above the longest legitimate in-stage wait here (600 ticks — stage (f)'s ~10 real seconds of
+## frames, needed to outlast the sleepy cue's wall-clock 8s one-shot) so it never fires on a healthy
 ## run, but guarantees any future stall fails LOUDLY with the exact stuck stage.
 const MAX_TICKS_PER_STAGE := 1800
 var _watchdog_tripped := false
@@ -106,7 +112,9 @@ func _physics_process(_delta: float) -> bool:
 			npcs = main.zones["farm"]["npcs"]
 			dialogue_ui = main.get_node("DialogueUI")
 			hud = main.get_node("HUD")
-			sleepy_label = hud.get_node("%SleepyLabel")
+			# 2026-08-09 HUD polish: the cue is a world-space Label on the Player now, not a HUD
+			# node — hud.sleepy_label is the binding hud.gd itself resolves in bind_player().
+			sleepy_label = hud.sleepy_label
 			_check(player.energy == player.max_energy, "boots at full energy")
 			_check(not player.stay_awake_tonight, "boots with no stay-awake charge")
 			_enter_stage(1)
@@ -303,6 +311,51 @@ func _physics_process(_delta: float) -> bool:
 					+ "cutoff and the 6 AM wake (clock %s, day %d)"
 						% [day_manager.clock_text(), day_manager.day])
 				_check(player.energy == player.max_energy, "woke rested")
+				_enter_stage(6)
+		6:
+			# -- (f) ONE-SHOT CUE: the 2026-08-09 HUD polish. Everything above only ever proved
+			#    the cue is up past midnight and down by morning — both of which the OLD
+			#    always-on behaviour also satisfied. This stage is the part that distinguishes
+			#    them, and it needs real elapsed frames (the timer is wall-clock, not
+			#    game-clock), so it runs on live _process ticks rather than a synchronous loop.
+			if ticks == 1:
+				# The cue is a world-space child of the player now, not a HUD node.
+				_check(sleepy_label != null, "hud.gd resolved the player's SleepyLabel")
+				_check(sleepy_label.get_parent() == player,
+					"the cue is parented to the Player, so it tracks him around the world")
+				_check(sleepy_label.position.y < -16.0,
+					"the cue sits above the 24px sprite's head (local y %.1f)"
+						% sleepy_label.position.y)
+				_check(not sleepy_label.visible, "cue is down in the morning before we start")
+				# Live through midnight one more time, on real frames from 11:59:30 PM.
+				player.set_energy(player.max_energy)
+				player.stay_awake_tonight = true  # no 2 AM collapse to cut the observation short
+				day_manager.minutes_into_day = 1439.2
+				return false
+			if ticks == 60:  # ~1 real s later: the wrap happened ~0.8s ago, on a live tick
+				_check(day_manager.is_late_night(day_manager.minutes_into_day),
+					"the clock crossed midnight on real frames (%s)" % day_manager.clock_text())
+				_check(sleepy_label.visible, "the midnight edge raised the one-shot cue")
+				_check(hud._sleepy_timer.time_left > 0.0,
+					"the one-shot timer is counting down (%.2fs left)"
+						% hud._sleepy_timer.time_left)
+				return false
+			if ticks == 300:  # ~5 real s in: still up, still pulsing — not a one-frame flash
+				_check(sleepy_label.visible, "the cue is still up 5s into its 8s window")
+				_check(sleepy_label.modulate.a >= 0.0999,
+					"the pulse never fully hides it (alpha %.3f)" % sleepy_label.modulate.a)
+				return false
+			if ticks >= 600:  # ~10 real s: well past SLEEPY_CUE_SECONDS
+				_check(day_manager.is_late_night(day_manager.minutes_into_day),
+					("STILL inside the midnight-to-6-AM window (%s) — the old always-on "
+					+ "behaviour would have the cue pinned on screen right now")
+						% day_manager.clock_text())
+				_check(not sleepy_label.visible,
+					"the one-shot cue retired itself after ~8s despite the window running on")
+				_check(player.energy < player.max_energy,
+					"...while the passive drain kept going (%.2f) — the cue announces the "
+					% player.energy + "window, the energy bar is the ongoing signal")
+				player.stay_awake_tonight = false
 				game_state.delete_save()
 				_check(not game_state.has_save(), "test save file cleaned up")
 				_finish()
@@ -347,7 +400,7 @@ func _drive(node: Node, action: String) -> void:
 func _finish() -> void:
 	if failures.is_empty():
 		print("SLEEP SMOKE: all checks passed (onset drain+cue, 2 AM cutoff+save, coffee night, "
-			+ "zero-energy saves, paused-clock interplay).")
+			+ "zero-energy saves, paused-clock interplay, one-shot world-space sleepy cue).")
 		quit(0)
 	else:
 		for failure in failures:

@@ -108,7 +108,8 @@ headless verification suggests a problem.
       Stardew-style forced sleep. (1) From midnight, a passive sleepy drain (0.15 energy/game-
       minute — 18 over the midnight-to-2-AM window) plus a pulsing HUD "GETTING SLEEPY..." cue
       (`player.gd` night rules riding a new `DayManager.time_advanced` lived-time-only signal;
-      `hud.gd`/`hud.tscn` `%SleepyLabel`). (2) At 2 AM a *second, energy-independent* pass-out
+      `hud.gd` + the Player scene's own `SleepyLabel` — retimed and relocated 2026-08-09, see
+      below). (2) At 2 AM a *second, energy-independent* pass-out
       trigger fires regardless of the bar. (3) Rare stay-awake consumable: Scav-Brew Coffee
       (`items.json` `"coffee"`, 75 Cr, `stay_awake: true`) suppresses exactly one night's
       cutoff; deliberately NOT in Marta's stock and with **no acquisition path yet** (the
@@ -125,10 +126,28 @@ headless verification suggests a problem.
       cutoff+save, coffee night incl. next-night collapse, zero-energy save, 2-AM-can't-arrive-
       mid-dialogue), soak stage 5 reworked into a real stay-up-all-nighter, screenshots of the
       cue + forced pass-out.
+      **HUD polish 2026-08-09 (Sarvesh's playtest of the current build, pre-Phase-8-Stage-4):**
+      two real defects in the above, both fixed. (a) The cue's *duration*: `hud.gd` mirrored
+      `DayManager.is_late_night()` into the label's visibility every tick, pinning it on screen
+      for the whole midnight-to-6-AM window (up to 6 real minutes). It is now a one-shot 8-second
+      cue fired on the midnight EDGE (`hud.gd::crossed_into_night`, riding `time_advanced` the
+      same way `player.gd`'s night rules do), with the still-visible energy bar carrying the
+      ongoing signal. (b) The cue's *place*: it was a static top-of-screen HUD banner, never tied
+      to the character. `%SleepyLabel` moved out of `hud.tscn` and into `scenes/player.tscn` as a
+      world-space `Label` child of the Player, at native 8px instead of 16, so it floats just
+      above his head and follows him for free. `hud.gd` still owns show/hide/pulse and now
+      divides out the day/night `CanvasModulate` (`tint_compensation()`) so the relocated cue
+      isn't washed into the dark. Covered by new `test_hud.gd` cases and `sleep_smoke.gd`'s new
+      stage (f), which is the only check that can tell the one-shot behaviour from the old
+      always-on one.
 - [x] First 20 items defined (`data/items.json`): 4 seeds, 4 crop-produce, 5 resources (incl.
       bottle caps, cloth scrap), 2 food, 5 tools. `data/crops.json` for the 4 crops' growth/
       yield data. Real PixelLab icons for 7 items (4 crop produce + wood/stone/scrap); the
       remaining 13 use in-engine flat-color placeholders, deferred to Phase 6 art polish.
+      **2026-08-09:** those placeholders now also draw their long-documented
+      `placeholder_label` 3-character tag in the slot (`hud.gd::_paint_slot` never read the
+      field, so the hotbar was a row of anonymous colour swatches — Sarvesh's playtest couldn't
+      tell the hoe from the watering can). Icon-bearing items are unaffected.
 
 **Milestone: Phase 3 complete.** Verified independently: re-ran the full test suite after this
 session's own headless `--import` pass for the new crop/item art (66/66 unit tests pass, both
