@@ -3,7 +3,10 @@ extends RefCounted
 ## core (rows 16-31 of the pre-split riverside ROWS) as part of the Farm/Path/Town/Ranch zone
 ## split. See town_layout_standard.gd for the full frame/gate documentation (old rows 16-31 →
 ## local rows 1-16, +1 prepend for the new north wall, all coordinates shifted by (0, -15));
-## this file is the literal-duplication sibling, per the farm layout files' own convention.
+## this file is the literal-duplication sibling, per the farm layout files' own convention. That
+## file also documents the 2026-08-09 ranch relocation this variant mirrors: the south-wall gate
+## at x17-18 row 16 is resealed to plain fence and the "ranch" zone exit is gone, leaving the west
+## gate as the Town's only connection.
 ##
 ## Riverside differences (MAPS.md §1 "the river IS the western wall"):
 ##   - The west column is river 'W' the whole way down, not fence — including the new north wall
@@ -37,7 +40,7 @@ const ROWS: Array[String] = [
 	"W..................................F",
 	"W..................................F",
 	"W..................................F",
-	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 ## Old combined-map coordinates minus (0, 15) — identical to the standard variant's list (the
@@ -53,13 +56,11 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## Same gate cells / targets as the standard variant (see town_layout_standard.gd's doc).
+## Same single gate / target as the standard variant (see town_layout_standard.gd's doc).
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(0, 4), Vector2i(0, 5)], "target_zone": "path",
 			"entry_cell": Vector2i(22, 4)},
-		{"gate_cells": [Vector2i(17, 16), Vector2i(18, 16)], "target_zone": "ranch",
-			"entry_cell": Vector2i(17, 1)},
 	]
 
 

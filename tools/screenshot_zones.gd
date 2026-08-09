@@ -29,8 +29,14 @@ const SHOTS_OPEN_PLAINS := [
 	["path", Vector2i(11, 6), "north", "shot_zone_path_car_checkpoint_4x.png"],
 	["path", Vector2i(21, 5), "east", "shot_zone_path_east_gate_4x.png"],
 	["town", Vector2i(2, 4), "east", "shot_zone_town_west_arrival_4x.png"],
-	["town", Vector2i(17, 14), "south", "shot_zone_town_south_gate_4x.png"],
-	["ranch", Vector2i(17, 2), "south", "shot_zone_ranch_arrival_4x.png"],
+	# Ranch relocation (2026-08-09): the Town's south gate is resealed plain fence and the Ranch
+	# now hangs off the FARM's south gate, so these two shots moved with the seam. The town shot
+	# is kept — pointed at the resealed wall, since "is the reseal visually seamless against the
+	# rest of row 16?" is exactly the kind of thing only a screenshot answers — and the ranch
+	# arrival is reframed from the old north gate to the new south one.
+	["town", Vector2i(17, 14), "south", "shot_zone_town_south_wall_resealed_4x.png"],
+	["farm", Vector2i(35, 29), "south", "shot_zone_farm_south_gate_4x.png"],
+	["ranch", Vector2i(17, 16), "north", "shot_zone_ranch_south_arrival_4x.png"],
 ]
 ## Riverside pass: the Path's plank bridge and the town-bank landing (gap-in-the-river gate).
 const SHOTS_RIVERSIDE := [

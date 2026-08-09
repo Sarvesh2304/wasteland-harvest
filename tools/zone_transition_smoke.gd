@@ -3,8 +3,9 @@ extends SceneTree
 ## zone split — see the zone-transition plan's Verification section). Boots the real
 ## scenes/main.tscn (Open Plains) and drives, via the real physics/input paths:
 ##
-##   1. All SIX gate-cell crossings (Farm↔Path, Path↔Town, Town↔Ranch — 3 pairs, both
-##      directions), each by placing the player ON the authored gate cell and letting
+##   1. All SIX gate-cell crossings (Farm↔Ranch, Farm↔Path, Path↔Town — 3 pairs, both
+##      directions; the Ranch hangs off the FARM's south gate since the 2026-08-09 relocation,
+##      not off the Town's), each by placing the player ON the authored gate cell and letting
 ##      player.gd's own _physics_process detection + zone_fade + main._bind_zone run the warp.
 ##      After each: current_zone_id changed, position == the target zone's
 ##      get_global_cell_center(entry_cell), camera clamp bounds moved to the target zone's
@@ -29,11 +30,15 @@ const SAVE_PATH := "user://zone_smoke_save.json"
 
 ## The six crossings, in walk order: [from_zone, gate cell (from-zone-local), to_zone,
 ## expected entry cell (to-zone-local)] — mirrors the layouts' authored zone_exits().
+## Ordered so the sequence starts AND ends on the farm: the Ranch round trip goes first (out of
+## the farm's south gate and straight back), then the Path/Town leg, whose final hop must leave
+## the player at (70,15) — one cell west of the farm's east gate — because stage 2's held-key
+## regression walks right from wherever stage 1 stops.
 const CROSSINGS := [
+	["farm", Vector2i(35, 31), "ranch", Vector2i(17, 16)],
+	["ranch", Vector2i(17, 17), "farm", Vector2i(35, 30)],
 	["farm", Vector2i(71, 15), "path", Vector2i(1, 4)],
 	["path", Vector2i(23, 4), "town", Vector2i(1, 4)],
-	["town", Vector2i(17, 16), "ranch", Vector2i(17, 1)],
-	["ranch", Vector2i(17, 0), "town", Vector2i(17, 15)],
 	["town", Vector2i(0, 4), "path", Vector2i(22, 4)],
 	["path", Vector2i(0, 4), "farm", Vector2i(70, 15)],
 ]
@@ -183,8 +188,8 @@ func _physics_process(_delta: float) -> bool:
 			return false
 		2:
 			# -- Held-key regression: walk into the Farm east gate with move_right held the
-			#    whole way through (we ended stage 1 back on the farm at (34,4), one cell west
-			#    of the gate) --
+			#    whole way through (stage 1's last crossing left us on the farm at (70,15), one
+			#    cell west of the gate) --
 			if ticks == 0:
 				return false
 			if ticks == 1:

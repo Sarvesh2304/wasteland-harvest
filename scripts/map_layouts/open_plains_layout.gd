@@ -39,8 +39,11 @@ extends RefCounted
 ##   - SOUTH GATE, 'G' at (35,31)/(36,31): authored here, deliberately the SAME two columns as
 ##     forest_edge_layout.gd, because both farms pair with the one shared ranch_layout_standard.gd
 ##     (see tests/test_map_layouts.gd's VARIANT_ZONE_MAPS) and the Ranch's single return exit can
-##     only carry one entry_cell. It carries NO zone_exits() entry yet — the Ranch relocation is
-##     the next stage; until then this is a gate-break in the wall and nothing more.
+##     only carry one entry_cell. WIRED as of the 2026-08-09 ranch relocation: it is the zone exit
+##     to the Ranch/Sanctuary, which used to hang off the TOWN's south gate. MAPS.md §3 always
+##     described the Sanctuary as sitting "south of the farm ... reached by its own short path off
+##     the farm-to-plaza route" — the old Town↔Ranch seam was an artifact of how the pre-split
+##     combined map stacked its rows, not a design call, and this restores the documented intent.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
@@ -77,7 +80,7 @@ const ROWS: Array[String] = [
 	"F..........ffffffffffffffffffffffffffffffffffffffffffff................F",
 	"F..........ffffffffffffffffffffffffffffffffffffffffffff................F",
 	# South of the field: open working ground running to the new south perimeter wall and
-	# its gate-break at x35-36 (see zone_exits() — Stage 3 wires the Ranch behind it).
+	# its gate-break at x35-36 (see zone_exits() — the Ranch/Sanctuary lies behind it).
 	"F......................................................................F",
 	"F......................................................................F",
 	"F.....T................................................................F",
@@ -103,14 +106,18 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
-## east-wall gate-break to the Path corridor, landing just inside Path's own west gate.
-## The south gate ((35,31)/(36,31)) has no entry here yet — the Farm<->Ranch wiring is the next
-## stage's job (see the class doc).
+## Zone transitions (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
+## east-wall gate-break to the Path corridor, landing just inside Path's own west gate, and the
+## south-wall gate-break to the Ranch/Sanctuary, landing at (17,16) — the perimeter yard cell
+## directly north of the Ranch's own south gate at (17,17)/(18,17). Both entry cells are
+## target-zone-local and hand-maintained (nothing derives them from the neighbour's geometry);
+## tests/test_map_layouts.gd's bidirectional-consistency check is what keeps the two sides honest.
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(71, 15), Vector2i(71, 16)], "target_zone": "path",
 			"entry_cell": Vector2i(1, 4)},
+		{"gate_cells": [Vector2i(35, 31), Vector2i(36, 31)], "target_zone": "ranch",
+			"entry_cell": Vector2i(17, 16)},
 	]
 
 

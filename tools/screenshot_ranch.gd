@@ -7,6 +7,22 @@ extends SceneTree
 ## barn/coop pens with their decorative cows/goats, and finally the keeper NPC Silas's dialogue
 ## box open (same real-interaction-path pattern as tools/screenshot_npc_dialogue.gd's Harlan shot).
 ##
+## ## Repaired 2026-08-09 (was silently broken since the zone split, found during the ranch
+## ## relocation)
+##
+## Two independent bugs, both introduced when the Ranch became its own zone and neither caught by
+## anything (this tool has no assertions — it just saved four screenshots of the wrong place):
+##   1. Every waypoint was a PRE-SPLIT ABSOLUTE row number — (17,42), (13,40), (9,43), (24,43) —
+##      from the old combined 36x49 map. The Ranch's local frame is 36x18 (max y=17), so all four
+##      were off the bottom of the grid. They are now the same cells in the local frame, i.e. the
+##      documented (0,-31) shift: (17,11), (13,9), (9,12), (24,12).
+##   2. `test_map.cell_to_world_center()` returns ZONE-LOCAL pixels (see test_map.gd's own doc),
+##      but the result was assigned to `player.global_position`, and each zone sits at its own
+##      position offset under Main — so even a valid cell would have placed the player outside the
+##      ranch. Every placement now goes through `main._bind_zone("ranch", cell)`, the same call
+##      tools/screenshot_zones.gd uses, which also re-points the player's world refs and the
+##      camera clamp at the ranch instead of leaving them bound to the farm.
+##
 ## Run (windowed-game launch has standing approval per CLAUDE.md; never opens the editor):
 ##   WH_SHOT_DIR=/abs/output/dir ~/Downloads/Godot.app/Contents/MacOS/Godot --path . \
 ##     --script res://tools/screenshot_ranch.gd
@@ -58,9 +74,7 @@ func _physics_process(_delta: float) -> bool:
 		1:
 			# -- Overview: stand in the compound yard so house/barn/coop/pens/animals all frame up --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(17, 42))
-				player.velocity = Vector2.ZERO
-				player.facing = "south"
+				_place(Vector2i(17, 11), "south")
 				return false
 			if ticks >= 20:
 				_capture("shot_ranch_overview_4x.png")
@@ -68,9 +82,7 @@ func _physics_process(_delta: float) -> bool:
 		2:
 			# -- Ranch house up close: the flat-shading / not-isometric read check --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(13, 40))
-				player.velocity = Vector2.ZERO
-				player.facing = "north"
+				_place(Vector2i(13, 9), "north")
 				return false
 			if ticks >= 20:
 				_capture("shot_ranch_house_4x.png")
@@ -78,9 +90,7 @@ func _physics_process(_delta: float) -> bool:
 		3:
 			# -- Barn + the west cow pen --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(9, 43))
-				player.velocity = Vector2.ZERO
-				player.facing = "south"
+				_place(Vector2i(9, 12), "south")
 				return false
 			if ticks >= 20:
 				_capture("shot_ranch_barn_cows_4x.png")
@@ -88,9 +98,7 @@ func _physics_process(_delta: float) -> bool:
 		4:
 			# -- Coop + the east mutant-goat pen --
 			if ticks < 5:
-				player.global_position = test_map.cell_to_world_center(Vector2i(24, 43))
-				player.velocity = Vector2.ZERO
-				player.facing = "south"
+				_place(Vector2i(24, 12), "south")
 				return false
 			if ticks >= 20:
 				_capture("shot_ranch_coop_goats_4x.png")
@@ -99,10 +107,10 @@ func _physics_process(_delta: float) -> bool:
 			# -- Stand next to Silas and open his dialogue via the real interaction path --
 			if ticks < 5:
 				var silas: Node = _npc_by_id("rancher_silas")
+				# world_to_cell() DOES handle the zone offset (it to_local()s first) — it was only
+				# the reverse direction that was broken here. See the class doc.
 				var cell: Vector2i = test_map.world_to_cell(silas.global_position)
-				player.global_position = test_map.cell_to_world_center(cell + Vector2i(0, 1))
-				player.velocity = Vector2.ZERO
-				player.facing = "north"
+				_place(cell + Vector2i(0, 1), "north")
 				return false
 			# NOTE: ticks is never actually 0 on a stage's first call (_enter_stage() runs from the
 			# tail of the previous stage's physics frame) — matching screenshot_npc_dialogue.gd's
@@ -117,6 +125,15 @@ func _physics_process(_delta: float) -> bool:
 		_:
 			pass
 	return false
+
+
+## Ranch-local cell -> the player standing there, facing `facing`. Goes through main._bind_zone
+## (rather than writing global_position directly) so the player's world refs and the camera clamp
+## follow into the ranch zone too — see the class doc's repair note.
+func _place(cell: Vector2i, facing: String) -> void:
+	main._bind_zone("ranch", cell)
+	player.velocity = Vector2.ZERO
+	player.facing = facing
 
 
 func _npc_by_id(id: String) -> Node:

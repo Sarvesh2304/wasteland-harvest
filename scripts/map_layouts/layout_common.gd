@@ -57,10 +57,17 @@ const SOLID_TERRAIN_CHARS := ["F", "W", "#"]
 ##     (footprint x8-11, y1-3) — "half town hall, half keep", he holds court out front.
 ##   - marta (17, 9): directly north of her store (footprint x16-18, y10-11), out front with
 ##     the crates — MAPS.md's "economic heart" faces the plaza.
-##   - scout_kael (18, 13): just inside the town's main south gate (the 'G' cells at x17-18,
-##     y16 — the gate to the Ranch/Sanctuary approach). MAPS.md §2 puts expedition departures
-##     and bandit-scout events at the gate, so the scout who watches the road naturally posts up
-##     there — he's the last face you see walking out and the first one coming home.
+##   - scout_kael (18, 13): out on the plaza's southern edge, three rows clear of the south
+##     perimeter wall and well away from the store/shacks. This comment used to call that spot
+##     "just inside the town's main south gate... the gate to the Ranch/Sanctuary approach" —
+##     wrong on both counts as of the 2026-08-09 ranch relocation, and wrong about Kael even
+##     before it. His actual dialogue (data/dialogue.json) never mentions the ranch: it is
+##     entirely the ruined-city expedition road ("I scout the road east so the road east doesn't
+##     scout us"; "past this gate, half a day's walk, there's the old city"). That road and its
+##     gate are Phase 9 content with no authored cells yet, so his home is anchored to the open
+##     plaza edge, not to any gate — MAPS.md §2's "expedition departures and bandit-scout events
+##     happen at the town's edge" is the placement reasoning, and it survives the relocation
+##     untouched. He's the last face you see walking out and the first one coming home.
 ## wander_radius is deliberately 1 (a tight 3x3 zone), not larger: with homes spaced ~5 cells
 ## apart in y (4, 9, 13), a radius of 2 would let neighbouring NPCs' wander zones overlap by a
 ## cell (verified this the hard way — tools/runtime_smoke.gd's dialogue stages occasionally
@@ -76,8 +83,10 @@ const TOWN_NPCS: Array[Dictionary] = [
 ## Phase 8 groundwork (MAPS.md §3): the Ranch/Sanctuary keeper. Home (17, 9) is RANCH-ZONE-LOCAL
 ## (old combined row 40 shifted up by 31 — the Ranch zone's local rows are old rows 32-48 plus
 ## one new north wall row prepended at local row 0): the open yard in front of the ranch house,
-## inside the southern compound reached through the town's south gate. wander_radius 1 keeps a
-## tight, disjoint amble zone (the same reasoning TOWN_NPCS documents).
+## inside the fenced compound. That compound is reached through the FARM's south gate as of the
+## 2026-08-09 ranch relocation (it was the town's south gate before — see
+## ranch_layout_standard.gd's class doc); Silas's own cell was unaffected by the move.
+## wander_radius 1 keeps a tight, disjoint amble zone (the same reasoning TOWN_NPCS documents).
 const RANCH_NPCS: Array[Dictionary] = [
 	{"id": "rancher_silas", "home": Vector2i(17, 9), "wander_radius": 1},
 ]

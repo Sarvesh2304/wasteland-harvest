@@ -90,15 +90,18 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
-## east-wall gate-break to the Path corridor, landing just inside Path's own west gate. The
-## south gate ((35,31)/(36,31)) carries no entry yet — this variant pairs with its own
-## ranch_layout_riverside.gd, so its column choice is independent, but matching the other two
-## farms keeps one set of coordinates to reason about. Wiring it is the next stage.
+## Zone transitions (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
+## east-wall gate-break to the Path corridor, landing just inside Path's own west gate, and the
+## south gate ((35,31)/(36,31)), wired to the Ranch/Sanctuary by the 2026-08-09 relocation. This
+## variant pairs with its own ranch_layout_riverside.gd, so its column choice was independent —
+## matching the other two farms just keeps one set of coordinates to reason about, and the ranch
+## variants are cell-identical apart from their west column, so the entry cell (17,16) matches too.
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(71, 15), Vector2i(71, 16)], "target_zone": "path",
 			"entry_cell": Vector2i(1, 4)},
+		{"gate_cells": [Vector2i(35, 31), Vector2i(36, 31)], "target_zone": "ranch",
+			"entry_cell": Vector2i(17, 16)},
 	]
 
 

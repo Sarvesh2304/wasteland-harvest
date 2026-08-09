@@ -303,6 +303,40 @@ that `main.zone_fade`/`player.test_map`/`current_zone_id` — the fields the new
 `sleep_smoke.gd` hang was real and the fix (watchdog + `main.zones` refs) is sound. Save hygiene
 and `data/*.json` whitespace-noise re-confirmed clean.
 
+- [x] **Pre-Stage-4 fixes (2026-08-09, per Sarvesh playing the build and raising 5 issues)** — HUD
+      polish, a farm expansion, and a Ranch relocation, staged as a dependency-checked 3-part fix
+      ahead of Phase 8 Stage 4. **Stage 1 — HUD polish:** the sleepy-night cue is now a one-shot,
+      8-second, small world-space label above the player's head (was an always-on, top-of-screen
+      banner for the whole midnight–6AM window); hotbar slots now render `data/items.json`'s
+      long-documented-but-never-drawn `placeholder_label` tag (e.g. "Hoe"/"SdP") alongside the
+      existing durability/count badge, since every starting tool is icon-less and previously
+      showed only a bare number. **Stage 2 — farm expansion:** all 3 farm variants (Open Plains,
+      Forest Edge, Riverside) grew from 36×16 to 72×32 (4× area), re-authored rather than tiled,
+      each keeping its established character (see `MAPS.md` §1). The shared `ranch_layout_standard.gd`
+      constraint (Open Plains and Forest Edge both pair with it, so their south gates must land at
+      identical columns) is now a pinned regression test. **Stage 3 — Ranch relocation:** the
+      Ranch/Sanctuary's zone exit moved from Town's south gate to the Farm's south gate, matching
+      `MAPS.md` §3's original intent ("reached by its own short path off the farm-to-plaza route")
+      rather than the old combined-map's row-stacking artifact. A follow-up gap found during
+      review — the compound's own inner wall stranded the new south arrival ~39 cells from the
+      buildings — was closed the same stage with a second cosmetic gate break, confirmed with
+      Sarvesh before adding it since compound re-authoring wasn't in the original stage scope.
+      Town is now a leaf of the zone graph (west gate to Path only); `scout_kael`'s doc comment
+      (wrongly tied to "the Ranch/Sanctuary approach") corrected to match his actual dialogue,
+      which is about the unrelated future ruined-city expedition road — his position and dialogue
+      text untouched.
+
+**Pre-Stage-4 fixes verified independently (all 3 stages):** re-ran the full suite myself after
+each stage (322/322 throughout) plus every relevant tool individually — never batched —
+(`runtime_smoke.gd`, `soak_test.gd`, `zone_transition_smoke.gd` for both the standard and
+riverside settlements, `zone_walkthrough.gd`, `sleep_smoke.gd`, `held_input_smoke.gd`,
+`settler_smoke.gd`, `title_smoke.gd`) — all green, matching the builder's own reports. Re-derived
+the farm's new gate columns and the Ranch's new gate/entry-cell coordinates by hand from the raw
+`ROWS`/`zone_exits()` data rather than trusting the summaries, and personally viewed the HUD and
+zone-arrival screenshots (`tools/screenshot_hotbar.gd`, `screenshot_sleepy.gd`,
+`screenshot_zones.gd`, `screenshot_ranch.gd`) before and after the inner-gate follow-up fix to
+confirm the detour was real and is now closed.
+
 **Stage 1 verified independently:** re-ran the full suite myself (87/87 unit tests), read
 through the new core scripts (`game_state.gd`, `settlement_db.gd`, `structures.gd`,
 `test_map.gd`'s generalized layout resolution, one full map layout file) — sound logic, the

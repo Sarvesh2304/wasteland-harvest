@@ -11,11 +11,21 @@ extends RefCounted
 ## the void. Local row 0 is therefore a brand-new solid north perimeter wall; every old town
 ## coordinate shifts by (0, -15).
 ##
-## Gates ('G'), both zone exits — see zone_exits():
-##   - WEST wall (x0, rows 4-5): new gate-break to the Path zone (the Farm↔Town corridor).
+## Gates ('G') — one, and it is a zone exit (see zone_exits()):
+##   - WEST wall (x0, rows 4-5): gate-break to the Path zone (the Farm↔Town corridor).
 ##     Rows chosen where the full row is verified clear of buildings west of the plaza.
-##   - SOUTH wall (x17-18, row 16): the pre-existing town main gate, now the Ranch zone exit —
-##     unchanged cells from the pre-split map's row 31.
+##
+## ## South wall resealed (pre-Stage-4 ranch relocation, 2026-08-09)
+##
+## Row 16 used to carry a 2-cell gate at x17-18 (the pre-split map's row 31) that was the Ranch
+## zone's only connection. The Ranch moved to sit south of the FARM, where MAPS.md §3 always
+## placed it, so that gate is gone and row 16 is plain solid fence again. Deliberately NO stub or
+## placeholder structure went in its place: nothing is designed for Town's south side yet, and
+## this project only builds a visible stub when there IS a concrete future feature behind it (the
+## Path zone's sealed checkpoint is the precedent). Nothing else in the town reaches that wall —
+## the closest building is the store at rows 10-11, and scout_kael's home (18,13) is three rows
+## clear of it (his dialogue is about the expedition road east, not the ranch — see
+## layout_common.gd's TOWN_NPCS doc).
 ##
 ## The riverside variant (town_layout_riverside.gd) differs only in its west column (river 'W'
 ## instead of fence 'F', with a plank landing at the west gate) and its water feature (bank dock
@@ -43,7 +53,7 @@ const ROWS: Array[String] = [
 	"F..........................WWWWW...F",
 	"F..........................WWWWW...F",
 	"F..........................WWWWW...F",
-	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 ## Old combined-map coordinates minus (0, 15) — see the class doc's frame note.
@@ -58,14 +68,14 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## Zone transitions (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested):
+## Zone transition (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested):
 ## stepping onto a gate cell warps the player to target_zone at entry_cell (target-zone-local).
+## Since the 2026-08-09 ranch relocation the Town is a LEAF of the zone graph — the west gate to
+## the Path corridor is its only connection (see the class doc's south-wall note).
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(0, 4), Vector2i(0, 5)], "target_zone": "path",
 			"entry_cell": Vector2i(22, 4)},
-		{"gate_cells": [Vector2i(17, 16), Vector2i(18, 16)], "target_zone": "ranch",
-			"entry_cell": Vector2i(17, 1)},
 	]
 
 

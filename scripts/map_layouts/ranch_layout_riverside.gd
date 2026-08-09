@@ -2,19 +2,22 @@ extends RefCounted
 ## Ranch/Sanctuary zone layout, RIVERSIDE variant — extracted from the old combined riverside
 ## map's southern extension (rows 32-48) as part of the Farm/Path/Town/Ranch zone split. See
 ## ranch_layout_standard.gd for the full frame/gate documentation (old rows 32-48 → local rows
-## 1-17, +1 prepend for the new north wall copy of the town gate wall, all coordinates shifted
-## by (0, -31)); this file is the literal-duplication sibling, per the farm layout files' own
-## convention.
+## 1-17, +1 prepend for the new north wall row, all coordinates shifted by (0, -31)); this file
+## is the literal-duplication sibling, per the farm layout files' own convention. That file also
+## documents the 2026-08-09 relocation this variant mirrors cell-for-cell: the north gate at
+## x17-18 row 0 resealed to solid fence, a new zone gate at x17-18 row 17, the single exit
+## re-pointed from Town to the Farm, and the same-day second cosmetic break at x17-18 row 15
+## that connects the new arrival straight into the compound instead of around it.
 ##
 ## Riverside difference (MAPS.md §1 "the river IS the western wall"): the west column is river
-## 'W' the whole way down, including the new north wall row — otherwise identical to standard.
+## 'W' the whole way down, including both perimeter wall rows — otherwise identical to standard.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all zones)
 
 const ROWS: Array[String] = [
-	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 	"W..................................F",
 	"W..................................F",
 	"W..................................F",
@@ -29,9 +32,9 @@ const ROWS: Array[String] = [
 	"W....F.....F.........F......F.F....F",
 	"W....F.....F.........F......F.F....F",
 	"W....FFFFFFF.........FFFFFFFF.F....F",
-	"W....FFFFFFFFFFFFFFFFFFFFFFFFFF....F",
+	"W....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
 	"W..................................F",
-	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
 ]
 
 ## Identical to the standard variant's list (the compound template is shared; only the west
@@ -43,11 +46,13 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## Same single exit as the standard variant (see ranch_layout_standard.gd's doc).
+## Same single exit as the standard variant (see ranch_layout_standard.gd's doc): the south gate
+## out to the Farm. riverside_layout.gd places its own south gate at the same (35,31)/(36,31)
+## cells the other two farms use, so the entry cell is identical here too.
 static func zone_exits() -> Array[Dictionary]:
 	return [
-		{"gate_cells": [Vector2i(17, 0), Vector2i(18, 0)], "target_zone": "town",
-			"entry_cell": Vector2i(17, 15)},
+		{"gate_cells": [Vector2i(17, 17), Vector2i(18, 17)], "target_zone": "farm",
+			"entry_cell": Vector2i(35, 30)},
 	]
 
 

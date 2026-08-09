@@ -367,9 +367,9 @@ func test_farm_layouts_are_the_expanded_72x32_grid() -> void:
 
 func test_farm_layouts_have_the_east_path_gate_and_the_south_ranch_gate() -> void:
 	# The zone split's east-wall gate-break (2 'G' cells, targeting the Path zone) plus the
-	# expansion's new south-wall gate-break (2 more 'G' cells). The south gate carries NO
-	# zone_exits() entry yet — the Farm<->Ranch wiring is the next stage — so the exit count
-	# stays 1 while the gate-cell count is now 4.
+	# expansion's south-wall gate-break (2 more), wired to the Ranch by the 2026-08-09 relocation
+	# — so the farm now carries 4 gate cells and TWO zone exits, and it is the only zone with more
+	# than one neighbour (Path east, Ranch south).
 	for i in FARM_LAYOUTS.size():
 		var layout = FARM_LAYOUTS[i]
 		var gates: Array[Vector2i] = layout.gate_cells()
@@ -395,9 +395,18 @@ func test_farm_layouts_have_the_east_path_gate_and_the_south_ranch_gate() -> voi
 		for cell in east_gates:
 			assert_false(layout.is_solid(cell.x - 1, cell.y),
 				"%s east gate cell %s has open ground just inside it" % [FARM_NAMES[i], cell])
-		assert_eq(layout.zone_exits().size(), 1,
-			"%s has one zone exit (the south gate is wired next stage)" % FARM_NAMES[i])
-		assert_eq(String(layout.zone_exits()[0]["target_zone"]), "path")
+		assert_eq(layout.zone_exits().size(), 2,
+			"%s has two zone exits (east->path, south->ranch)" % FARM_NAMES[i])
+		var targets_by_gate := {}
+		for exit in layout.zone_exits():
+			for cell in exit["gate_cells"]:
+				targets_by_gate[cell] = String(exit["target_zone"])
+		for cell in east_gates:
+			assert_eq(String(targets_by_gate.get(cell, "")), "path",
+				"%s east gate cell %s exits to the path" % [FARM_NAMES[i], cell])
+		for cell in south_gates:
+			assert_eq(String(targets_by_gate.get(cell, "")), "ranch",
+				"%s south gate cell %s exits to the ranch" % [FARM_NAMES[i], cell])
 		assert_true(layout.npcs().is_empty(), "%s farm hosts no NPCs since the split" % FARM_NAMES[i])
 		assert_true(layout.decor_props().is_empty(), "%s farm has no decor props" % FARM_NAMES[i])
 
@@ -407,9 +416,11 @@ func test_open_plains_and_forest_edge_share_south_gate_columns() -> void:
 	# BOTH the "standard" (Open Plains) and "forest_edge" farms with the same
 	# RanchStandardLayout, and the Ranch's single return exit into the farm can carry only ONE
 	# entry_cell — so the two farms' south gates must sit at identical columns or one of the two
-	# playable worlds gets a misaligned seam the moment Stage 3 wires it. Asserted here, before
-	# that wiring exists, because once it does the failure mode is a wrong arrival cell rather
-	# than an obvious crash.
+	# playable worlds gets a misaligned seam. Kept as its own assertion even now that the
+	# relocation has wired both sides, because the failure mode is a wrong arrival cell in ONE of
+	# the two pairings rather than an obvious crash: the bidirectional-consistency check above
+	# would still pass if a future edit moved only open_plains' gate and updated the Ranch to
+	# match, silently stranding forest_edge.
 	var columns: Array = []
 	for layout in [OpenPlainsLayout, ForestEdgeLayout]:
 		var south_y: int = layout.size().y - 1
@@ -438,8 +449,18 @@ func test_town_layouts_have_town_core() -> void:
 		assert_true(kinds.get("shack", 0) >= 3, "%s has at least 3 settler shacks" % TOWN_NAMES[i])
 		assert_true(layout.dock_cells().size() > 0, "%s has dock plank cells" % TOWN_NAMES[i])
 		assert_true(layout.water_cells().size() > 0, "%s has a water body" % TOWN_NAMES[i])
-		assert_eq(layout.gate_cells().size(), 4,
-			"%s has the west path gate + south ranch gate = 4 'G' cells" % TOWN_NAMES[i])
+		# Since the 2026-08-09 ranch relocation the south wall is resealed plain fence and the
+		# Town is a leaf of the zone graph — the 2-cell west path gate is all that is left.
+		assert_eq(layout.gate_cells().size(), 2,
+			"%s has only the 2-cell west path gate" % TOWN_NAMES[i])
+		var south_y: int = layout.size().y - 1
+		for cell in layout.gate_cells():
+			assert_eq(cell.x, 0, "%s gate cell %s is in the west wall" % [TOWN_NAMES[i], cell])
+			assert_true(cell.y != south_y,
+				"%s has no south-wall gate left" % TOWN_NAMES[i])
+		assert_eq(layout.zone_exits().size(), 1, "%s has one zone exit" % TOWN_NAMES[i])
+		assert_eq(String(layout.zone_exits()[0]["target_zone"]), "path",
+			"%s's only exit is the Path corridor" % TOWN_NAMES[i])
 
 
 func test_town_layouts_expose_the_town_npc_roster() -> void:
@@ -473,9 +494,33 @@ func test_ranch_layouts_have_ranch_buildings() -> void:
 			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
 		for kind in ["ranch_house", "ranch_barn", "ranch_coop"]:
 			assert_eq(kinds.get(kind, 0), 1, "%s has exactly one %s" % [RANCH_NAMES[i], kind])
-		# The north zone gate (2 cells) + the cosmetic inner compound gate (2 cells).
-		assert_eq(layout.gate_cells().size(), 4,
-			"%s has the north town gate + inner compound gate = 4 'G' cells" % RANCH_NAMES[i])
+		# The south zone gate (2 cells) + TWO cosmetic inner compound gates (2 cells each: the
+		# pre-existing row-4 break, plus a row-15 break added the same day as the relocation to
+		# remove the detour it otherwise left between the south arrival and the compound
+		# interior) = 6. Still only 1 real zone_exits() entry — asserted below — so a silent
+		# reversal (an extra exit, or the wrong wall growing a gate) can't hide behind the count.
+		assert_eq(layout.gate_cells().size(), 6,
+			"%s has the south farm gate + 2 cosmetic inner gates = 6 'G' cells" % RANCH_NAMES[i])
+		var south_y: int = layout.size().y - 1
+		var south_gates: Array[Vector2i] = []
+		for cell in layout.gate_cells():
+			assert_true(cell.y != 0, "%s north wall is resealed (no 'G' in row 0)" % RANCH_NAMES[i])
+			if cell.y == south_y:
+				south_gates.append(cell)
+		assert_eq(south_gates.size(), 2, "%s south zone gate is 2 cells" % RANCH_NAMES[i])
+		for cell in south_gates:
+			assert_false(layout.is_solid(cell.x, cell.y - 1),
+				"%s south gate cell %s has open ground just inside it" % [RANCH_NAMES[i], cell])
+		# The new row-15 inner gate: confirm it's genuinely open on both sides (the approach
+		# yard below and the compound interior above), not just present in the wall string.
+		for gx in [17, 18]:
+			assert_false(layout.is_solid(gx, 14),
+				"%s (%d,14) is open north of the row-15 inner gate" % [RANCH_NAMES[i], gx])
+			assert_false(layout.is_solid(gx, 16),
+				"%s (%d,16) is open south of the row-15 inner gate" % [RANCH_NAMES[i], gx])
+		assert_eq(layout.zone_exits().size(), 1, "%s has one zone exit" % RANCH_NAMES[i])
+		assert_eq(String(layout.zone_exits()[0]["target_zone"]), "farm",
+			"%s's only exit leads back to the farm" % RANCH_NAMES[i])
 
 
 func test_ranch_layouts_expose_the_ranch_npc_roster() -> void:

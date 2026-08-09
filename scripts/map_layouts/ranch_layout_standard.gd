@@ -8,15 +8,40 @@ extends RefCounted
 ## required): the old ranch approach's north boundary was the TOWN's south wall (old row 31),
 ## which belongs to the Town zone after the split — so a split Ranch zone would have had an open
 ## north edge into the void. Local row 0 is therefore a new copy of that wall as seen from the
-## ranch side, with the same 'G' gate cells at x17-18; every old ranch coordinate shifts by
-## (0, -31).
+## ranch side; every old ranch coordinate shifts by (0, -31).
+##
+## ## Relocated south of the FARM (pre-Stage-4 ranch relocation, 2026-08-09)
+##
+## The compound was reached through the TOWN's south gate until now — an artifact of where the
+## old combined map happened to stack its rows, not a design decision. MAPS.md §3 always placed
+## the Sanctuary "south of the farm ... reached by its own short path off the farm-to-plaza
+## route", and Sarvesh confirmed that intent when he played the build. So the zone's one exit
+## moved from the NORTH wall to the SOUTH wall and now points at the Farm:
+##   - row 0 (the old north gate at x17-18) is RESEALED to plain solid fence 'F'. Nothing else in
+##     this file referenced it — RANCH_NPCS' home (17,9) and RANCH_DECOR's 5 cells are anchored to
+##     the compound's own buildings, so no NPC/decor/building coordinate moved;
+##   - row 17 (previously fully solid) carries the new 2-cell gate at x17-18, chosen to line up
+##     with the compound's own inner gate (also x17-18, row 4) so the whole zone reads as one
+##     north-south spine; row 16 is a full open row, so the cell just inside the new gate is
+##     clear in both variants.
+##
+## A second cosmetic break was added at (17,15)/(18,15) the same day, closing a gap flagged during
+## review: without it, the compound's own south wall (row 15) sat between the new arrival cell and
+## the interior, forcing a ~39-cell walk around the perimeter to the row-4 inner gate instead of a
+## straight walk in. Column x17 was already open the whole way from row 5 to row 14, so this break
+## makes the approach yard and the fenced compound one unbroken north-south spine, matching the
+## row-4 gate it lines up under. Confirmed with Sarvesh before adding it (compound re-authoring
+## wasn't in the original relocation scope, so this wasn't done silently).
 ##
 ## Gates ('G'):
-##   - NORTH wall (x17-18, row 0): the zone exit back to Town (see zone_exits()) — stepping on
-##     it warps to the town plaza side of the same gate.
-##   - The compound's own inner gate (x17-18, row 4, old row 35) is UNCHANGED and stays a purely
-##     cosmetic walkable break between the approach yard and the fenced compound — NOT a zone
-##     exit, exactly as before the split.
+##   - SOUTH wall (x17-18, row 17): the zone exit to the Farm (see zone_exits()) — stepping on it
+##     warps to (35,30), the open working ground just inside the Farm's own south gate at
+##     (35,31)/(36,31). Those farm columns are shared by open_plains_layout.gd AND
+##     forest_edge_layout.gd precisely because both pair with THIS file (see
+##     tests/test_map_layouts.gd's VARIANT_ZONE_MAPS) and one exit can carry only one entry_cell.
+##   - The compound's own TWO inner gates (x17-18 at both row 4 and row 15) are UNCHANGED/NEW-BUT-
+##     COSMETIC walkable breaks — NOT zone exits. Row 4 predates the split; row 15 was added
+##     alongside the relocation specifically to remove the detour above.
 ##
 ## The riverside variant (ranch_layout_riverside.gd) differs only in its west column (river 'W'
 ## instead of fence 'F') — literal duplication with this cross-reference comment, matching the
@@ -27,7 +52,7 @@ const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all zones)
 
 const ROWS: Array[String] = [
-	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 	"F..................................F",
 	"F..................................F",
 	"F..................................F",
@@ -42,9 +67,9 @@ const ROWS: Array[String] = [
 	"F....F.....F.........F......F.F....F",
 	"F....F.....F.........F......F.F....F",
 	"F....FFFFFFF.........FFFFFFFF.F....F",
-	"F....FFFFFFFFFFFFFFFFFFFFFFFFFF....F",
+	"F....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
 	"F..................................F",
-	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
 ]
 
 ## Old combined-map coordinates minus (0, 31) — see the class doc's frame note. Markers N/Y/P
@@ -56,12 +81,14 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## One exit: the north gate back to Town. The compound's inner gate (row 4) is deliberately
-## absent here — cosmetic/walkable only, see the class doc.
+## One exit: the SOUTH gate out to the Farm (relocated 2026-08-09 — see the class doc). The
+## entry cell (35,30) is the open working ground directly north of the Farm's own south gate at
+## (35,31)/(36,31), identical in all three farm variants. The compound's inner gate (row 4) is
+## deliberately absent here — cosmetic/walkable only, see the class doc.
 static func zone_exits() -> Array[Dictionary]:
 	return [
-		{"gate_cells": [Vector2i(17, 0), Vector2i(18, 0)], "target_zone": "town",
-			"entry_cell": Vector2i(17, 15)},
+		{"gate_cells": [Vector2i(17, 17), Vector2i(18, 17)], "target_zone": "farm",
+			"entry_cell": Vector2i(35, 30)},
 	]
 
 
