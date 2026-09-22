@@ -128,7 +128,8 @@ func has_save() -> bool:
 ## already holds. The gather loop is deliberately uniform across zones (no per-zone branching):
 ## a zone with no farmland/chest just serialises empty defaults, keeping the shape
 ## forward-compatible (see the plan's save-shape note).
-func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: Node = null) -> bool:
+func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: Node = null,
+		affinity: Node = null) -> bool:
 	var zones_out := {}
 	for zone_id in zones:
 		var zone: Dictionary = zones[zone_id]
@@ -152,6 +153,10 @@ func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: 
 		# defensive) doesn't crash rather than silently writing {}.
 		"settlers": settlers.save_state() if settlers != null else {},
 		"animals": SaveData.encode_animals(animals.save_state() if animals != null else {}),
+		# Phase 7 Stage 3: additive "affinity" key, optional/null-defaulted for the same
+		# backward-defensive reason as `settlers` above — an unbound caller writes the empty
+		# section decode_affinity already treats as "no relationships yet".
+		"affinity": affinity.save_state() if affinity != null else {},
 		"story_flags": SaveData.encode_story_flags(day_28_food_shortage_seen),
 	})
 	# Slot files live in a subdirectory that won't exist before the first-ever save (slot

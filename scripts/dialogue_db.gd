@@ -8,15 +8,23 @@ extends RefCounted
 ##   {"name": String, "start": String, "nodes": {node_id: node}}
 ## where a node is one of:
 ##   {"text": String, "next": node_id}                       — linear beat, advance continues
-##   {"text": String, "choices": [{"text", "next"}, ...]}    — branch point (2-3 options)
+##   {"text": String, "choices": [{"text", "next", "min_affinity"?}, ...]}
+##                                                           — branch point (2-3 options); a
+##                                                             choice's OPTIONAL "min_affinity"
+##                                                             int hides it below that
+##                                                             relationship value (Phase 7
+##                                                             Stage 3's choice_available below;
+##                                                             absent = always shown)
 ##   {"text": String}                                        — terminal, advance closes the box
 ## Traversal is advance_from() below — pure, headless-testable (tests/test_dialogue_db.gd), the
 ## same "rules as static functions on plain data" split farm_grid.gd documents.
 ##
 ## Scope note (ROADMAP Phase 5 Stage 1): "basic branching" means one choice point per NPC whose
-## options lead to different terminal lines — deliberately not a deep tree, no conditions/flags/
-## affinity gating (Phase 7) and no quest hooks (Phase 13). The shape above is forward-compatible
-## with both (a node can grow fields without breaking advance_from).
+## options lead to different terminal lines — deliberately not a deep tree, and no quest hooks
+## (Phase 13). The shape above is forward-compatible with those (a node can grow fields without
+## breaking advance_from). Phase 7 Stage 3 added the first such field: a choice's optional
+## "min_affinity" (choice_available below). The MECHANISM exists as of that stage; no authored
+## line in data/dialogue.json uses it yet — Stage 5 writes the first gated content.
 ##
 ## Not a `class_name` global (see scripts/item_db.gd's header for why) — callers must
 ## `const DialogueDB := preload("res://scripts/dialogue_db.gd")`.
@@ -87,6 +95,23 @@ static func dialogue_node(npc_id: String, node_id: String) -> Dictionary:
 static func node_choices(node: Dictionary) -> Array:
 	var choices = node.get("choices", [])
 	return choices if choices is Array else []
+
+
+## Phase 7 Stage 3: whether a choice is offered at the player's current affinity with this NPC.
+## A choice may carry an optional `"min_affinity": int`; absent (every choice in
+## data/dialogue.json today) means unconditional, so this is fully backward-compatible and every
+## existing branch behaves exactly as it did before. The comparison is inclusive: a choice tagged
+## min_affinity 5 appears at exactly 5.
+##
+## Pure and domain-agnostic on purpose — it takes the affinity VALUE as a plain int and knows
+## nothing about scripts/affinity.gd, who the named NPCs are, or how tiers bucket. The actual
+## filtering of a rendered choice list lives in scripts/dialogue_ui.gd, the same split the
+## OPEN_STORE/OPEN_RANCH_STORE sentinels already established for keeping this file free of
+## runtime/domain concerns (see class doc).
+static func choice_available(choice: Dictionary, affinity: int) -> bool:
+	if not choice.has("min_affinity"):
+		return true
+	return affinity >= int(choice.get("min_affinity", 0))
 
 
 ## Where advancing goes from a node: a choice node follows the selected option's "next" (the

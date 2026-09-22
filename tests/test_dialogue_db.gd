@@ -173,6 +173,40 @@ func test_every_npc_has_at_least_one_real_branch() -> void:
 		assert_true(found_branch, "%s's dialogue tree has at least one 2+ option branch" % id)
 
 
+## -- Phase 7 Stage 3: affinity-gated choices (choice_available's pure logic) --
+
+func test_choice_without_min_affinity_is_always_available() -> void:
+	# Backward compatibility is the whole point: no choice in data/dialogue.json carries the field
+	# yet, so an untagged choice must show at every value, including 0.
+	var choice := {"text": "Sure.", "next": "yes"}
+	assert_true(DialogueDB.choice_available(choice, 0))
+	assert_true(DialogueDB.choice_available(choice, 10))
+
+
+func test_choice_min_affinity_threshold_is_inclusive() -> void:
+	var choice := {"text": "Can I ask you something personal?", "next": "secret", "min_affinity": 5}
+	assert_false(DialogueDB.choice_available(choice, 4), "one below the threshold stays hidden")
+	assert_true(DialogueDB.choice_available(choice, 5), "exactly at the threshold appears")
+	assert_true(DialogueDB.choice_available(choice, 9))
+
+
+func test_choice_min_affinity_zero_behaves_like_no_gate() -> void:
+	var choice := {"text": "Hello.", "next": "hi", "min_affinity": 0}
+	assert_true(DialogueDB.choice_available(choice, 0))
+
+
+func test_every_authored_choice_is_ungated_this_stage() -> void:
+	# Stage 3 ships the MECHANISM only — the first gated line is Stage 5's job. If this ever fails,
+	# gated content landed without the ROADMAP writeup that goes with it.
+	for id in NAMED_NPC_IDS:
+		var nodes: Dictionary = JSON.parse_string(
+			FileAccess.get_file_as_string(DialogueDB.PATH))[id].get("nodes", {})
+		for node_id in nodes:
+			for choice in DialogueDB.node_choices(nodes[node_id]):
+				assert_false((choice as Dictionary).has("min_affinity"),
+					"%s.%s carries no min_affinity yet (Stage 5 authors the first)" % [id, node_id])
+
+
 func test_visible_chars_progresses_from_zero_to_full() -> void:
 	assert_eq(DialogueDB.visible_chars(20, 0.0, 10.0), 0, "nothing revealed at t=0")
 	assert_eq(DialogueDB.visible_chars(20, 0.5, 10.0), 5, "5 chars after 0.5s at 10 chars/sec")

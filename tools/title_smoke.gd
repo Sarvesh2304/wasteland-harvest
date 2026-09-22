@@ -167,7 +167,7 @@ func _physics_process(_delta: float) -> bool:
 			# First save materialises the slot — through the same GameState.save_game the bed
 			# uses (runtime_smoke stage 81's convention for a non-bed save), on the zone-split
 			# signature: the whole always-instantiated zones dict, not one map's node trio.
-			_check(game_state.save_game(main.get_node("Player"), main.zones, main.get_node("Settlers"), main.get_node("Animals")),
+			_check(game_state.save_game(main.get_node("Player"), main.zones, main.get_node("Settlers"), main.get_node("Animals"), main.get_node("Affinity")),
 				"the new game's first save wrote")
 			_check(FileAccess.file_exists(SAVES_DIR.path_join("slot_3.json")),
 				"slot 3's file now exists")

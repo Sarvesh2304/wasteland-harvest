@@ -200,7 +200,8 @@ func _quit_pressed() -> void:
 ## _exit_tree already guarantees the paused clock can't leak into the next boot.
 func _save_and_return_to_title() -> void:
 	if not _player.zones.is_empty():
-		GameState.save_game(_player, _player.zones, _player.settlers, _player.animals)
+		GameState.save_game(_player, _player.zones, _player.settlers, _player.animals,
+			_player.affinity)
 	close()
 	get_tree().change_scene_to_file("res://scenes/title_screen.tscn")
 

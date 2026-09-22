@@ -633,6 +633,35 @@ input verb**, not a dialogue-choice picker.
       `tests/test_npc_schedule.gd`, through the layouts' own `is_solid()`.
 - [ ] Relationship/affinity system — 0–10 affinity per NPC; up via daily talk/gifts
       preferred/quests, down via disliked gifts/neglect; gates dialogue and story events
+      **Stage 3 landed (2026-09-22)**: `scripts/affinity.gd` — a `Node` owned directly by `Main`
+      (the settlement-wide shape `settlers.gd`/`animals.gd` use, since a relationship belongs to
+      the settlement, not to whichever zone an NPC stands in) holding `{npc_id: 0-10}` behind
+      `value_for()`/`adjust()` (clamped, emits `affinity_changed` only on a real change) and
+      `tier_for()`, which buckets the int into the four tiers Stage 5 will author against:
+      0-1 stranger, 2-4 acquaintance, 5-7 friend, 8-10 close. **Up via talk** is real and wired:
+      opening a genuine conversation awards +1, capped once per NPC per in-game day by a
+      `last_talked_day` dict (`animals.gd`'s `last_care_day` idiom — store the day, compare
+      against today), so re-opening the same box five times in a row farms nothing. Both dicts
+      round-trip through a new additive `"affinity"` save section
+      (`SaveData.encode_affinity`/`decode_affinity`, no `SAVE_VERSION` bump, `.get()`-defaulted
+      so a pre-Stage-3 save loads a clean track) — kept in ONE section deliberately, since a
+      partial restore that brought back a value without its daily cap would hand out a second
+      same-day tick after a reload.
+      Honest scope of what is NOT yet true, so the item stays unchecked: **up via gifts** and
+      **down via disliked gifts** are Stage 4's job (nothing calls `adjust()` with a gift delta
+      yet — `adjust()` itself is deliberately unopinionated and ready for it); **quests** are
+      Phase 13; **neglect decay** does not exist at all and is not currently planned as part of
+      this phase (the cozy no-fail-state contract argues against a punishing decay tick — flagged
+      here rather than silently dropped); and **"gates dialogue and story events"** is only half
+      done — the MECHANISM shipped (`DialogueDB.choice_available()`, an optional `"min_affinity"`
+      int on any choice, defaulting available when absent so every existing branch is untouched;
+      `dialogue_ui.gd` filters every rendered/traversed choice list through it in one place, so a
+      hidden option can never be selected or advanced into) but **no authored line uses it yet** —
+      `data/dialogue.json` carries zero `min_affinity` fields this stage, pinned by a test, and
+      Stage 5 writes the first gated content. Only the 4 named NPCs earn affinity (the locked
+      scope decision above); the talk tick also deliberately ignores the scripted Day-28 beat and
+      Silas's "not_yet" ranch-store branch — a beat the game fires at you is not the player
+      choosing to talk.
 - [ ] Gift preference database — liked/loved/neutral/hated items per NPC
 - [ ] Context-sensitive dialogue — NPCs comment on weather, time of day, affinity, recent world
       events; stored in expandable JSON trees

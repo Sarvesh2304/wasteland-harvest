@@ -33,6 +33,10 @@ var zones: Dictionary = {}
 ## below, matching structures.gd/npcs.gd's own "get_parent() is the owning coordinator" pattern.
 @onready var settlers: Node = $Settlers
 @onready var animals: Node = $Animals
+## Phase 7 Stage 3: the settlement-wide per-NPC relationship track (scripts/affinity.gd) — a
+## direct child of Main for the same reason Settlers/Animals are: relationships belong to the
+## settlement, not to whichever zone an NPC happens to stand in.
+@onready var affinity: Node = $Affinity
 
 ## Phase 6: the shared modal mutual-exclusion registry (see modal_gate.gd's class doc). Owned
 ## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
@@ -86,12 +90,17 @@ func _ready() -> void:
 	# menu_screen.gd's save call site can pass it straight through to GameState.save_game().
 	player.settlers = settlers
 	player.animals = animals
+	player.affinity = affinity
 	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
 	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
 	# signal that says one should start.
 	var dialogue_ui: Node = $DialogueUI
 	player.npc_dialogue_requested.connect(dialogue_ui.open_dialogue)
 	player.dialogue_ui = dialogue_ui
+	# Phase 7 Stage 3: the dialogue box owns the "talk" affinity trigger and filters
+	# min_affinity-gated choices, so it needs the relationship track (see dialogue_ui.gd's class
+	# doc) — a plain field assignment, same shape as the modal_gate wiring further down.
+	dialogue_ui.affinity = affinity
 	DayManager.day_started.connect(_on_day_started)
 	# Phase 8 Stage 3: a visiting settler's accept/reject choice (reached via the same dialogue
 	# box every NPC uses — see dialogue_ui.gd's SETTLER_ACCEPT/REJECT sentinels) hands off to
@@ -239,6 +248,9 @@ func _apply_save(data: Dictionary) -> void:
 	# _recompute_capacity_unlocks() below reads a population cap this roster is checked against.
 	settlers.load_state(data.get("settlers", {}))
 	animals.load_state(SaveData.decode_animals(data.get("animals", {})))
+	# Phase 7 Stage 3: additive "affinity" section — an old save with no such key restores an
+	# empty relationship track (see affinity.gd's load_state), never an error.
+	affinity.load_state(data.get("affinity", {}))
 	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
 	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
 	_bind_zone_refs(player.current_zone_id)

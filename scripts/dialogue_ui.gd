@@ -27,6 +27,22 @@ extends CanvasLayer
 ## data/dialogue.json's class doc) — landing on it closes this box and emits store_requested
 ## instead of advancing to another node, so Marta's "Let's see what you've got" choice opens
 ## scripts/store_ui.gd rather than just printing more text.
+##
+## Phase 7 Stage 3 (affinity) adds two responsibilities here, both deliberately in this
+## presentation shell rather than in the pure dialogue_db.gd (same domain-split reasoning as the
+## sentinels above):
+##   1. THE TALK TICK. A real conversation opening awards a once-per-day affinity point
+##      (affinity.try_award_talk, which owns both the named-NPC gate and the daily cap). "Real"
+##      means the player walked up and talked: open_dialogue() below. The scripted entry point
+##      open_dialogue_at() — the Day-28 food-shortage beat and main.gd's "not_yet" ranch-store
+##      branch — never awards, since neither is the player choosing to strike up a conversation.
+##      Both still funnel through the same _open_dialogue_at(); the two public entry points
+##      differ only in the `award_affinity` flag they pass, so there is exactly one open path.
+##   2. CHOICE FILTERING. Every rendered/traversed choice list goes through _available_choices()
+##      (DialogueDB.choice_available per choice), so a choice carrying "min_affinity" is hidden
+##      below that value. Filtering happens in ONE place and every consumer — the up/down
+##      selection, the reveal-gated visibility, the hint text and _advance()'s own traversal —
+##      reads that same filtered list, so the highlighted index can never address a hidden option.
 
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 
@@ -77,6 +93,11 @@ var active := false
 ## can't fire while build mode or another freeze-surface is active), but the gate makes the
 ## invariant explicit rather than incidental to player.gd's dispatch details.
 var modal_gate: RefCounted = null
+## Phase 7 Stage 3: the settlement-wide relationship track (scripts/affinity.gd), assigned by
+## main.gd at boot like modal_gate above. null when unbound (a bare DialogueUI in a test or tool),
+## in which case the talk tick is skipped and choice filtering runs against a value of 0 — i.e.
+## exactly today's behaviour, since no authored choice carries "min_affinity" yet.
+var affinity: Node = null
 var npc: Node = null
 
 var _node_id := ""
@@ -103,17 +124,23 @@ func _process(delta: float) -> void:
 ## player.gd's npc_dialogue_requested signal. A no-op if the npc has no dialogue.json entry
 ## (defensive — every roster NPC has one, see tests/test_dialogue_db.gd).
 func open_dialogue(target_npc: Node) -> bool:
-	return _open_dialogue_at(target_npc, DialogueDB.start_node_id(String(target_npc.npc_id)))
+	return _open_dialogue_at(target_npc, DialogueDB.start_node_id(String(target_npc.npc_id)), true)
 
 
 ## Opens an authored alternate entry point for a scripted beat while retaining the same NPC,
 ## presentation, input handling, and normal interaction path. The beat caller owns its one-time
-## save flag; this method only reports whether the modal actually opened.
+## save flag; this method only reports whether the modal actually opened. Never awards affinity
+## (see class doc item 1) — a beat the game starts at the player is not the player choosing to
+## talk, and the Day-28 shortage in particular fires unprompted at day start.
 func open_dialogue_at(target_npc: Node, start_node_id: String) -> bool:
-	return _open_dialogue_at(target_npc, start_node_id)
+	return _open_dialogue_at(target_npc, start_node_id, false)
 
 
-func _open_dialogue_at(target_npc: Node, start_node_id: String) -> bool:
+## The one shared open path. `award_affinity` distinguishes a real player-initiated conversation
+## from a scripted beat; the award itself only lands if the box ACTUALLY opened (an already-open
+## box, a missing dialogue entry, or another modal holding the gate all return early before it),
+## so a refused open can never hand out a point.
+func _open_dialogue_at(target_npc: Node, start_node_id: String, award_affinity: bool) -> bool:
 	if active or not DialogueDB.has_dialogue(String(target_npc.npc_id)):
 		return false
 	if modal_gate != null and modal_gate.is_any_open_except(self):
@@ -123,6 +150,10 @@ func _open_dialogue_at(target_npc: Node, start_node_id: String) -> bool:
 	active = true
 	box.visible = true
 	name_label.text = DialogueDB.display_name(String(npc.npc_id))
+	if award_affinity and affinity != null:
+		# affinity.gd owns both gates (named NPCs only, once per day) — this call site stays
+		# deliberately unconditional so the rules live in one place.
+		affinity.try_award_talk(String(npc.npc_id), DayManager.day)
 	_goto_node(start_node_id)
 	return true
 
@@ -146,7 +177,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		close()
 		return
-	var choices := DialogueDB.node_choices(_current_node())
+	var choices := _available_choices()
 	if not choices.is_empty() and _is_fully_revealed():
 		if event.is_action_pressed("move_up"):
 			_choice_index = wrapi(_choice_index - 1, 0, choices.size())
@@ -165,7 +196,11 @@ func _advance() -> void:
 		_elapsed = INSTANT_REVEAL_ELAPSED
 		_refresh_body()
 		return
-	var next_id := DialogueDB.advance_from(_current_node(), _choice_index)
+	# advance_from() is fed the FILTERED node (see _filtered_node) so the highlighted index means
+	# the same thing here as it does on screen. A branch whose every choice is gated out therefore
+	# falls through to the node's own "next" (absent on a branch node -> "" -> close), rather than
+	# silently following a hidden option.
+	var next_id := DialogueDB.advance_from(_filtered_node(), _choice_index)
 	if next_id == OPEN_STORE_SENTINEL:
 		_open_store()
 	elif next_id == OPEN_RANCH_STORE_SENTINEL:
@@ -216,6 +251,41 @@ func _current_node() -> Dictionary:
 	return DialogueDB.dialogue_node(String(npc.npc_id), _node_id)
 
 
+## -- Phase 7 Stage 3: affinity-gated choices (see class doc item 2) --
+
+## The player's current relationship value with the NPC being spoken to; 0 when this box has no
+## affinity node bound or no NPC (the same value a never-met NPC has, so an unbound UI renders
+## exactly what a first meeting would).
+func _affinity_value() -> int:
+	if affinity == null or npc == null:
+		return 0
+	return int(affinity.value_for(String(npc.npc_id)))
+
+
+## The current node's choices with every affinity-gated one removed. The single source of truth
+## for "which options exist right now" — selection, rendering, visibility and traversal all read
+## this, never DialogueDB.node_choices directly.
+func _available_choices() -> Array:
+	var value := _affinity_value()
+	var out: Array = []
+	for choice in DialogueDB.node_choices(_current_node()):
+		if choice is Dictionary and DialogueDB.choice_available(choice, value):
+			out.append(choice)
+	return out
+
+
+## The current node with its choices replaced by the available ones, so the pure
+## DialogueDB.advance_from() can be reused verbatim on the list the player actually sees. A
+## shallow duplicate: the cached node in dialogue_db.gd's dictionary is never mutated.
+func _filtered_node() -> Dictionary:
+	var node := _current_node()
+	if not node.has("choices"):
+		return node
+	var filtered := node.duplicate()
+	filtered["choices"] = _available_choices()
+	return filtered
+
+
 func _is_fully_revealed() -> bool:
 	return DialogueDB.visible_chars(_full_text.length(), _elapsed, CHARS_PER_SECOND) \
 		>= _full_text.length()
@@ -229,17 +299,17 @@ func _refresh_body() -> void:
 	# Choices are populated as soon as their node loads (_refresh_choices, below) but only shown
 	# once the line has finished typing — matching hint_label's own reveal-gated visibility, and
 	# avoiding the odd read of a response menu appearing mid-sentence.
-	choices_box.visible = revealed and not DialogueDB.node_choices(_current_node()).is_empty()
+	choices_box.visible = revealed and not _available_choices().is_empty()
 
 
 func _hint_text() -> String:
-	if not DialogueDB.node_choices(_current_node()).is_empty():
+	if not _available_choices().is_empty():
 		return "Up/Down to choose, Space to confirm"
 	return "Space to continue"
 
 
 func _refresh_choices() -> void:
-	var choices := DialogueDB.node_choices(_current_node())
+	var choices := _available_choices()
 	for i in _choice_labels.size():
 		var label := _choice_labels[i]
 		if i < choices.size():

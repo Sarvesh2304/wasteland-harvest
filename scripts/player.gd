@@ -181,6 +181,11 @@ var settlers: Node = null
 ## Phase 8 livestock roster, settlement-wide like settlers. It is passed through every save path
 ## so animals purchased in any zone survive a reload.
 var animals: Node = null
+## Phase 7 Stage 3: the per-NPC relationship track (scripts/affinity.gd), settlement-wide like
+## the two above and passed through every save path for the same reason — a relationship earned
+## by talking must survive a reload. null when unbound (GameState.save_game's own `affinity`
+## param defaults null).
+var affinity: Node = null
 ## True from the instant a gate-cell exit is detected until main.gd's _bind_zone completes the
 ## rebind at the fade's black midpoint. Movement/input freezes for the duration, matching every
 ## other modal state — and critically, the exit detection itself stands down: the fade leaves
@@ -476,7 +481,7 @@ func _end_day() -> void:
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
 	if not zones.is_empty():
-		GameState.save_game(self, zones, settlers, animals)
+		GameState.save_game(self, zones, settlers, animals, affinity)
 
 
 ## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs

@@ -45,6 +45,10 @@ extends RefCounted
 ##     "day_28_food_shortage_seen": true
 ##   }
 ##   "animals": {"animals": [{"animal_id", "housing", "housing_index", "last_care_day"}, ...]}
+##   "affinity": {                             # Phase 7 Stage 3 — additive, no version bump
+##     "values": {npc_id: 0-10},               # the relationship track itself
+##     "last_talked_day": {npc_id: day}        # the once-per-day talk-tick cap
+##   }
 ## }
 ## Per-zone section shapes (unchanged from v1, just nested per zone — the encoders below are
 ## reused as-is, called 4x instead of once):
@@ -369,6 +373,39 @@ static func encode_animals(data: Dictionary) -> Dictionary:
 
 static func decode_animals(data: Dictionary) -> Dictionary:
 	return encode_animals(data if data is Dictionary else {})
+
+
+## -- Affinity (scripts/affinity.gd's per-NPC relationship track, Phase 7 Stage 3) --
+## Another additive top-level key with no SAVE_VERSION bump, following "settlers"/"story_flags"/
+## "animals" exactly (see class doc: an old save simply decodes this section as its empty default
+## through the .get() fallbacks below). Structurally the closest sibling is encode_story_flags —
+## a minimal flat dict, no Vector2i or nested entry shapes to convert — with the one novelty
+## that this is the project's FIRST save dict keyed directly by npc_id (settlers.roster is an
+## array whose entries carry their own "id"). Keys therefore pass through as plain Strings; only
+## the values need JSON's float round-trip normalised back to int (same rule as every other
+## numeric field here — a stage/count/day compared with `==` would silently mismatch otherwise).
+##
+## Both of affinity.gd's dicts live in this ONE section rather than two sibling top-level keys:
+## they are halves of the same per-NPC relationship record (the value, and the once-per-day talk
+## bookkeeping that produced it), and splitting them would let a partial restore resurrect a
+## value whose daily cap had been forgotten — allowing a second same-day tick after a reload.
+
+static func encode_affinity(values: Dictionary, last_talked_day: Dictionary) -> Dictionary:
+	var values_out := {}
+	for npc_id in values:
+		values_out[String(npc_id)] = int(values[npc_id])
+	var talked_out := {}
+	for npc_id in last_talked_day:
+		talked_out[String(npc_id)] = int(last_talked_day[npc_id])
+	return {"values": values_out, "last_talked_day": talked_out}
+
+
+static func decode_affinity(data: Dictionary) -> Dictionary:
+	var raw_values = data.get("values", {})
+	var raw_talked = data.get("last_talked_day", {})
+	return encode_affinity(
+		raw_values if raw_values is Dictionary else {},
+		raw_talked if raw_talked is Dictionary else {})
 
 
 ## -- Top-level assembly / parsing --

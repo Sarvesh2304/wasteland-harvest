@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/settlers.gd" id="13_settlers"]
 [ext_resource type="Script" path="res://scripts/animals.gd" id="14_animals"]
 [ext_resource type="PackedScene" path="res://scenes/ranch_store_ui.tscn" id="15_ranch_store"]
+[ext_resource type="Script" path="res://scripts/affinity.gd" id="16_affinity"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -64,3 +65,6 @@ script = ExtResource("13_settlers")
 
 [node name="Animals" type="Node" parent="."]
 script = ExtResource("14_animals")
+
+[node name="Affinity" type="Node" parent="."]
+script = ExtResource("16_affinity")
