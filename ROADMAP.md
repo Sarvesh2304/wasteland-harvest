@@ -613,8 +613,24 @@ input verb**, not a dialogue-choice picker.
       written lines, not guessed from role alone), readable via `DialogueDB.personality()`.
       Left unchecked deliberately: the tag exists but nothing yet *shapes* dialogue or behaviour
       with it — that's Stages 2 (schedule flavor) and 5 (context-varied dialogue tone).
-- [ ] Daily schedules — wake, tasks (garden/store/water walk), eat, sleep; location changes by
+- [x] Daily schedules — wake, tasks (garden/store/water walk), eat, sleep; location changes by
       time of day
+      **Stage 2 landed (2026-09-22)**: `scripts/npc_schedule.gd` (pure/static, the `npc_grid.gd`
+      shape) holds a 3-4 waypoint day per named NPC as ordered
+      `{start_minutes, cell}` entries in `DayManager`'s own minutes-into-day frame, plus
+      `current_waypoint()` (latest entry at/before now, wrapping to the day's last entry through
+      the pre-dawn hours) and `next_travel_cell()` (greedy, collision-checked one-cell step
+      toward a waypoint). `npc.gd`'s idle branch walks a scheduled NPC to its current waypoint
+      and then ambles around THAT cell instead of home; an NPC with no schedule entry (every
+      settler) runs the untouched random-walk path behind one Dictionary lookup. Harlan works
+      the bulletin board and the plaza; Marta opens her store counter and takes the evening
+      plaza; Kael walks the length of town to a watch post inside the west gate at dawn and
+      back at dusk; Silas works the barn, then the coop, then the yard.
+      Deliberately NOT in scope, and not silently dropped: **eat/sleep as distinct activity
+      states** (NPCs have no interiors, beds or hunger to model yet — a night waypoint is the
+      honest version of "sleep" today), and **cross-zone travel** (the locked scope decision
+      above). Every waypoint cell is verified open ground in BOTH variants of its zone by
+      `tests/test_npc_schedule.gd`, through the layouts' own `is_solid()`.
 - [ ] Relationship/affinity system — 0–10 affinity per NPC; up via daily talk/gifts
       preferred/quests, down via disliked gifts/neglect; gates dialogue and story events
 - [ ] Gift preference database — liked/loved/neutral/hated items per NPC
@@ -623,6 +639,28 @@ input verb**, not a dialogue-choice picker.
 
 **Milestone:** Town feels alive — NPCs move around, have schedules, react to you based on your
 relationship with them.
+
+**Phase 7 Stage 2 verified independently:** re-ran the full suite myself (361/361, +19 since
+Stage 1) and `npc_schedule_smoke.gd` (both settlements, 38 checks each), `runtime_smoke.gd`,
+`soak_test.gd`, `settler_smoke.gd`, and `zone_transition_smoke.gd` (both settlements, 86 checks
+each) individually — all green, matching the builder's report exactly. Re-derived every one of
+the 4 NPCs' waypoint cells by hand against the real `ROWS` ASCII in
+`town_layout_standard.gd`/`town_layout_riverside.gd`/`ranch_layout_standard.gd`/
+`ranch_layout_riverside.gd` (via a small Python check, not by eye) rather than trusting the
+builder's table — every cell confirmed open ground in both variants of its zone. Read the full
+`npc.gd`/`npc_schedule.gd` diff and confirmed the unscheduled-NPC code path (settlers) is
+byte-for-byte behaviorally identical to before this stage. Personally viewed both captured
+screenshots: Harlan at the bulletin board and Marta at her store counter, both visibly away from
+their home cells at midday; Kael standing watch just inside the west gate, 25 cells from home.
+
+Real bug the builder's own riverside smoke run caught (not something I found, but I verified the
+fix): `is_blocked_at()` can't see a live NPC/player body, so Kael's walk home through the plaza
+could shove against Harlan mid-ramble. Fixed with a `swap_axis` flip on a travel step that
+bounces off a body (not a map cell), so the retry detours around the person instead of
+re-attempting the same blocked direction — covered by 2 new pure tests
+(`test_travel_step_swap_axis_leads_with_the_other_axis`,
+`test_travel_step_swap_axis_still_respects_blocked_cells`), and re-confirmed by running the
+riverside smoke myself.
 
 **Phase 7 Stage 1 verified independently:** re-ran the full suite myself (342/342, +4 since the
 last commit) and `runtime_smoke.gd`/`soak_test.gd`/`settler_smoke.gd`/`title_smoke.gd`

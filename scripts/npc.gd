@@ -30,11 +30,20 @@ extends CharacterBody2D
 ## falls back to Phase 5's flat-color two-tone placeholder rect, so a new NPC is visible and
 ## testable before its art pass.
 ##
-## Save/load: NPC state is deliberately not serialised — positions are cosmetic wander noise
-## with no gameplay meaning yet (schedules are Phase 7's), so a reload simply respawns each NPC
-## at its authored home cell.
+## Daily schedules (Phase 7 Stage 2): an NPC listed in scripts/npc_schedule.gd's SCHEDULES walks
+## to a time-of-day waypoint inside its OWN zone, then ambles around THAT cell instead of its
+## home cell until the next waypoint comes due. Everything about it is additive — the pure
+## time->cell lookup and the greedy travel step both live in npc_schedule.gd; an NPC with no
+## schedule entry (every settler, any future roster addition) runs the identical random-walk code
+## it ran before, gated behind one Dictionary lookup in _begin_step().
+##
+## Save/load: NPC state is still deliberately not serialised — a waypoint is a pure function of
+## the clock, so a reload respawns each NPC on its authored home cell and the schedule walks it
+## back to wherever the restored time says it should be, with nothing to persist. (Every
+## authored schedule's 6:00 AM entry IS the home cell, so a fresh boot doesn't even walk.)
 
 const NpcGrid := preload("res://scripts/npc_grid.gd")
+const NpcSchedule := preload("res://scripts/npc_schedule.gd")
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 
 const CELL_SIZE := 16.0
@@ -42,6 +51,12 @@ const CELL_SIZE := 16.0
 const WALK_SPEED := 24.0
 const IDLE_SECONDS_MIN := 2.0
 const IDLE_SECONDS_MAX := 6.0
+## Idle between steps while WALKING TO a scheduled waypoint, rather than the 2-6s amble pause:
+## someone crossing town to open a shop or take up a watch post reads as purposeful, and at the
+## amble pause a 25-cell walk would eat ~2 in-game hours of the window it's walking into. Short
+## but non-zero so travel still steps cell-by-cell through the same validated one-cell walk (and
+## so a blocked/boxed-in retry doesn't spin every physics frame).
+const TRAVEL_IDLE_SECONDS := 0.3
 
 ## Phase 6 Art pass 1: real PixelLab SpriteFrames per npc id (generated through the exact
 ## pipeline art/characters/README.md documents for the player — 16px character, 24x24 canvas,
@@ -97,6 +112,15 @@ var _test_map: Node2D = null
 var _idle_left := 0.0
 var _stepping := false
 var _step_target := Vector2.ZERO
+## Cached NpcSchedule.has_schedule(npc_id) — resolved once in setup() so the per-idle-window
+## check costs nothing for the unscheduled majority (settlers).
+var _scheduled := false
+## True while the in-flight step is scheduled travel rather than a wander step.
+var _traveling := false
+## Flipped whenever a travel step is bounced by a BODY (another NPC or the player) rather than a
+## map cell: the retry then leads with the other axis and walks around them. See
+## NpcSchedule.next_travel_cell's swap_axis doc for the stall this fixes.
+var _travel_swap_axis := false
 var _rng := RandomNumberGenerator.new()
 ## The real-art sprite (null when this npc_id has no NPC_FRAMES entry and uses the placeholder).
 var _sprite: AnimatedSprite2D = null
@@ -108,6 +132,7 @@ func setup(id: String, home_cell: Vector2i, radius: int, test_map: Node2D) -> vo
 	home = home_cell
 	wander_radius = radius
 	_test_map = test_map
+	_scheduled = NpcSchedule.has_schedule(id)
 	name = id
 
 
@@ -156,21 +181,61 @@ func occupies_cell(cell: Vector2i) -> bool:
 	return global_position.distance_to(_test_map.get_global_cell_center(cell)) < CELL_SIZE * 0.75
 
 
-## Pick a validated one-cell wander step (see class doc / npc_grid.gd). Also schedules the next
-## idle window either way, so a boxed-in NPC quietly retries later instead of spinning.
+## Pick a validated one-cell step (see class doc / npc_grid.gd). Also schedules the next idle
+## window either way, so a boxed-in NPC quietly retries later instead of spinning.
+##
+## Phase 7 Stage 2: an NPC with a schedule ambles around its CURRENT WAYPOINT rather than its
+## home cell, and walks toward that waypoint (npc_schedule.gd's greedy one-cell travel step)
+## whenever it's further than wander_radius away — so "arrived" means inside the same 3x3 box the
+## wander uses, and an NPC at work keeps ambling instead of standing frozen on one tile. An NPC
+## with NO schedule takes the untouched original path below with `center` still being `home`.
 func _begin_step() -> void:
-	_idle_left = _rng.randf_range(IDLE_SECONDS_MIN, IDLE_SECONDS_MAX)
 	var current: Vector2i = _test_map.world_to_cell(global_position)
-	var candidates := NpcGrid.candidate_steps(current, home, wander_radius,
+	var center := home
+	if _scheduled:
+		center = NpcSchedule.current_waypoint(
+			NpcSchedule.schedule_for(npc_id), _schedule_minutes())
+		if not NpcGrid.within_zone(current, center, wander_radius):
+			_begin_travel_step(current, center)
+			return
+	_idle_left = _rng.randf_range(IDLE_SECONDS_MIN, IDLE_SECONDS_MAX)
+	_traveling = false
+	var candidates := NpcGrid.candidate_steps(current, center, wander_radius,
 		func(cell: Vector2i) -> bool: return not _test_map.is_blocked_at(cell))
 	if candidates.is_empty():
 		return
-	var target_cell: Vector2i = candidates[_rng.randi_range(0, candidates.size() - 1)]
+	_start_step_to(candidates[_rng.randi_range(0, candidates.size() - 1)], current)
+
+
+## One cell of scheduled travel toward `target` (Phase 7 Stage 2). Same validated single-cell
+## walk as the wander — only the cell CHOICE differs (greedy toward the waypoint instead of a
+## random in-zone neighbour), so travel can no more clip terrain or ignore a player-built
+## structure than wandering can. A blocked-in NPC stays put and retries after the short travel
+## idle.
+func _begin_travel_step(current: Vector2i, target: Vector2i) -> void:
+	_idle_left = TRAVEL_IDLE_SECONDS
+	_traveling = true
+	var next_cell := NpcSchedule.next_travel_cell(current, target,
+		func(cell: Vector2i) -> bool: return not _test_map.is_blocked_at(cell),
+		_travel_swap_axis)
+	if next_cell == current:
+		return
+	_start_step_to(next_cell, current)
+
+
+## Commit to walking from `current` into the already-validated neighbouring `target_cell`.
+func _start_step_to(target_cell: Vector2i, current: Vector2i) -> void:
 	facing = facing_from_step(target_cell - current, facing)
 	# World-space target: _process_step measures against global_position, so the zone's
 	# position offset must be included (the zone split — see occupies_cell's same fix).
 	_step_target = _test_map.get_global_cell_center(target_cell)
 	_stepping = true
+
+
+## The clock the schedule is read against (DayManager autoload, minutes-into-day 0..1439).
+## Isolated in its own method so a headless test/tool can stub it without a booted autoload.
+func _schedule_minutes() -> float:
+	return float(DayManager.minutes_into_day)
 
 
 ## One-cell walk toward _step_target, bailing early on any collision (player or another NPC in
@@ -181,6 +246,8 @@ func _process_step() -> void:
 		global_position = _step_target
 		velocity = Vector2.ZERO
 		_stepping = false
+		# A step that actually landed clears any detour preference (Phase 7 Stage 2).
+		_travel_swap_axis = false
 		return
 	velocity = to_target.normalized() * WALK_SPEED
 	_play("walk")
@@ -188,6 +255,10 @@ func _process_step() -> void:
 	if get_slide_collision_count() > 0:
 		velocity = Vector2.ZERO
 		_stepping = false
+		# Bounced off a live body mid-travel: lead with the other axis next time so a scheduled
+		# NPC walks around whoever is standing there instead of shoving at them (Phase 7 Stage 2).
+		if _traveling:
+			_travel_swap_axis = not _travel_swap_axis
 
 
 func _build_collision_shape() -> void:
