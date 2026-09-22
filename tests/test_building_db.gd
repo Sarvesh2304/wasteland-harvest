@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 ## BuildingDB data integrity (ROADMAP.md Phase 4 Stage 2, grown by Phase 8 Stage 1 into the full
-## 12-building library, then by Phase 8 Stage 2's fencing & perimeter system to 16): the
+## 12-building library, then by Phase 8 Stage 2's fencing & perimeter system to 16, then by
+## Phase 8 livestock housing to 18): the
 ## buildable-structure catalog is well-formed, costs resolve against the real item database AND
 ## against resources the player can actually gather in-game, every kind has a placeholder color
 ## in structures.gd, and the new interaction/daily_yield/capacity_unlock/effect (Stage 1) plus
@@ -17,15 +18,15 @@ const StructuresScript := preload("res://scripts/structures.gd")
 const GATHERABLE_RESOURCES := ["wood", "stone", "scrap_metal"]
 
 const EXPECTED_IDS: Array[String] = [
-	"shelter_tent", "storage_shed", "workshop", "clinic", "trading_post", "watchtower",
+	"shelter_tent", "storage_shed", "barn", "coop", "workshop", "clinic", "trading_post", "watchtower",
 	"greenhouse", "compost_pit", "rain_collector", "solar_panel", "antenna_tower",
 	"community_kitchen", "fence_wood", "fence_chainlink", "fence_concrete", "gate_wood",
 ]
 
 
-func test_catalog_has_exactly_sixteen_structures() -> void:
-	# Phase 8 Stage 1's 12-building library + Stage 2's 4 fence/gate entries.
-	assert_eq(BuildingDB.ids().size(), 16)
+func test_catalog_has_exactly_eighteen_structures() -> void:
+	# Phase 8 Stage 1's 12-building library + Stage 2's 4 fence/gate entries + Barn/Coop.
+	assert_eq(BuildingDB.ids().size(), 18)
 
 
 func test_ids_order_matches_catalog() -> void:
@@ -75,6 +76,14 @@ func test_storage_flags() -> void:
 func test_expected_footprints() -> void:
 	assert_eq(BuildingDB.size_of("shelter_tent"), Vector2i(1, 1))
 	assert_eq(BuildingDB.size_of("storage_shed"), Vector2i(2, 2))
+
+
+func test_livestock_housing_is_distinct_and_capacity_limited() -> void:
+	assert_eq(BuildingDB.animal_housing("barn"), "barn")
+	assert_eq(BuildingDB.animal_housing("coop"), "coop")
+	assert_eq(BuildingDB.animal_capacity("barn"), 4)
+	assert_eq(BuildingDB.animal_capacity("coop"), 4)
+	assert_eq(BuildingDB.animal_capacity("storage_shed"), 0)
 
 
 func test_unknown_id_reads_as_empty() -> void:

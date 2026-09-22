@@ -35,11 +35,16 @@ extends RefCounted
 ##     "town":  {"map": ..., "farm": ..., "structures": ...},
 ##     "ranch": {"map": ..., "farm": ..., "structures": ...}
 ##   },
-##   "settlers": {                             # Phase 8 Stage 3 — additive, no version bump (see
+##   "settlers": {                             # Phase 8 Stages 3-4 — additive, no version bump (see
 ##     "next_arrival_day": 12,                 # its own encode/decode section below)
+##     "next_salary_day": 14,
 ##     "roster": [{"id", "name", "home_cell": [x,y], "assigned_building": {...}}, ...],
 ##     "pending_visitor": {} | {"id", "name", "home_cell": [x,y]}
 ##   }
+##   "story_flags": {                          # scripted beats — additive, no version bump
+##     "day_28_food_shortage_seen": true
+##   }
+##   "animals": {"animals": [{"animal_id", "housing", "housing_index", "last_care_day"}, ...]}
 ## }
 ## Per-zone section shapes (unchanged from v1, just nested per zone — the encoders below are
 ## reused as-is, called 4x instead of once):
@@ -256,9 +261,8 @@ static func decode_shipping(data: Dictionary) -> Dictionary:
 ## doc: parse_save's exact-match check isn't touched, an old save simply decodes this new key as
 ## its empty default via decode_settlers' own .get() fallbacks). A roster/pending-visitor entry
 ## carries a Vector2i home_cell (JSON-array-encoded like every other cell field here) and an
-## assigned_building dict — always {} this stage (Stage 4's NPC-building assignment owns its
-## actual shape), encoded/decoded as an opaque copy so this pair doesn't need to change again the
-## moment that field starts holding real data.
+## assigned_building reference. Its nested top_left Vector2i is encoded explicitly so assignment
+## survives JSON round-trips without leaking engine-only types into the save file.
 
 static func encode_settler_entry(entry: Dictionary) -> Dictionary:
 	var home_cell: Vector2i = entry.get("home_cell", Vector2i.ZERO)
@@ -266,7 +270,7 @@ static func encode_settler_entry(entry: Dictionary) -> Dictionary:
 		"id": String(entry.get("id", "")),
 		"name": String(entry.get("name", "")),
 		"home_cell": [home_cell.x, home_cell.y],
-		"assigned_building": (entry.get("assigned_building", {}) as Dictionary).duplicate(),
+		"assigned_building": encode_assignment(entry.get("assigned_building", {})),
 	}
 
 
@@ -276,17 +280,40 @@ static func decode_settler_entry(data: Dictionary) -> Dictionary:
 		"id": String(data.get("id", "")),
 		"name": String(data.get("name", "")),
 		"home_cell": Vector2i(int(home_cell[0]), int(home_cell[1])),
-		"assigned_building": (data.get("assigned_building", {}) as Dictionary).duplicate(),
+		"assigned_building": decode_assignment(data.get("assigned_building", {})),
 	}
 
 
-static func encode_settlers(next_arrival_day: int, roster: Array, pending_visitor: Dictionary) -> Dictionary:
+static func encode_assignment(data) -> Dictionary:
+	if not data is Dictionary or (data as Dictionary).is_empty():
+		return {}
+	var assignment: Dictionary = data
+	var top_left = assignment.get("top_left", Vector2i.ZERO)
+	var encoded := assignment.duplicate(true)
+	if top_left is Vector2i:
+		encoded["top_left"] = [top_left.x, top_left.y]
+	return encoded
+
+
+static func decode_assignment(data) -> Dictionary:
+	if not data is Dictionary or (data as Dictionary).is_empty():
+		return {}
+	var assignment: Dictionary = data.duplicate(true)
+	var top_left = assignment.get("top_left", null)
+	if top_left is Array and top_left.size() == 2:
+		assignment["top_left"] = Vector2i(int(top_left[0]), int(top_left[1]))
+	return assignment
+
+
+static func encode_settlers(next_arrival_day: int, roster: Array, pending_visitor: Dictionary,
+		next_salary_day: int = 7) -> Dictionary:
 	var roster_out: Array = []
 	for entry in roster:
 		roster_out.append(encode_settler_entry(entry))
 	var pending_out := {} if pending_visitor.is_empty() else encode_settler_entry(pending_visitor)
 	return {
 		"next_arrival_day": next_arrival_day,
+		"next_salary_day": next_salary_day,
 		"roster": roster_out,
 		"pending_visitor": pending_out,
 	}
@@ -303,9 +330,45 @@ static func decode_settlers(data: Dictionary) -> Dictionary:
 	var pending_out := {} if pending_data.is_empty() else decode_settler_entry(pending_data)
 	return {
 		"next_arrival_day": int(data.get("next_arrival_day", 1)),
+		"next_salary_day": int(data.get("next_salary_day", 7)),
 		"roster": roster_out,
 		"pending_visitor": pending_out,
 	}
+
+
+## -- Scripted story-beat flags --
+## Kept as an additive section so saves written before the Day-28 beat simply decode the
+## new flag as false. The flag is state, not dialogue traversal data: it prevents a day-start
+## trigger from replaying after a save/load.
+
+static func encode_story_flags(day_28_food_shortage_seen: bool) -> Dictionary:
+	return {"day_28_food_shortage_seen": day_28_food_shortage_seen}
+
+
+static func decode_story_flags(data: Dictionary) -> Dictionary:
+	return {
+		"day_28_food_shortage_seen": bool(data.get("day_28_food_shortage_seen", false)),
+	}
+
+
+## Livestock state is already JSON-safe after this normalisation pass. Keeping the pair here
+## makes the additive save section independently unit-testable and keeps malformed rows harmless.
+static func encode_animals(data: Dictionary) -> Dictionary:
+	var out: Array = []
+	for raw in data.get("animals", []):
+		if not raw is Dictionary:
+			continue
+		out.append({
+			"animal_id": String(raw.get("animal_id", "")),
+			"housing": String(raw.get("housing", "")),
+			"housing_index": int(raw.get("housing_index", -1)),
+			"last_care_day": int(raw.get("last_care_day", 0)),
+		})
+	return {"animals": out}
+
+
+static func decode_animals(data: Dictionary) -> Dictionary:
+	return encode_animals(data if data is Dictionary else {})
 
 
 ## -- Top-level assembly / parsing --

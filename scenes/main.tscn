@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="2_map"]
@@ -13,6 +13,8 @@
 [ext_resource type="PackedScene" path="res://scenes/menu_screen.tscn" id="11_menu"]
 [ext_resource type="Script" path="res://scripts/zone_fade.gd" id="12_zonefade"]
 [ext_resource type="Script" path="res://scripts/settlers.gd" id="13_settlers"]
+[ext_resource type="Script" path="res://scripts/animals.gd" id="14_animals"]
+[ext_resource type="PackedScene" path="res://scenes/ranch_store_ui.tscn" id="15_ranch_store"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -48,6 +50,8 @@ script = ExtResource("5_daynight")
 
 [node name="StoreUI" parent="." instance=ExtResource("9_store")]
 
+[node name="RanchStoreUI" parent="." instance=ExtResource("15_ranch_store")]
+
 [node name="ShippingUI" parent="." instance=ExtResource("10_shipping")]
 
 [node name="MenuScreen" parent="." instance=ExtResource("11_menu")]
@@ -57,3 +61,6 @@ script = ExtResource("12_zonefade")
 
 [node name="Settlers" type="Node" parent="."]
 script = ExtResource("13_settlers")
+
+[node name="Animals" type="Node" parent="."]
+script = ExtResource("14_animals")

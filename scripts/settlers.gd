@@ -49,6 +49,7 @@ extends Node
 ## a reload, unlike cosmetic wander position.
 
 const BuildingEffects := preload("res://scripts/building_effects.gd")
+const BuildingDB := preload("res://scripts/building_db.gd")
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
@@ -58,6 +59,9 @@ const BASE_ARRIVAL_CHANCE := 0.12
 ## Days between roll attempts (before Antenna Tower's reduction), floor-clamped in
 ## next_arrival_day_after() so it can never reach 0 or negative.
 const BASE_COOLDOWN_DAYS := 3
+const SALARY_INTERVAL_DAYS := 7
+const FARM_LABORER_ROLE := "farm_laborer"
+const DEFAULT_CROP_ID := "mutant_potato"
 ## Same tight, disjoint wander zone every existing town-core NPC uses (layout_common.gd's
 ## TOWN_NPCS/RANCH_NPCS doc) — SETTLER_HOME_CELLS' spacing was chosen with this same radius.
 const SETTLER_WANDER_RADIUS := 1
@@ -68,9 +72,8 @@ const SETTLER_NAMES := [
 	"Ellery", "Doss", "Priya", "Fenn", "Roan", "Talia", "Mirek", "Sable",
 ]
 
-## {id, name, home_cell, assigned_building}: assigned_building is always {} until Stage 4 wires
-## the actual NPC-building assignment mechanic — carried here now purely as forward-compatible
-## save shape (see save_data.gd's encode_settler_entry).
+## {id, name, home_cell, assigned_building}: assigned_building is a live
+## {zone_id, building_id, top_left} reference when staffed, or {} when unassigned.
 var roster: Array[Dictionary] = []
 ## {} when no visitor is currently waiting on a player decision; otherwise the same
 ## {id, name, home_cell} shape as a roster entry (minus assigned_building, which only exists
@@ -79,6 +82,15 @@ var pending_visitor: Dictionary = {}
 ## The earliest day an arrival roll will even be ATTEMPTED (see class doc) — starts at 1 so the
 ## very first day_started (day 2, the first natural midnight rollover) is already eligible.
 var next_arrival_day: int = 1
+## The next calendar day on which assigned workers are paid. Kept in the save so loading on a
+## payday cannot silently move or duplicate a charge.
+var next_salary_day: int = SALARY_INTERVAL_DAYS
+
+signal labor_yield_produced(items: Dictionary)
+## Negative amount: main.gd connects this to player.add_credits(), whose clamp is the final
+## no-negative-balance guard. A shortfall never disables the worker or creates a fail state.
+signal salary_charged(amount: int)
+signal assignments_changed
 
 ## Set in _ready() to get_parent() (Main) — see class doc's ordering note.
 var _main: Node = null
@@ -92,6 +104,7 @@ func _ready() -> void:
 
 func _on_day_started(day: int) -> void:
 	_process_arrival_tick(day, _rng.randf())
+	_process_assignments(day)
 
 
 ## -- Pure roll rules (headlessly testable — tests/test_settlers.gd feeds these fixed values
@@ -142,6 +155,180 @@ func _process_arrival_tick(day: int, roll_value: float) -> void:
 	if roll_succeeds(roll_value, chance):
 		_spawn_visitor()
 	next_arrival_day = next_arrival_day_after(day, int(modifiers.get("cooldown_reduction_days", 0)))
+
+
+## -- NPC/building assignment --
+
+## A plain, JSON-safe reference for a completed building. `top_left` is a Vector2i in live state;
+## SaveData converts it to/from an array. Zone is required because every zone has its own
+## coordinate frame and the same building id may exist more than once.
+static func building_ref(zone_id: String, entry: Dictionary) -> Dictionary:
+	return {
+		"zone_id": zone_id,
+		"building_id": String(entry.get("building_id", "")),
+		"top_left": entry.get("top_left", Vector2i.ZERO),
+	}
+
+
+static func safe_salary_payment(balance: int, requested: int) -> Dictionary:
+	var due := maxi(0, requested)
+	var available := maxi(0, balance)
+	var paid := mini(available, due)
+	return {"paid": paid, "remaining": available - paid, "shortfall": due - paid}
+
+
+func assignment_options_for_settler(settler_id: String) -> Array[Dictionary]:
+	var options: Array[Dictionary] = []
+	var current := _assignment_for(settler_id)
+	for zone_id in _main.zones:
+		var structures: Node = _main.zones[zone_id]["structures"]
+		for entry in structures.completed_entries():
+			var building_id := String(entry.get("building_id", ""))
+			if BuildingDB.assignment_role(building_id).is_empty():
+				continue
+			var ref := building_ref(String(zone_id), entry)
+			var occupied := _assigned_count(ref)
+			var is_current := _same_building_ref(current, ref)
+			if occupied < BuildingDB.assignment_capacity(building_id) or is_current:
+				ref["display_name"] = "%s (%s)" % [
+					BuildingDB.display_name(building_id), String(zone_id).capitalize()]
+				ref["role"] = BuildingDB.assignment_role(building_id)
+				options.append(ref)
+	return options
+
+
+func assign_settler(settler_id: String, ref: Dictionary) -> bool:
+	var roster_index := _roster_index(settler_id)
+	if roster_index < 0 or not _valid_building_ref(ref):
+		return false
+	var building_id := String(ref.get("building_id", ""))
+	if BuildingDB.assignment_role(building_id).is_empty():
+		return false
+	var current := _assignment_for(settler_id)
+	if _same_building_ref(current, ref):
+		return true
+	if _assigned_count(ref) >= BuildingDB.assignment_capacity(building_id):
+		return false
+	var normalized := building_ref(String(ref.get("zone_id", "")), {
+		"building_id": building_id,
+		"top_left": ref.get("top_left", Vector2i.ZERO),
+	})
+	roster[roster_index]["assigned_building"] = normalized
+	assignments_changed.emit()
+	return true
+
+
+func unassign_settler(settler_id: String) -> bool:
+	var roster_index := _roster_index(settler_id)
+	if roster_index < 0 or _assignment_for(settler_id).is_empty():
+		return false
+	roster[roster_index]["assigned_building"] = {}
+	assignments_changed.emit()
+	return true
+
+
+func _process_assignments(day: int) -> void:
+	# Farm work is deliberately independent of wage availability: the cozy contract has no
+	# punishment/fail state, and a poor week does not make a worker vanish.
+	var harvested := {}
+	for entry in roster:
+		var assignment: Dictionary = entry.get("assigned_building", {})
+		if assignment.is_empty():
+			continue
+		var role := BuildingDB.assignment_role(String(assignment.get("building_id", "")))
+		if role == FARM_LABORER_ROLE:
+			_run_farm_labor(harvested)
+	if not harvested.is_empty():
+		labor_yield_produced.emit(harvested)
+
+	if day >= next_salary_day:
+		var requested := 0
+		for entry in roster:
+			var assignment: Dictionary = entry.get("assigned_building", {})
+			if assignment.is_empty():
+				continue
+			requested += BuildingDB.assignment_salary(String(assignment.get("building_id", "")))
+		var balance := 0
+		if _main != null:
+			var player = _main.get("player")
+			if player != null:
+				balance = int(player.credits)
+		var payment := safe_salary_payment(balance, requested)
+		if int(payment["paid"]) > 0:
+			salary_charged.emit(-int(payment["paid"]))
+		while next_salary_day <= day:
+			next_salary_day += SALARY_INTERVAL_DAYS
+
+
+func _run_farm_labor(harvested: Dictionary) -> void:
+	if _main == null or not _main.zones.has("farm"):
+		return
+	var farm: Node = _main.zones["farm"]["farm"]
+	if not farm.has_method("labor_cells"):
+		return
+	var cells: Array[Vector2i] = farm.labor_cells()
+	# Harvest first, then water everything that needs it, then open one new plot. The ordering
+	# makes the loop observable and deterministic while staying entirely inside Farm's public API.
+	for cell in cells:
+		if farm.can_harvest(cell):
+			var result: Dictionary = farm.harvest(cell)
+			if not result.is_empty():
+				var item_id := String(result.get("item_id", ""))
+				harvested[item_id] = int(harvested.get(item_id, 0)) + int(result.get("count", 0))
+	for cell in cells:
+		if farm.can_water(cell):
+			farm.water(cell)
+	for cell in cells:
+		if not farm.get_plot(cell).is_empty():
+			continue
+		var worked := false
+		if farm.can_till(cell):
+			worked = farm.till(cell)
+		if farm.can_plant(cell):
+			worked = farm.plant(cell, DEFAULT_CROP_ID) or worked
+		if worked:
+			break
+
+
+func _roster_index(settler_id: String) -> int:
+	for i in roster.size():
+		if String(roster[i].get("id", "")) == settler_id:
+			return i
+	return -1
+
+
+func _assignment_for(settler_id: String) -> Dictionary:
+	var index := _roster_index(settler_id)
+	return {} if index < 0 else roster[index].get("assigned_building", {})
+
+
+func _same_building_ref(a: Dictionary, b: Dictionary) -> bool:
+	if a.is_empty() or b.is_empty():
+		return false
+	return String(a.get("zone_id", "")) == String(b.get("zone_id", "")) \
+		and String(a.get("building_id", "")) == String(b.get("building_id", "")) \
+		and Vector2i(a.get("top_left", Vector2i.ZERO)) == Vector2i(b.get("top_left", Vector2i.ZERO))
+
+
+func _assigned_count(ref: Dictionary) -> int:
+	var count := 0
+	for entry in roster:
+		if _same_building_ref(entry.get("assigned_building", {}), ref):
+			count += 1
+	return count
+
+
+func _valid_building_ref(ref: Dictionary) -> bool:
+	var zone_id := String(ref.get("zone_id", ""))
+	if _main == null or not _main.zones.has(zone_id):
+		return false
+	var top_left := Vector2i(ref.get("top_left", Vector2i.ZERO))
+	var building_id := String(ref.get("building_id", ""))
+	for entry in _main.zones[zone_id]["structures"].completed_entries():
+		if String(entry.get("building_id", "")) == building_id \
+				and Vector2i(entry.get("top_left", Vector2i.ZERO)) == top_left:
+			return true
+	return false
 
 
 ## -- Visitor spawn / accept / reject --
@@ -237,8 +424,8 @@ func _greeting_dialogue(display_name: String) -> Dictionary:
 	}
 
 
-## A small permanent flavor tree for an accepted settler — no choices needed yet (Stage 4 adds
-## the real building-assignment branch); just enough so talking to them isn't a dead no-op.
+## A small permanent flavor tree for an accepted settler; assignment is managed from the in-game
+## roster tab so this conversation stays focused on character flavor.
 func _settled_dialogue(display_name: String) -> Dictionary:
 	return {
 		"name": display_name,
@@ -255,7 +442,7 @@ func _settled_dialogue(display_name: String) -> Dictionary:
 ## -- Save/load (scripts/save_data.gd's encode_settlers/decode_settlers) --
 
 func save_state() -> Dictionary:
-	return SaveData.encode_settlers(next_arrival_day, roster, pending_visitor)
+	return SaveData.encode_settlers(next_arrival_day, roster, pending_visitor, next_salary_day)
 
 
 ## Restores roster/pending-visitor state and re-spawns each as a real NPC node in Town, re-
@@ -266,6 +453,7 @@ func save_state() -> Dictionary:
 func load_state(data: Dictionary) -> void:
 	var decoded := SaveData.decode_settlers(data)
 	next_arrival_day = int(decoded["next_arrival_day"])
+	next_salary_day = int(decoded["next_salary_day"])
 	roster = decoded["roster"]
 	pending_visitor = decoded["pending_visitor"]
 	var town_npcs: Node = _main.zones["town"]["npcs"]

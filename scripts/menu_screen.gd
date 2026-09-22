@@ -7,7 +7,7 @@ extends CanvasLayer
 ##
 ## Tabs (cycled with "build_cycle"/Q, the same browse key build mode uses — one direction only,
 ## deliberately: no unused input action exists to pair as "previous tab", and adding a new
-## binding for a 3-tab ring that wraps in at most 2 presses would bloat the Controls list this
+## binding for a four-tab ring would bloat the Controls list this
 ## menu itself documents; revisit if the tab count ever grows):
 ##   1. INVENTORY — the HUD's existing 18-slot backpack GridContainer, re-parented in here at
 ##      bind() time. All widget building/painting stays in scripts/hud.gd, driven by the same
@@ -17,7 +17,9 @@ extends CanvasLayer
 ##      the exact function scripts/builder.gd's placement preview uses — fed the same
 ##      inventory.count_of() counts; the cost string is builder.gd's own cost_text(). Browse
 ##      only: placing still happens through the existing B-key build mode in the world.
-##   3. CONTROLS — a static key-reference list (see CONTROLS_REFERENCE's sync warning).
+##   3. ASSIGNMENTS — the live settler roster. Each row is an OptionButton whose choices are
+##      completed, staffable buildings; choosing "Unassigned" releases the settler.
+##   4. CONTROLS — a static key-reference list (see CONTROLS_REFERENCE's sync warning).
 ## Plus an always-visible footer action on every tab: Save & Return to Title ("use_tool"/Space,
 ## guarded by a press-again-to-confirm arm — the same two-press guard title_screen.gd's slot
 ## delete uses — so a stray Space can't dump the player to the title mid-thought). The save is
@@ -37,10 +39,11 @@ const BuildGrid := preload("res://scripts/build_grid.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
 const Builder := preload("res://scripts/builder.gd")
 
-const TAB_NAMES: Array[String] = ["INVENTORY", "BUILD", "CONTROLS"]
+const TAB_NAMES: Array[String] = ["INVENTORY", "BUILD", "ASSIGNMENTS", "CONTROLS"]
 const TAB_INVENTORY := 0
 const TAB_BUILD := 1
-const TAB_CONTROLS := 2
+const TAB_ASSIGNMENTS := 2
+const TAB_CONTROLS := 3
 
 ## Same modal palette as store_ui.gd/title_screen.gd's lists.
 const TAB_ACTIVE_COLOR := Color("#c5520f")     # rust red — the established highlight
@@ -82,8 +85,10 @@ const CONTROLS_REFERENCE := [
 @onready var tab_row: HBoxContainer = %TabRow
 @onready var inventory_tab: Control = %InventoryTab
 @onready var build_tab: Control = %BuildTab
+@onready var assignments_tab: Control = %AssignmentsTab
 @onready var controls_tab: Control = %ControlsTab
 @onready var build_rows: VBoxContainer = %BuildRows
+@onready var assignments_rows: VBoxContainer = %AssignmentsRows
 @onready var controls_rows: VBoxContainer = %ControlsRows
 @onready var quit_label: Label = %QuitLabel
 
@@ -152,7 +157,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_quit_armed = false  # navigating away disarms, like the title screen's delete guard
 		_refresh()
 	elif event.is_action_pressed("use_tool"):
-		_quit_pressed()
+		if tab_index == TAB_ASSIGNMENTS:
+			_refresh_assignments()
+		else:
+			_quit_pressed()
 
 
 ## Opening is refused while any other modal surface is open (modal_gate.gd's standard recipe);
@@ -192,7 +200,7 @@ func _quit_pressed() -> void:
 ## _exit_tree already guarantees the paused clock can't leak into the next boot.
 func _save_and_return_to_title() -> void:
 	if not _player.zones.is_empty():
-		GameState.save_game(_player, _player.zones, _player.settlers)
+		GameState.save_game(_player, _player.zones, _player.settlers, _player.animals)
 	close()
 	get_tree().change_scene_to_file("res://scenes/title_screen.tscn")
 
@@ -203,9 +211,12 @@ func _refresh() -> void:
 			TAB_ACTIVE_COLOR if i == tab_index else TAB_INACTIVE_COLOR)
 	inventory_tab.visible = tab_index == TAB_INVENTORY
 	build_tab.visible = tab_index == TAB_BUILD
+	assignments_tab.visible = tab_index == TAB_ASSIGNMENTS
 	controls_tab.visible = tab_index == TAB_CONTROLS
 	if tab_index == TAB_BUILD:
 		_refresh_build_rows()
+	elif tab_index == TAB_ASSIGNMENTS:
+		_refresh_assignments()
 	quit_label.text = quit_hint(_quit_armed)
 	quit_label.add_theme_color_override("font_color",
 		QUIT_ARMED_COLOR if _quit_armed else QUIT_IDLE_COLOR)
@@ -221,6 +232,65 @@ func _refresh_build_rows() -> void:
 		_build_row_labels[i].text = build_row_text(row)
 		_build_row_labels[i].add_theme_color_override("font_color",
 			AFFORDABLE_COLOR if row["affordable"] else UNAFFORDABLE_COLOR)
+
+
+func _refresh_assignments() -> void:
+	for child in assignments_rows.get_children():
+		child.queue_free()
+	if _player == null or _player.settlers == null:
+		var empty_label := Label.new()
+		empty_label.text = "No settler roster is available."
+		assignments_rows.add_child(empty_label)
+		return
+	var roster: Array = _player.settlers.roster
+	if roster.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No settlers yet — build Shelter Cabins and welcome a visitor."
+		assignments_rows.add_child(empty_label)
+		return
+	for roster_index in roster.size():
+		var entry: Dictionary = roster[roster_index]
+		var row := HBoxContainer.new()
+		var name_label := Label.new()
+		name_label.text = String(entry.get("name", entry.get("id", "Settler")))
+		name_label.custom_minimum_size.x = 74.0
+		row.add_child(name_label)
+		var picker := OptionButton.new()
+		picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		picker.add_item("Unassigned")
+		picker.set_item_metadata(0, {})
+		var options: Array[Dictionary] = _player.settlers.assignment_options_for_settler(
+			String(entry.get("id", "")))
+		var selected := 0
+		for option in options:
+			picker.add_item(String(option.get("display_name", option.get("building_id", ""))))
+			var item_index := picker.item_count - 1
+			picker.set_item_metadata(item_index, option)
+			if _same_assignment(entry.get("assigned_building", {}), option):
+				selected = item_index
+		picker.select(selected)
+		picker.item_selected.connect(_on_assignment_selected.bind(
+			String(entry.get("id", "")), picker))
+		row.add_child(picker)
+		assignments_rows.add_child(row)
+
+
+func _on_assignment_selected(option_index: int, settler_id: String, picker: OptionButton) -> void:
+	var ref = picker.get_item_metadata(option_index)
+	if ref is Dictionary and not (ref as Dictionary).is_empty():
+		_player.settlers.assign_settler(settler_id, ref)
+	else:
+		_player.settlers.unassign_settler(settler_id)
+	_refresh_assignments()
+
+
+static func _same_assignment(a: Dictionary, b: Dictionary) -> bool:
+	if a.is_empty() or b.is_empty():
+		return false
+	return String(a.get("zone_id", "")) == String(b.get("zone_id", "")) \
+		and String(a.get("building_id", "")) == String(b.get("building_id", "")) \
+		and Vector2i(a.get("top_left", Vector2i.ZERO)) == Vector2i(
+			b.get("top_left", Vector2i.ZERO))
 
 
 ## Owned counts for every item any catalog entry costs — the same inventory.count_of() gather

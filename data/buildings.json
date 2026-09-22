@@ -1,5 +1,5 @@
 {
-  "_comment": "Phase 8 Stage 1 buildable-structure catalog (ROADMAP.md 'Building, Settlement Expansion & Fencing System'), grown from Phase 4 Stage 2's 2-entry proof-of-mechanic set to the full 12-building library. Loaded by scripts/building_db.gd, same shape/conventions as data/items.json + scripts/item_db.gd. New optional, backward-additive fields per entry: interaction (\"\" | \"storage\" | \"trading_post\" - replaces the old is_storage bool; storage_shed migrated to \"interaction\": \"storage\"), daily_yield ({item_id: count} added to player inventory once per in-game day via structures.gd's day-tick, generically - no per-building code), capacity_unlock ({bonus_key: amount} one-time bonuses summed via scripts/building_effects.gd's recompute_capacity_unlocks, recomputed in FULL every time rather than incrementally applied), and effect (a string key into scripts/building_effects.gd's EFFECTS registry of bespoke per-tick callables, or a key read directly by a later stage's own logic - Watchtower/Antenna Tower's effect strings aren't tick callables, they're read by Stage 3's settler-arrival roll). Fields: kind keys scripts/structures.gd's BUILDING_COLORS flat-color placeholder table; size is [w, h] in 16px cells; cost items are deliberately limited to wood/stone/scrap_metal because those are the only resources the player can actually gather in-game right now (axe on a tree yields 3 wood; pickaxe on ore yields 2 stone + 1 scrap_metal - see scripts/farm.gd) - cloth_scrap/bottle_caps/fertilizer exist in items.json but have no gather source yet, so costing them would make a structure unbuildable. Sizing/build_days convention for the 10 new entries (Stage 1 plan): 1x1 kinds (Compost Pit, Rain Collector, Solar Panel) = 1 day; 2x2 kinds (Workshop, Clinic, Greenhouse, Watchtower) = 2 days; larger civic kinds (Trading Post, Community Kitchen, 3x2; Antenna Tower, 1x1 but complex to erect) = 3 days. Cost tuning for the 10 new entries is a fresh back-of-envelope balance pass (not derived from any external source): scaled roughly with build_days/footprint, using only wood/stone/scrap_metal per the constraint above, with each kind's material mix nodding at its theme (Rain Collector/Antenna Tower lean scrap for piping/wiring; Clinic/Community Kitchen lean stone for solid civic walls). shelter_tent (display name now \"Shelter Cabin\") and storage_shed (display name now \"Storage Barn\") keep their original kind/size/cost/build_days exactly - only the display name and the is_storage->interaction schema migration changed, specifically to avoid disturbing the existing place->spend->wait-a-day and chest-storage regression coverage (tools/runtime_smoke.gd, tools/soak_test.gd) that pins those two buildings' exact costs/day-counts. Phase 8 Stage 2 (fencing & perimeter system) grew the catalog to 16 entries with 2 new fields: solid (bool, default true when absent - only gate_wood sets it false, so scripts/building_db.gd's solid() accessor needs zero data changes on any pre-existing entry) and durability_max (int, stored/displayed only this stage - no decay/damage system exists yet to consume it, the same data-ahead-of-its-system precedent as bottle_caps/fertilizer above). fence_wood/fence_chainlink/fence_concrete are kind \"fence\" (solid, 1x1, costed/tiered by material per the plan); gate_wood is kind \"gate\" (NOT solid - a completed gate unblocks its cell via test_map.gd's new unblock_cells(), see structures.gd's _complete_construction). Placement UX is unchanged Stage-1/Phase-4-Stage-2 single-cell builder.gd flow - fences/gates are just 4 more catalog entries, no drag/linear placement mode exists.",
+  "_comment": "Phase 8 buildable-structure catalog (ROADMAP.md 'Building, Settlement Expansion & Fencing System'), grown from Phase 4 Stage 2's 2-entry proof-of-mechanic set to the 18-entry library. Loaded by scripts/building_db.gd, same shape/conventions as data/items.json + scripts/item_db.gd. New optional, backward-additive fields per entry: interaction (\"\" | \"storage\" | \"trading_post\" - replaces the old is_storage bool; storage_shed migrated to \"interaction\": \"storage\"), daily_yield ({item_id: count} added to player inventory once per in-game day via structures.gd's day-tick, generically - no per-building code), capacity_unlock ({bonus_key: amount} one-time bonuses summed via scripts/building_effects.gd's recompute_capacity_unlocks, recomputed in FULL every time rather than incrementally applied), and effect (a string key into scripts/building_effects.gd's EFFECTS registry of bespoke per-tick callables, or a key read directly by a later stage's own logic - Watchtower/Antenna Tower's effect strings aren't tick callables, they're read by Stage 3's settler-arrival roll). Barn/Coop additionally use animal_housing and animal_capacity; only these two house livestock, and builder.gd limits them to the farm zone. Fields: kind keys scripts/structures.gd's BUILDING_COLORS flat-color placeholder table; size is [w, h] in 16px cells; cost items are deliberately limited to wood/stone/scrap_metal because those are the only resources the player can actually gather in-game right now (axe on a tree yields 3 wood; pickaxe on ore yields 2 stone + 1 scrap_metal - see scripts/farm.gd) - cloth_scrap/bottle_caps/fertilizer exist in items.json but have no gather source yet, so costing them would make a structure unbuildable. Placement UX is unchanged Stage-1/Phase-4-Stage-2 single-cell builder.gd flow - fences/gates/Barn/Coop are catalog entries, no drag/linear placement mode exists.",
   "shelter_tent": {
 	"name": "Shelter Cabin",
 	"kind": "shelter_tent",
@@ -22,6 +22,32 @@
 	"capacity_unlock": {},
 	"effect": ""
   },
+  "barn": {
+	"name": "Barn",
+	"kind": "barn",
+	"size": [3, 2],
+	"cost": {"wood": 20, "stone": 8, "scrap_metal": 4},
+	"build_days": 2,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": "",
+	"animal_housing": "barn",
+	"animal_capacity": 4
+  },
+  "coop": {
+	"name": "Coop",
+	"kind": "coop",
+	"size": [2, 2],
+	"cost": {"wood": 14, "stone": 4, "scrap_metal": 4},
+	"build_days": 2,
+	"interaction": "",
+	"daily_yield": {},
+	"capacity_unlock": {},
+	"effect": "",
+	"animal_housing": "coop",
+	"animal_capacity": 4
+  },
   "workshop": {
 	"name": "Workshop",
 	"kind": "workshop",
@@ -31,7 +57,10 @@
 	"interaction": "",
 	"daily_yield": {"scrap_metal": 1},
 	"capacity_unlock": {},
-	"effect": ""
+	"effect": "",
+	"assignment_role": "craft_worker",
+	"assignment_capacity": 1,
+	"assignment_salary": 15
   },
   "clinic": {
 	"name": "Clinic",
@@ -42,7 +71,10 @@
 	"interaction": "",
 	"daily_yield": {},
 	"capacity_unlock": {"energy_max": 10},
-	"effect": ""
+	"effect": "",
+	"assignment_role": "medic",
+	"assignment_capacity": 1,
+	"assignment_salary": 15
   },
   "trading_post": {
 	"name": "Trading Post",
@@ -53,7 +85,10 @@
 	"interaction": "trading_post",
 	"daily_yield": {},
 	"capacity_unlock": {},
-	"effect": ""
+	"effect": "",
+	"assignment_role": "trader",
+	"assignment_capacity": 1,
+	"assignment_salary": 15
   },
   "watchtower": {
 	"name": "Watchtower",
@@ -64,7 +99,10 @@
 	"interaction": "",
 	"daily_yield": {},
 	"capacity_unlock": {},
-	"effect": "watchtower_lookout"
+	"effect": "watchtower_lookout",
+	"assignment_role": "lookout",
+	"assignment_capacity": 1,
+	"assignment_salary": 10
   },
   "greenhouse": {
 	"name": "Greenhouse",
@@ -75,7 +113,10 @@
 	"interaction": "",
 	"daily_yield": {"seed_sunbloom": 1},
 	"capacity_unlock": {},
-	"effect": ""
+	"effect": "",
+	"assignment_role": "farm_laborer",
+	"assignment_capacity": 1,
+	"assignment_salary": 20
   },
   "compost_pit": {
 	"name": "Compost Pit",
@@ -130,7 +171,10 @@
 	"interaction": "",
 	"daily_yield": {"cooked_meal": 1},
 	"capacity_unlock": {},
-	"effect": ""
+	"effect": "",
+	"assignment_role": "cook",
+	"assignment_capacity": 1,
+	"assignment_salary": 15
   },
   "fence_wood": {
 	"name": "Wood Fence",

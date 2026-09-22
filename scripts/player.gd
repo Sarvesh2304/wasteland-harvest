@@ -178,6 +178,9 @@ var zones: Dictionary = {}
 ## instantiating a bare player) — _end_day()/menu_screen.gd's save call both tolerate that
 ## (GameState.save_game's own `settlers` param defaults null).
 var settlers: Node = null
+## Phase 8 livestock roster, settlement-wide like settlers. It is passed through every save path
+## so animals purchased in any zone survive a reload.
+var animals: Node = null
 ## True from the instant a gate-cell exit is detected until main.gd's _bind_zone completes the
 ## rebind at the fade's black midpoint. Movement/input freezes for the duration, matching every
 ## other modal state — and critically, the exit detection itself stands down: the fade leaves
@@ -205,6 +208,7 @@ var dialogue_ui: Node = null
 ## dialogue_ui is above — while it's open, _physics_process freezes entirely (see _in_store())
 ## and store_ui.gd owns "use_tool"/"move_up"/"move_down" itself to browse/buy/leave.
 var store_ui: Node = null
+var ranch_store_ui: Node = null
 ## Phase 5 Stage 3: the shipping box's crop-loading UI (scripts/shipping_ui.gd), bound DIRECTLY
 ## by main.gd exactly like store_ui above, with the identical freeze rule (see _in_shipping()).
 var shipping_ui: Node = null
@@ -472,7 +476,7 @@ func _end_day() -> void:
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
 	if not zones.is_empty():
-		GameState.save_game(self, zones, settlers)
+		GameState.save_game(self, zones, settlers, animals)
 
 
 ## True while scripts/builder.gd's placement mode is active — the use_tool button then belongs
@@ -488,7 +492,8 @@ func _in_dialogue() -> bool:
 
 ## True while scripts/store_ui.gd's box is open — see _physics_process's early-return.
 func _in_store() -> bool:
-	return store_ui != null and bool(store_ui.active)
+	return (store_ui != null and bool(store_ui.active)) \
+		or (ranch_store_ui != null and bool(ranch_store_ui.active))
 
 
 ## True while scripts/shipping_ui.gd's box is open — see _physics_process's early-return.

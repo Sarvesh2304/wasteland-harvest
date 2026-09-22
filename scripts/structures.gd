@@ -73,6 +73,8 @@ const BUILDING_COLORS := {
 	# Phase 4 Stage 2 player-buildable kinds (data/buildings.json):
 	"shelter_tent": "#95ac49",    # faded field green — a salvaged-tarp lean-to
 	"storage_shed": "#7d452a",    # rusted iron-brown — a scrap-sheet storage hut
+	"barn": "#a23a2a",            # faded barn red — player livestock housing
+	"coop": "#c9a24b",            # straw/wood gold — player poultry housing
 	# Phase 8 Stage 1: the 10 new functional building-library kinds (data/buildings.json),
 	# every hex distinct from the above and from each other at the 16px tile scale, drawing on
 	# GDD.md §9's locked settlement-anchor + seasonal palette where a hex was still unused there,

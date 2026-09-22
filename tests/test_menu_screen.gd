@@ -8,22 +8,23 @@ const MenuScreen := preload("res://scripts/menu_screen.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
 
 
-## -- Tab cycling (forward-only ring over the 3 tabs) --
+## -- Tab cycling (forward-only ring over the four live tabs) --
 
 func test_next_tab_cycles_forward_and_wraps() -> void:
 	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_BUILD,
 		"Inventory -> Build")
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_BUILD), MenuScreen.TAB_CONTROLS,
-		"Build -> Controls")
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_BUILD), MenuScreen.TAB_ASSIGNMENTS,
+		"Build -> Assignments")
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_ASSIGNMENTS), MenuScreen.TAB_CONTROLS,
+		"Assignments -> Controls")
 	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CONTROLS), MenuScreen.TAB_INVENTORY,
 		"Controls wraps back to Inventory")
 
 
 func test_tab_names_cover_exactly_the_real_tabs() -> void:
-	# Scope guard: per the 2026-07-12 session's explicit decision, NO placeholder tabs for
-	# systems that don't exist yet (Social is Phase 7, Crafting Phase 10, Map Phase 14).
-	assert_eq(MenuScreen.TAB_NAMES.size(), 3, "exactly the 3 real tabs, no stubs")
-	assert_eq(MenuScreen.TAB_NAMES, ["INVENTORY", "BUILD", "CONTROLS"])
+	# Assignment is now a real Phase 8 slice, not a placeholder; future systems stay out.
+	assert_eq(MenuScreen.TAB_NAMES.size(), 4, "exactly the four real tabs, no stubs")
+	assert_eq(MenuScreen.TAB_NAMES, ["INVENTORY", "BUILD", "ASSIGNMENTS", "CONTROLS"])
 
 
 ## -- Build-tab catalog rows (affordability must be BuildGrid.can_afford's verdict) --

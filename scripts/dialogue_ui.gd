@@ -39,6 +39,7 @@ const INSTANT_REVEAL_ELAPSED := 999.0
 ## Recognized only here (the presentation shell), not in scripts/dialogue_db.gd, which stays a
 ## domain-agnostic pure traversal module with no concept of "a store."
 const OPEN_STORE_SENTINEL := "OPEN_STORE"
+const OPEN_RANCH_STORE_SENTINEL := "OPEN_RANCH_STORE"
 
 ## Phase 8 Stage 3 (settler arrivals): the same runtime-sentinel pattern as OPEN_STORE_SENTINEL
 ## above, recognized only here — a visiting settler's greeting tree (scripts/settlers.gd's
@@ -54,6 +55,7 @@ const CHOICE_SELECTED_COLOR := Color("#c5520f")   # rust red — reads as "this 
 ## wires this to scripts/store_ui.gd's open_store(), the same one-level-deeper handoff shape as
 ## player.gd's own npc_dialogue_requested -> main.gd -> DialogueUI.open_dialogue().
 signal store_requested(npc: Node)
+signal ranch_store_requested(npc: Node)
 
 ## Phase 8 Stage 3: fired when a conversation's choice leads to SETTLER_ACCEPT_SENTINEL/
 ## SETTLER_REJECT_SENTINEL — main.gd wires this to scripts/settlers.gd's resolve_visitor(),
@@ -100,17 +102,29 @@ func _process(delta: float) -> void:
 ## Opens a dialogue for `target_npc` at its data's start node. Called by main.gd, wired to
 ## player.gd's npc_dialogue_requested signal. A no-op if the npc has no dialogue.json entry
 ## (defensive — every roster NPC has one, see tests/test_dialogue_db.gd).
-func open_dialogue(target_npc: Node) -> void:
+func open_dialogue(target_npc: Node) -> bool:
+	return _open_dialogue_at(target_npc, DialogueDB.start_node_id(String(target_npc.npc_id)))
+
+
+## Opens an authored alternate entry point for a scripted beat while retaining the same NPC,
+## presentation, input handling, and normal interaction path. The beat caller owns its one-time
+## save flag; this method only reports whether the modal actually opened.
+func open_dialogue_at(target_npc: Node, start_node_id: String) -> bool:
+	return _open_dialogue_at(target_npc, start_node_id)
+
+
+func _open_dialogue_at(target_npc: Node, start_node_id: String) -> bool:
 	if active or not DialogueDB.has_dialogue(String(target_npc.npc_id)):
-		return
+		return false
 	if modal_gate != null and modal_gate.is_any_open_except(self):
-		return
+		return false
 	npc = target_npc
 	npc.set_talking(true)
 	active = true
 	box.visible = true
 	name_label.text = DialogueDB.display_name(String(npc.npc_id))
-	_goto_node(DialogueDB.start_node_id(String(npc.npc_id)))
+	_goto_node(start_node_id)
+	return true
 
 
 func close() -> void:
@@ -154,6 +168,8 @@ func _advance() -> void:
 	var next_id := DialogueDB.advance_from(_current_node(), _choice_index)
 	if next_id == OPEN_STORE_SENTINEL:
 		_open_store()
+	elif next_id == OPEN_RANCH_STORE_SENTINEL:
+		_open_ranch_store()
 	elif next_id == SETTLER_ACCEPT_SENTINEL:
 		_resolve_settler_decision(true)
 	elif next_id == SETTLER_REJECT_SENTINEL:
@@ -170,6 +186,12 @@ func _open_store() -> void:
 	var target_npc := npc
 	close()
 	store_requested.emit(target_npc)
+
+
+func _open_ranch_store() -> void:
+	var target_npc := npc
+	close()
+	ranch_store_requested.emit(target_npc)
 
 
 ## Closes the conversation and hands off to scripts/settlers.gd's resolve_visitor() (see class

@@ -46,6 +46,10 @@ signal game_saved
 
 var chosen_settlement_id: String = SettlementDB.DEFAULT_ID
 
+## One-time scripted story state. Unlike the dialogue tree itself, this belongs in the save so a
+## Day-28 trigger cannot replay after a normal end-of-day save and reload.
+var day_28_food_shortage_seen := false
+
 var save_path := "user://savegame.json"
 
 ## Where slot files live / where a pre-multi-slot save is adopted from (see class doc). Vars —
@@ -86,6 +90,7 @@ func start_new_slot() -> void:
 		existing_ids.append(summary["slot_id"])
 	save_path = SaveSlots.slot_path(saves_dir, SaveSlots.next_slot_id(existing_ids))
 	_pending_save_data = {}
+	day_28_food_shortage_seen = false
 	DayManager.day = 1
 	DayManager.minutes_into_day = float(DayManager.DAY_START_MINUTES)
 
@@ -123,7 +128,7 @@ func has_save() -> bool:
 ## already holds. The gather loop is deliberately uniform across zones (no per-zone branching):
 ## a zone with no farmland/chest just serialises empty defaults, keeping the shape
 ## forward-compatible (see the plan's save-shape note).
-func save_game(player: Node, zones: Dictionary, settlers: Node = null) -> bool:
+func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: Node = null) -> bool:
 	var zones_out := {}
 	for zone_id in zones:
 		var zone: Dictionary = zones[zone_id]
@@ -146,6 +151,8 @@ func save_game(player: Node, zones: Dictionary, settlers: Node = null) -> bool:
 		# roster to save (none exist in this codebase, but keeps the signature change backward-
 		# defensive) doesn't crash rather than silently writing {}.
 		"settlers": settlers.save_state() if settlers != null else {},
+		"animals": SaveData.encode_animals(animals.save_state() if animals != null else {}),
+		"story_flags": SaveData.encode_story_flags(day_28_food_shortage_seen),
 	})
 	# Slot files live in a subdirectory that won't exist before the first-ever save (slot
 	# allocation is eager, file creation lazy — see start_new_slot()); a no-op for paths whose

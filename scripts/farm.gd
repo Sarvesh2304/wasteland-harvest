@@ -137,6 +137,34 @@ func get_plot(cell: Vector2i) -> Dictionary:
 	return _plots.get(cell, {})
 
 
+## Stable work boundary for an assigned farm laborer: authored farmland plus the one-cell
+## walkable grass border around it. This keeps delegation on the Farm instead of silently
+## hoeing the whole map, while still giving the worker a real till -> plant path after the
+## authored plots are occupied. Returned in row-major order for deterministic simulation.
+func labor_cells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	var seen := {}
+	var map_size: Vector2i = _test_map.layout.size()
+	for y in map_size.y:
+		for x in map_size.x:
+			var cell := Vector2i(x, y)
+			if _test_map.layout.is_soil(x, y):
+				cells.append(cell)
+				seen[cell] = true
+	for source in cells.duplicate():
+		for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var candidate: Vector2i = source + offset
+			if candidate.x < 0 or candidate.y < 0 \
+					or candidate.x >= map_size.x or candidate.y >= map_size.y:
+				continue
+			if seen.has(candidate) or _test_map.is_blocked_at(candidate):
+				continue
+			if FarmGrid.is_tillable_terrain(String(_test_map.terrain_at(candidate))):
+				cells.append(candidate)
+				seen[candidate] = true
+	return cells
+
+
 ## -- Resource nodes (Phase 3 minimal scope: single-hit, no respawn — see map_layouts/layout_common.gd) --
 
 func can_chop(cell: Vector2i) -> bool:

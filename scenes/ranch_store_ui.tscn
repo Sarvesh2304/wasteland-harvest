@@ -1,0 +1,114 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ranch_store_ui.gd" id="1_script"]
+
+[node name="RanchStoreUI" type="CanvasLayer"]
+layer = 2
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Box" type="ColorRect" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+color = Color(1, 0.929412, 0.694118, 1)
+mouse_filter = 2
+
+[node name="TitleLabel" type="Label" parent="Root/Box"]
+layout_mode = 1
+anchor_right = 1.0
+offset_left = 6.0
+offset_top = 2.0
+offset_right = -6.0
+offset_bottom = 14.0
+grow_horizontal = 2
+text = "SILAS'S SANCTUARY"
+horizontal_alignment = 1
+
+[node name="CreditsLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+offset_left = 6.0
+offset_top = 16.0
+offset_right = -6.0
+offset_bottom = 28.0
+grow_horizontal = 2
+text = "Credits: 0"
+horizontal_alignment = 1
+
+[node name="RowsBox" type="VBoxContainer" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+offset_left = 10.0
+offset_top = 32.0
+offset_right = -10.0
+offset_bottom = 128.0
+grow_horizontal = 2
+
+[node name="Row0" type="Label" parent="Root/Box/RowsBox"]
+text = "Animal"
+[node name="Row1" type="Label" parent="Root/Box/RowsBox"]
+text = "Animal"
+[node name="Row2" type="Label" parent="Root/Box/RowsBox"]
+text = "Animal"
+[node name="Row3" type="Label" parent="Root/Box/RowsBox"]
+text = "Animal"
+[node name="Row4" type="Label" parent="Root/Box/RowsBox"]
+text = "Care all animals"
+[node name="Row5" type="Label" parent="Root/Box/RowsBox"]
+text = "Leave"
+
+[node name="DescriptionLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+offset_left = 8.0
+offset_top = 130.0
+offset_right = -8.0
+offset_bottom = 158.0
+grow_horizontal = 2
+autowrap_mode = 2
+text = ""
+
+[node name="StatusLabel" type="Label" parent="Root/Box"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = -20.0
+offset_right = -8.0
+offset_bottom = -12.0
+grow_horizontal = 2
+text = ""
+
+[node name="HintLabel" type="Label" parent="Root/Box"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = -10.0
+offset_right = -6.0
+offset_bottom = -2.0
+grow_horizontal = 2
+text = "Up/Down choose   Space buy/care/leave"
+horizontal_alignment = 1

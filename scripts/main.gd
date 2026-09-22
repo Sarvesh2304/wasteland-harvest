@@ -15,6 +15,8 @@ extends Node2D
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const ModalGate := preload("res://scripts/modal_gate.gd")
 const BuildingEffects := preload("res://scripts/building_effects.gd")
+const SaveData := preload("res://scripts/save_data.gd")
+const StoryBeats := preload("res://scripts/story_beats.gd")
 
 ## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
 ## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
@@ -30,6 +32,7 @@ var zones: Dictionary = {}
 ## settlers.gd's own _ready() reads get_parent() (this node) to reach _all_completed_entries()
 ## below, matching structures.gd/npcs.gd's own "get_parent() is the owning coordinator" pattern.
 @onready var settlers: Node = $Settlers
+@onready var animals: Node = $Animals
 
 ## Phase 6: the shared modal mutual-exclusion registry (see modal_gate.gd's class doc). Owned
 ## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
@@ -65,6 +68,10 @@ func _ready() -> void:
 		# seedling, ...) lands in the same player inventory — the generalized-dispatch
 		# counterpart of crops_sold -> player.add_credits above.
 		structures.building_yield_produced.connect(player.add_items)
+	# Livestock is settlement-wide. Structures are wired first and Animals is a later sibling, so
+	# its day_started handler observes completed Barns/Coops before resolving production.
+	animals.set_completed_entries_provider(Callable(self, "_all_completed_entries"))
+	animals.animal_yield_produced.connect(player.add_items)
 	# Phase 4 Stage 2: build/placement mode (scripts/builder.gd) — bound both ways, since the
 	# builder reads the player's facing/inventory and the player suppresses tool swings while
 	# placement mode is active. Re-bound to the active zone on every transition (_bind_zone_refs).
@@ -78,16 +85,23 @@ func _ready() -> void:
 	# Phase 8 Stage 3: the settlement-wide settler roster, so player.gd's _end_day()/
 	# menu_screen.gd's save call site can pass it straight through to GameState.save_game().
 	player.settlers = settlers
+	player.animals = animals
 	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
 	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
 	# signal that says one should start.
 	var dialogue_ui: Node = $DialogueUI
 	player.npc_dialogue_requested.connect(dialogue_ui.open_dialogue)
 	player.dialogue_ui = dialogue_ui
+	DayManager.day_started.connect(_on_day_started)
 	# Phase 8 Stage 3: a visiting settler's accept/reject choice (reached via the same dialogue
 	# box every NPC uses — see dialogue_ui.gd's SETTLER_ACCEPT/REJECT sentinels) hands off to
 	# settlers.resolve_visitor(), one level deeper than store_requested below, same shape.
 	dialogue_ui.settler_decision_requested.connect(settlers.resolve_visitor)
+	# Phase 8 Stage 4: assignment work stays settlement-wide, but farm output and wages use the
+	# same player-owned inventory/Credits hooks as every other production system. These are wired
+	# once at boot, never per-zone or per-transition.
+	settlers.labor_yield_produced.connect(player.add_items)
+	settlers.salary_charged.connect(player.add_credits)
 	# Phase 5 Stage 2: Marta's store (scripts/store_ui.gd) — bound both ways like DialogueUI
 	# above, one level deeper (dialogue_ui.store_requested rather than a direct player signal),
 	# since the store is reached via a dialogue choice, not a direct use_tool interaction.
@@ -95,6 +109,10 @@ func _ready() -> void:
 	store_ui.bind(player)
 	dialogue_ui.store_requested.connect(store_ui.open_store)
 	player.store_ui = store_ui
+	var ranch_store_ui: Node = $RanchStoreUI
+	ranch_store_ui.bind(player, animals)
+	dialogue_ui.ranch_store_requested.connect(_on_ranch_store_requested)
+	player.ranch_store_ui = ranch_store_ui
 	# Phase 5 Stage 3: the shipping box's crop-loading UI (scripts/shipping_ui.gd) — bound both
 	# ways like StoreUI above, but reached directly from use_tool() facing the box. Bound to the
 	# FARM zone's structures permanently: the farm is the only zone that authors a shipping box
@@ -114,7 +132,7 @@ func _ready() -> void:
 	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
 	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
 	# modal UIs like quest journals or pause menus — the recipe the menu above just followed).
-	for surface in [builder, dialogue_ui, store_ui, shipping_ui, menu_screen]:
+	for surface in [builder, dialogue_ui, store_ui, ranch_store_ui, shipping_ui, menu_screen]:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
@@ -132,6 +150,7 @@ func _ready() -> void:
 		_recompute_capacity_unlocks()
 	else:
 		_apply_save(save_data)
+	_try_start_day_28_food_shortage()
 
 
 ## Time pauses while any TRUE modal surface is open (playtest UX gap, 2026-07-10 — Stardew's
@@ -145,6 +164,9 @@ func _ready() -> void:
 ## player would be a free-time exploit, not a convenience.
 func _process(_delta: float) -> void:
 	DayManager.time_paused = modal_gate.is_any_open_except(_builder)
+	# The day-start signal is the normal path. Retrying here also covers a loaded Day 28 save
+	# whose scene has only just finished wiring the NPC/dialogue nodes.
+	_try_start_day_28_food_shortage()
 
 
 ## The scene dying (quit-to-boot in the test tooling, a future title-screen return) must never
@@ -216,6 +238,9 @@ func _apply_save(data: Dictionary) -> void:
 	# npc.gd's class doc for why NPC position itself is never persisted). Must run before
 	# _recompute_capacity_unlocks() below reads a population cap this roster is checked against.
 	settlers.load_state(data.get("settlers", {}))
+	animals.load_state(SaveData.decode_animals(data.get("animals", {})))
+	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
+	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
 	_bind_zone_refs(player.current_zone_id)
 	camera.set_target(player)
 	# Phase 8 Stage 1: re-derive capacity bonuses from the JUST-RESTORED structures rather than
@@ -248,6 +273,39 @@ func _recompute_capacity_unlocks() -> void:
 	player.energy = minf(player.energy, player.max_energy)
 	player.energy_changed.emit(player.energy, player.max_energy)
 	_builder.build_energy_discount = clampf(float(bonuses.get("build_energy_discount", 0.0)), 0.0, 1.0)
+
+
+func _on_day_started(_day: int) -> void:
+	_try_start_day_28_food_shortage()
+
+
+func _on_ranch_store_requested(target_npc: Node) -> void:
+	# Preserve Silas's authored "build one first" branch until a completed Barn/Coop exists;
+	# pending construction must not count as usable capacity.
+	if animals.capacity_for("barn") + animals.capacity_for("coop") <= 0:
+		$DialogueUI.open_dialogue_at(target_npc, "not_yet")
+		return
+	$RanchStoreUI.open_ranch(target_npc)
+
+
+func _try_start_day_28_food_shortage() -> void:
+	if not StoryBeats.should_trigger_day_28_food_shortage(
+			DayManager.day, GameState.day_28_food_shortage_seen):
+		return
+	var town: Dictionary = zones.get("town", {})
+	var town_npcs: Node = town.get("npcs")
+	if town_npcs == null:
+		return
+	var harlan: Node = null
+	for npc in town_npcs.npcs():
+		if String(npc.npc_id) == StoryBeats.DAY_28_FOOD_SHORTAGE_NPC_ID:
+			harlan = npc
+			break
+	if harlan == null:
+		return
+	var dialogue_ui: Node = $DialogueUI
+	if dialogue_ui.open_dialogue_at(harlan, StoryBeats.DAY_28_FOOD_SHORTAGE_NODE_ID):
+		GameState.day_28_food_shortage_seen = true
 
 
 ## The chosen settlement's resource-lean bonus (water access / ruin materials / better soil —

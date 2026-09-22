@@ -1,0 +1,39 @@
+{
+  "_comment": "Phase 8 livestock catalog. Normal animals are valuable and require care; mutant animals are cheaper and produce hardy lower-value goods. Housing and yield are data so Silas's shop and the daily tick share one source of truth.",
+  "normal_cow": {
+    "name": "Cleanline Cow",
+    "housing": "barn",
+    "normal": true,
+    "price": 180,
+    "yield_item": "milk",
+    "yield_count": 1,
+    "description": "Rare pre-war stock. A gentle cow with premium milk and a very particular bedtime."
+  },
+  "mutant_goat": {
+    "name": "Radiated Goat",
+    "housing": "barn",
+    "normal": false,
+    "price": 70,
+    "yield_item": "mutant_goat_milk",
+    "yield_count": 1,
+    "description": "A hardy glow-goat. It forgives missed care and judges everyone equally."
+  },
+  "normal_chicken": {
+    "name": "Cleanline Chicken",
+    "housing": "coop",
+    "normal": true,
+    "price": 110,
+    "yield_item": "egg",
+    "yield_count": 1,
+    "description": "Valuable clean-line poultry. Treat it well and it pays you back in breakfast."
+  },
+  "mutant_chicken": {
+    "name": "Two-Headed Chicken",
+    "housing": "coop",
+    "normal": false,
+    "price": 45,
+    "yield_item": "mutant_egg",
+    "yield_count": 1,
+    "description": "Two heads, one coop, no agreement on who ate the feed."
+  }
+}

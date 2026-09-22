@@ -1151,11 +1151,12 @@ func _physics_process(_delta: float) -> bool:
 				player.facing = "south"  # tent (1x1) lands on TENT_CELL, open grass
 				_drive_builder_action("build_toggle")
 				# Phase 8 Stage 1 grew the catalog to 12 entries, Stage 2's 4 fence/gate entries
-				# grew it again to 16: from index 1 (the barn, still selected from stage 16),
-				# cycling all the way around back to index 0 (the cabin) now takes 15 presses,
+				# grew it to 16, and Phase 8 livestock adds Barn/Coop at indices 2 and 3:
+				# from index 1 (the shed, still selected from stage 16), cycling all the way
+				# around back to index 0 now takes 17 presses,
 				# not 1 — this still exercises the real wraparound (Q past the last entry lands
 				# back on the first), just over the bigger catalog.
-				for i in 15:
+				for i in 17:
 					_drive_builder_action("build_cycle")
 				_check(builder.current_id() == "shelter_tent", "build_cycle wraps around the catalog")
 				_check(builder.confirm_placement(), "tent blueprint placed")
@@ -1191,8 +1192,8 @@ func _physics_process(_delta: float) -> bool:
 				_check(not builder.active, "build mode starts inactive (stage 130)")
 				_drive_builder_action("build_toggle")
 				# From index 0 (shelter_tent, stage 19 left it wrapped there) to fence_wood
-				# (index 12 of 16): 12 presses.
-				for i in 12:
+				# (index 14 of 18): 14 presses.
+				for i in 14:
 					_drive_builder_action("build_cycle")
 				_check(builder.current_id() == "fence_wood", "build_cycle reached the Wood Fence")
 				_check(structures.can_place(FENCE_CELL, Vector2i.ONE), "fence site is placeable")
@@ -1202,7 +1203,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(test_map.is_blocked_at(FENCE_CELL),
 					"a construction site blocks like anything else while building")
 				# Reposition for the gate, still in the same build-mode session — 3 more presses
-				# from fence_wood (12) to gate_wood (15).
+				# from fence_wood (14) to gate_wood (17).
 				player.global_position = test_map.get_global_cell_center(GATE_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "south"
@@ -1307,8 +1308,8 @@ func _physics_process(_delta: float) -> bool:
 					"only the Build tab's content is showing")
 				# Phase 8 Stage 1 grew the catalog to the full 12-building library; Stage 2's 4
 				# fence/gate entries grew it again to 16.
-				_check(menu_screen._build_row_labels.size() == 16,
-					"one Build row per catalog entry (16)")
+				_check(menu_screen._build_row_labels.size() == 18,
+					"one Build row per catalog entry (18)")
 				_check(menu_screen._build_row_labels[0].text
 						== "Shelter Cabin — 6 Wood  — missing materials",
 					"cabin row: builder.gd's exact cost string + the missing-materials flag " \
@@ -1318,10 +1319,15 @@ func _physics_process(_delta: float) -> bool:
 						== "Storage Barn — 12 Wood, 4 Stone, 2 Scrap Metal  — missing materials",
 					"barn row: exact cost string + missing-materials flag, got '%s'" \
 						% menu_screen._build_row_labels[1].text)
-				# -- Build -> Controls --
+				# -- Build -> Assignments -> Controls --
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_ASSIGNMENTS,
+					"Q cycles Build -> Assignments")
+				_check(menu_screen.assignments_tab.visible and not menu_screen.build_tab.visible,
+					"only the Assignments tab's content is showing")
 				_drive_menu_action("build_cycle")
 				_check(menu_screen.tab_index == menu_screen.TAB_CONTROLS,
-					"Q cycles Build -> Controls")
+					"Q cycles Assignments -> Controls")
 				_check(menu_screen.controls_rows.get_child_count()
 						== menu_screen.CONTROLS_REFERENCE.size(),
 					"Controls tab rendered one row per reference entry")
@@ -1690,7 +1696,7 @@ func _physics_process(_delta: float) -> bool:
 				# directly, because the bed path would sell the load first, which is exactly
 				# the state this round trip must preserve un-sold. Zone-split signature: the
 				# whole zones dict, not one map's node trio.
-				_check(game_state.save_game(player, main.zones, main.get_node("Settlers")),
+				_check(game_state.save_game(player, main.zones, main.get_node("Settlers"), main.get_node("Animals")),
 					"mid-session save written with the box still loaded")
 				saved_day = day_manager.day
 				_enter_stage(82)

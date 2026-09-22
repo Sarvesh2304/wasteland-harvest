@@ -120,6 +120,50 @@
 	"placeholder_label": "Frt",
 	"value": 4
   },
+  "milk": {
+	"name": "Cleanline Milk",
+	"type": "food",
+	"stack_max": 99,
+	"icon": "",
+	"placeholder_color": "#f3eee0",
+	"placeholder_label": "Mil",
+	"value": 37,
+	"energy_restored": 18,
+	"description": "Rich milk from a rare pre-war line. The bottle is cleaner than most town meetings."
+  },
+  "mutant_goat_milk": {
+	"name": "Glow Goat Milk",
+	"type": "food",
+	"stack_max": 99,
+	"icon": "",
+	"placeholder_color": "#b8d18a",
+	"placeholder_label": "Gmk",
+	"value": 18,
+	"energy_restored": 12,
+	"description": "A faintly luminous goat's contribution. Silas says the glow is perfectly normal."
+  },
+  "egg": {
+	"name": "Cleanline Egg",
+	"type": "food",
+	"stack_max": 99,
+	"icon": "",
+	"placeholder_color": "#fff1c7",
+	"placeholder_label": "Egg",
+	"value": 28,
+	"energy_restored": 10,
+	"description": "A premium egg from a rare pre-war chicken line."
+  },
+  "mutant_egg": {
+	"name": "Two-Headed Egg",
+	"type": "food",
+	"stack_max": 99,
+	"icon": "",
+	"placeholder_color": "#e1982a",
+	"placeholder_label": "2Eg",
+	"value": 12,
+	"energy_restored": 8,
+	"description": "One egg, two opinions. Surprisingly filling either way."
+  },
   "preserved_food": {
 	"name": "Preserved Rations",
 	"type": "food",

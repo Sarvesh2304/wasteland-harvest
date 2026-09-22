@@ -89,8 +89,9 @@ static func build_days(building_id: String) -> int:
 
 ## Phase 8 Stage 1: the generalized interaction dispatch — "" (no interaction), "storage" (a
 ## second Inventory instance, opened via the existing chest interaction — see
-## scripts/structures.gd), or "trading_post" (data-only this stage; unreachable/unstaffed until
-## Stage 4 wires an actual UI to it).
+## scripts/structures.gd), or "trading_post" (data-only still — assignable via assignment_role
+## as of Stage 4, but no UI reads a "trader" assignment yet; a future stage still owns actually
+## wiring a Trading Post shop screen to it).
 static func interaction(building_id: String) -> String:
 	return String(get_building(building_id).get("interaction", ""))
 
@@ -129,6 +130,31 @@ static func capacity_unlock(building_id: String) -> Dictionary:
 ## arrival roll) rather than ever being called from here.
 static func effect(building_id: String) -> String:
 	return String(get_building(building_id).get("effect", ""))
+
+
+## Optional staffing contract for completed buildings. An empty role means the building is
+## currently not staffable; role/capacity/salary are data so adding another staffed building
+## does not require a new branch in the settler system.
+static func assignment_role(building_id: String) -> String:
+	return String(get_building(building_id).get("assignment_role", ""))
+
+
+static func assignment_capacity(building_id: String) -> int:
+	return maxi(0, int(get_building(building_id).get("assignment_capacity", 0)))
+
+
+static func assignment_salary(building_id: String) -> int:
+	return maxi(0, int(get_building(building_id).get("assignment_salary", 0)))
+
+
+## Phase 8 livestock housing contract. A blank housing key means the structure cannot house
+## animals; capacity is counted per completed footprint by scripts/animals.gd.
+static func animal_housing(building_id: String) -> String:
+	return String(get_building(building_id).get("animal_housing", ""))
+
+
+static func animal_capacity(building_id: String) -> int:
+	return maxi(0, int(get_building(building_id).get("animal_capacity", 0)))
 
 
 ## Phase 8 Stage 2 (fencing & perimeter system): the fence/gate's stored durability ceiling —

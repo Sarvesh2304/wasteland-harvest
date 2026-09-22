@@ -140,6 +140,10 @@ func _current_top_left(footprint_size: Vector2i) -> Vector2i:
 
 
 func _placement_ok(id: String, top_left: Vector2i, footprint_size: Vector2i) -> bool:
+	# Livestock housing belongs on the player's farm. The ranch compound is Silas's shop and
+	# sanctuary, not a second player building plot.
+	if BuildingDB.animal_capacity(id) > 0 and _player.current_zone_id != "farm":
+		return false
 	return _structures.can_place(top_left, footprint_size) and _can_afford(id)
 
 

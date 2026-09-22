@@ -214,3 +214,11 @@ func test_decode_inventory_defaults_when_empty() -> void:
 	var decoded: Dictionary = SaveData.decode_inventory({})
 	assert_eq(decoded["selected_hotbar_index"], 0)
 	assert_true((decoded["slots"] as Array).is_empty())
+
+
+func test_story_flags_round_trip_through_json() -> void:
+	var decoded := SaveData.decode_story_flags(
+		_through_json(SaveData.encode_story_flags(true)))
+	assert_true(decoded["day_28_food_shortage_seen"])
+	assert_false(SaveData.decode_story_flags({})["day_28_food_shortage_seen"],
+		"missing additive story flags stay safely unseen")

@@ -402,7 +402,7 @@ func _physics_process(_delta: float) -> bool:
 				# Mid-session save (the direct GameState call, same as runtime_smoke stage 81):
 				# crops mid-growth, a completed player building, watered flags pending — on the
 				# zone-split signature (the whole zones dict, not one map's node trio).
-				_check(game_state.save_game(player, main.zones, main.get_node("Settlers")),
+				_check(game_state.save_game(player, main.zones, main.get_node("Settlers"), main.get_node("Animals")),
 					"mid-sim save written")
 				var parsed := SaveData.parse_save(
 					FileAccess.get_file_as_string(String(game_state.save_path)))

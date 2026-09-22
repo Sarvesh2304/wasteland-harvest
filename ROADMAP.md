@@ -413,12 +413,14 @@ stage's work).
       just inside the town's main gate (MAPS.md §2 already places expedition departures there —
       the scout who watches the road east naturally posts up at the door to it). "Quest-giver" is
       flavor/dialogue only this stage — no quest system exists yet (Phase 13).
-- [ ] **Day-28 food-shortage beat (added per `GDD.md` §§2–4/§11)** — one in-game month after Day
+- [x] **Day-28 food-shortage beat (added per `GDD.md` §§2–4/§11)** — one in-game month after Day
       1, Harlan delivers a scripted dialogue beat: food reserves are running low and the
       settlement is counting on the farm again, re-establishing its founding-era civic role
       (`GDD.md` §2). Dialogue content only, same "flavor/dialogue only" scope Harlan already has
       in this phase — no quest system needed. Starts the standing town-wellbeing signal described
-      in `GDD.md` §4 (soft, never a fail state) and sets up the hired-labor payoff below.
+      in `GDD.md` §4 (soft, never a fail state) and sets up the hired-labor payoff below. The
+      authored beat is triggered once from the DayManager day-start signal and its seen flag is
+      saved/restored alongside the existing world state, so it cannot replay after a reload.
 - [x] Town store — Marta sells seeds/basic tools/food; UI shows name/description/price; currency
       is Credits (per `GDD.md` §7; not "Scrap Coins" as earlier drafted — Credits is settled
       humanity's established currency, with barter as a parallel economy for raiders/remote
@@ -664,15 +666,18 @@ relationship with them.
       growth is a town-plaza concept) at one of 4 verified-open `SETTLER_HOME_CELLS`. New
       additive top-level `"settlers"` save key (no `SAVE_VERSION` bump — the exact-match version
       check isn't touched, an old save just decodes the empty default).
-- [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
-      functioning shop. **Specific narrative instance (added per `GDD.md` §§2–4/§11):** hiring a
-      settler/newcomer for a weekly Credits salary to run the farm's own till/water/harvest loop
-      — the payoff to the Day-28 beat above (Phase 5), a real simulated farming loop rather than
-- [ ] NPC–building assignment — assign a settler to a building for a passive benefit or
-      functioning shop. **Specific narrative instance (added per `GDD.md` §§2–4/§11):** hiring a
-      settler/newcomer for a weekly Credits salary to run the farm's own till/water/harvest loop
-      — the payoff to the Day-28 beat above (Phase 5), a real simulated farming loop rather than
-      an abstracted trickle, not separate scope from this item.
+- [x] **NPC–building assignment (Stage 4 of the Phase 8 plan)** — the in-game Assignments tab
+      presents every accepted settler and completed, data-declared staffed building; an
+      OptionButton assigns/unassigns a settler, enforces each building's
+      `assignment_capacity`, and stores a zone/building/footprint reference in the existing
+      settler save section. BuildingDB's optional `assignment_role`, capacity, and salary fields
+      preserve generic extension (Greenhouse is the first `farm_laborer` contract).
+      **Specific narrative instance (added per `GDD.md` §§2–4/§11):** an assigned farm laborer
+      is paid a weekly Credits salary (capped at the available balance, never negative and never a
+      fail state) and runs a deterministic Farm API loop: harvest mature plots, water all
+      waterable plots, then till/plant one bounded Farm work cell with the default Mutant Potato.
+      Harvested items return through the existing player inventory signal path; no abstract
+      passive trickle substitutes for the Farm/FarmGrid/CropDB simulation.
 - [x] **Ranch/Sanctuary compound (added per `GDD.md` §8/§11, `MAPS.md` §3)** — a dedicated small
       map area south of the farm, its own fenced compound with a distinct entrance gate separate
       from the town's main (city-bound) gate, one shared template across all 3 starts extending
@@ -681,18 +686,20 @@ relationship with them.
       Phase 4's zone-transition system above, which the Ranch now rides too). Real PixelLab art (`ranch_house`/`ranch_barn`/`ranch_coop`, flat/high-top-down,
       matching the town buildings' established convention) plus decorative cow/goat props
       (`scripts/props.gd` — cosmetic only, no animal-entity system).
-- [x] **Rancher NPC — exists, no shop yet (added per `GDD.md` §8/§11)** — Silas, the
+- [x] **Rancher NPC and livestock shop (added per `GDD.md` §8/§11)** — Silas, the
       Ranch/Sanctuary's keeper, spawned with real character art and full dialogue (including an
       honest in-character line that he won't sell livestock until the player has a barn/coop to
       put them in — matching Marta's own Stage-1 precedent of not faking an unbuilt shop). The
-      actual buy-animal transaction is **not** built yet — that's still open, along with the
-      Barn/Coop split below, both genuine Phase 8 gameplay systems this pass deliberately didn't
-      reach.
-- [ ] **Barn/Coop building split (added per `GDD.md` §8/§11)** — the generic "Storage Barn" above
-      is resource storage only; add distinct **Barn** (cows/goats/pigs) and **Coop** (chickens)
-      building types the player constructs on their own farm via the building-grid system above,
-      sized/tiered to the yield-vs-hardiness axis (`GDD.md` §8's "Animals & pets"). This is where
-      animals bought from the Ranch/Sanctuary actually live and produce.
+      The authored purchase choice opens a dedicated Silas modal: it deducts exact Credits only
+      after a compatible completed housing slot is found, offers four data-driven animals, and
+      includes a deterministic Care all action.
+- [x] **Barn/Coop building split and first livestock slice (added per `GDD.md` §8/§11)** — the
+      generic "Storage Barn" above remains resource storage only; distinct player-buildable Barn
+      and Coop entries are farm-only and each supplies four capacity slots. Clean-line animals
+      require care to produce premium milk/eggs; mutant goats/chickens are cheaper, produce
+      lower-value goods after missed care, and never die or disappear. Production runs after
+      construction completion on `DayManager.day_started`, and the additive `animals` save section
+      preserves ownership, housing assignment, and care state across load.
 
 **Milestone:** Settlement can grow — buildings, fences, and settlers all function together as a
 real base-building loop, and the player can buy and house their first livestock.
@@ -742,6 +749,37 @@ element matches) — this would have crashed on load otherwise. `settler_smoke.g
 accept/reject flow through the actual input pipeline (real `use_tool`, real dialogue advance,
 real choice-selection) rather than calling `settlers.gd` methods directly — read in full, sound.
 Save-file hygiene re-confirmed clean after all runs.
+
+**Phase 8 Stage 4 (assignment/Day-28 beat/hired labor) and the livestock slice, verified
+independently (2026-09-22)**: this work sat uncommitted for roughly six weeks before this review
+— re-verified from scratch rather than trusted, exactly as this project's own convention
+requires. Found and fixed a real leak: `tests/test_animals.gd` created 5 `Node`-based
+`AnimalsScript` instances across its test functions and never freed any of them (`animals.gd`
+extends `Node` for its `DayManager.day_started` hook, unlike most of this codebase's pure
+`RefCounted` test fixtures) — the full suite left 5 leaked `ObjectDB` instances and a stuck
+resource reference at exit before the fix, confirmed clean after adding the missing `.free()`
+calls. Found and fixed two real UI layout bugs, each confirmed by personally viewing a captured
+screenshot before and after: the Assignments tab's footer note overflowed off both edges of the
+320px viewport (missing `autowrap_mode`, present on its sibling `BuildNote` but not copied to the
+new `AssignmentsNote`); the Ranch Store modal's status message and control hint were positioned
+entirely below the 192px viewport (absolute `layout_mode 0` offsets up to y=246, never rewritten
+to the anchor-based bottom-pinned pattern `store_ui.tscn` already establishes) — a player could
+never have seen a purchase confirmation/rejection or the modal's own control hint. Also corrected
+a stale doc comment (`BuildingDB.interaction()` still described the Trading Post as blocked on
+"Stage 4," which this now is, without actually wiring a shop screen to it — left as an honest
+data-ahead-of-its-system note instead), and a 1-Credit balance miss ("Cleanline Milk" at 38 Cr
+technically broke coffee's "always ≥2x every other item" invariant by a single point; dropped to
+37 Cr and reverted `test_item_db.gd`'s check from a hardcoded whitelist back to iterating every
+item, since the real invariant holds again). Confirmed by design discussion that 5 of 6
+`assignment_role`s (everything but `farm_laborer`) are deliberately inert placeholders for future
+stages, not a bug, and that the Day-28 beat's location-agnostic trigger (fires wherever the player
+is standing, bypassing the normal proximity-gated interaction — confirmed by screenshot) is
+intentional, Stardew-mail-style scripted-event behavior rather than a proximity requirement.
+Full headless suite is 338/338 after all fixes; `runtime_smoke.gd`, `soak_test.gd`,
+`title_smoke.gd`, `settler_smoke.gd`, `sleep_smoke.gd`, `held_input_smoke.gd`, and
+`zone_transition_smoke.gd` (both the standard and riverside settlements) all individually green.
+Every new UI surface (Assignments tab, Ranch Store modal, Day-28 dialogue) was personally
+screenshotted and viewed, not just covered by headless assertions.
 
 ### Phase 9 — Expedition System: Ruined City & Combat
 - [ ] Ruined city map(s) — 2–3 distinct zones: Downtown Ruins, Industrial Quarter, Residential

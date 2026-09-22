@@ -135,6 +135,48 @@ theme_override_colors/font_color = Color(0.615686, 0.568627, 0.501961, 1)
 autowrap_mode = 3
 text = "Browse only — press B in the world to place, Q cycles blueprints, Space confirms."
 
+[node name="AssignmentsTab" type="Control" parent="Root/Box"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 16.0
+offset_right = -8.0
+offset_bottom = -30.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="AssignmentsRows" type="VBoxContainer" parent="Root/Box/AssignmentsTab"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -22.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="AssignmentsNote" type="Label" parent="Root/Box/AssignmentsTab"]
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -20.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.615686, 0.568627, 0.501961, 1)
+autowrap_mode = 3
+text = "Completed staffed buildings only — wages are charged weekly; work continues if short."
+
 [node name="ControlsTab" type="Control" parent="Root/Box"]
 unique_name_in_owner = true
 visible = false
