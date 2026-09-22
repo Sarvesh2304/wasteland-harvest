@@ -1,7 +1,8 @@
 {
-	"_comment": "Phase 5 Stage 1 NPC dialogue (ROADMAP 'dialogue stored in JSON for easy editing'), extended by Phase 5 Stage 2 with a store-opening trigger and Phase 8 with Silas's OPEN_RANCH_STORE trigger. One entry per npc id (matching map_layouts' npcs() ids): name = the dialogue box's speaker plate, start = the node shown on interact, nodes = id -> {text, next?} for linear beats, {text, choices: [{text, next}]} for a branch point, or {text} alone for a terminal node (advancing closes the box). A choice's \"next\" can also be the literal sentinel string \"OPEN_STORE\" or \"OPEN_RANCH_STORE\", recognized by scripts/dialogue_ui.gd's _advance() (NOT scripts/dialogue_db.gd, which stays domain-agnostic pure traversal) — landing on one closes the dialogue box and opens the matching modal. Loaded via scripts/dialogue_db.gd only — see its header for the traversal rules. Tone contract: GDD.md section 9 ('people who have chosen hope and are a little funny about it'); every character's dialogue is static flavor this stage — no quest hooks, affinity, or schedule reactivity until Phases 7/13. Writing note: the pixel font's glyph set has no > < [ ] $ % & * = etc. (see art/ui/README.md) — stick to letters, digits, and basic punctuation in all text below.",
+	"_comment": "Phase 5 Stage 1 NPC dialogue (ROADMAP 'dialogue stored in JSON for easy editing'), extended by Phase 5 Stage 2 with a store-opening trigger and Phase 8 with Silas's OPEN_RANCH_STORE trigger. One entry per npc id (matching map_layouts' npcs() ids): name = the dialogue box's speaker plate, personality = the Phase 7 Stage 1 archetype tag (one of the 6 frozen roadmap archetypes: Paranoid Survivor, Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger, Pragmatic Trader), authored ONLY for the 4 named NPCs and read via dialogue_db.gd's personality() — settlers (registered in memory via register_runtime) deliberately have none, start = the node shown on interact, nodes = id -> {text, next?} for linear beats, {text, choices: [{text, next}]} for a branch point, or {text} alone for a terminal node (advancing closes the box). A choice's \"next\" can also be the literal sentinel string \"OPEN_STORE\" or \"OPEN_RANCH_STORE\", recognized by scripts/dialogue_ui.gd's _advance() (NOT scripts/dialogue_db.gd, which stays domain-agnostic pure traversal) — landing on one closes the dialogue box and opens the matching modal. Loaded via scripts/dialogue_db.gd only — see its header for the traversal rules. Tone contract: GDD.md section 9 ('people who have chosen hope and are a little funny about it'); every character's dialogue is static flavor this stage — no quest hooks, affinity, or schedule reactivity until Phases 7/13. Writing note: the pixel font's glyph set has no > < [ ] $ % & * = etc. (see art/ui/README.md) — stick to letters, digits, and basic punctuation in all text below.",
 	"mayor_harlan": {
 		"name": "Mayor Harlan",
+		"personality": "Optimistic Builder",
 		"start": "greet",
 		"nodes": {
 			"greet": {
@@ -36,6 +37,7 @@
 	},
 	"marta": {
 		"name": "Marta",
+		"personality": "Pragmatic Trader",
 		"start": "greet",
 		"nodes": {
 			"greet": {
@@ -56,6 +58,7 @@
 	},
 	"scout_kael": {
 		"name": "Scout Kael",
+		"personality": "Paranoid Survivor",
 		"start": "greet",
 		"nodes": {
 			"greet": {
@@ -83,6 +86,7 @@
 	},
 	"rancher_silas": {
 		"name": "Silas",
+		"personality": "Gentle Medic",
 		"start": "greet",
 		"nodes": {
 			"greet": {

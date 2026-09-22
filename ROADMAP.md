@@ -595,8 +595,24 @@ Goal: all major game systems implemented — expedition combat, full NPC persona
 building/settlement, seasons.
 
 ### Phase 7 — Advanced NPC System: Personalities, Schedules & Relationships
+
+Staged per a dedicated plan (5 stages, one per checklist item below — see the session's plan
+file for the full spec, prompted by a Stardew Valley comparison pass that flagged the social
+layer as the biggest gap against the game this project is modeled on). Two scope decisions
+locked in before starting: schedules are **in-zone waypoints only** (NPCs have no cross-zone
+movement infrastructure today, unlike the player — building real cross-zone travel would mean
+inventing that from scratch); only the **4 named NPCs** (Harlan/Marta/Kael/Silas) get personality/
+schedule/gifts/affinity — settlers stay generic by design. Gift-giving is a **new dedicated
+input verb**, not a dialogue-choice picker.
+
 - [ ] NPC personality system — personality tags shape dialogue/behaviour: Paranoid Survivor,
-      Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger, Pragmatic Trader
+      Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger, Pragmatic Trader.
+      **Stage 1 landed (2026-09-22)**: each of the 4 named NPCs carries an authored
+      `"personality"` field in `data/dialogue.json` (Harlan: Optimistic Builder; Marta: Pragmatic
+      Trader; Kael: Paranoid Survivor; Silas: Gentle Medic — each grounded in that NPC's actual
+      written lines, not guessed from role alone), readable via `DialogueDB.personality()`.
+      Left unchecked deliberately: the tag exists but nothing yet *shapes* dialogue or behaviour
+      with it — that's Stages 2 (schedule flavor) and 5 (context-varied dialogue tone).
 - [ ] Daily schedules — wake, tasks (garden/store/water walk), eat, sleep; location changes by
       time of day
 - [ ] Relationship/affinity system — 0–10 affinity per NPC; up via daily talk/gifts
@@ -607,6 +623,17 @@ building/settlement, seasons.
 
 **Milestone:** Town feels alive — NPCs move around, have schedules, react to you based on your
 relationship with them.
+
+**Phase 7 Stage 1 verified independently:** re-ran the full suite myself (342/342, +4 since the
+last commit) and `runtime_smoke.gd`/`soak_test.gd`/`settler_smoke.gd`/`title_smoke.gd`
+individually (never batched) — all green, matching the builder's own report. Read the full diff
+on all 3 changed files (`data/dialogue.json`, `scripts/dialogue_db.gd`,
+`tests/test_dialogue_db.gd`) and personally re-read every line of the 4 named NPCs' existing
+dialogue before agreeing with each personality assignment, rather than trusting the builder's
+quoted justification at face value. Confirmed `git diff -w` shows no reformatting noise, and
+confirmed by direct read (not assumed) that `data/dialogue.json` holds exactly the 4 named NPCs
+and no settler entries, matching the new scope-guard test's claim. `personality()` mirrors
+`display_name()`/`start_node_id()`'s exact accessor shape — no traversal/gating logic touched.
 
 ### Phase 8 — Building, Settlement Expansion & Fencing System
 - [x] **Building type library — 12+ structures (Stage 1 of the Phase 8 plan, see

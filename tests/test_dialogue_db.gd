@@ -8,6 +8,29 @@ const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const ROSTER_IDS := ["mayor_harlan", "marta", "scout_kael"]
 
+## Phase 7 Stage 1: the 4 authored, named NPCs (the 3 town-core roster ids plus the Ranch keeper)
+## — the only NPCs that carry a personality tag. Settlers are deliberately excluded (they're
+## registered in memory via DialogueDB.register_runtime and are interchangeable by design).
+const NAMED_NPC_IDS := ["mayor_harlan", "marta", "scout_kael", "rancher_silas"]
+
+## The 6 frozen archetypes from the original roadmap HTML — the exact, complete valid set.
+const VALID_PERSONALITIES := [
+	"Paranoid Survivor",
+	"Optimistic Builder",
+	"Gruff Soldier",
+	"Gentle Medic",
+	"Secretive Scavenger",
+	"Pragmatic Trader",
+]
+
+## The authored assignment itself, pinned so a later content edit can't silently re-tag an NPC.
+const EXPECTED_PERSONALITIES := {
+	"mayor_harlan": "Optimistic Builder",
+	"marta": "Pragmatic Trader",
+	"scout_kael": "Paranoid Survivor",
+	"rancher_silas": "Gentle Medic",
+}
+
 
 func test_all_town_core_npcs_have_dialogue_entries() -> void:
 	# Every id in the shared town-core roster (layout_common.gd's TOWN_NPCS, the same data all 3
@@ -41,6 +64,50 @@ func test_unknown_npc_or_node_returns_empty() -> void:
 	assert_false(DialogueDB.has_dialogue("nobody"))
 	assert_eq(DialogueDB.display_name("nobody"), "")
 	assert_true(DialogueDB.dialogue_node("mayor_harlan", "not_a_real_node").is_empty())
+
+
+## -- Phase 7 Stage 1: personality tags --
+
+func test_personality_resolves_for_every_named_npc() -> void:
+	for id in NAMED_NPC_IDS:
+		assert_eq(DialogueDB.personality(id), EXPECTED_PERSONALITIES[id],
+			"%s's authored personality tag" % id)
+
+
+func test_every_named_npc_personality_is_from_the_valid_set() -> void:
+	# Well-formedness: a typo'd or invented archetype string would silently break every later
+	# stage that keys tone/flavor off this field, so pin it to the frozen 6.
+	for id in NAMED_NPC_IDS:
+		var tag := DialogueDB.personality(id)
+		assert_ne(tag, "", "%s has a personality tag at all" % id)
+		assert_true(tag in VALID_PERSONALITIES,
+			"%s's personality '%s' is one of the 6 frozen archetypes" % [id, tag])
+
+
+func test_no_other_npc_id_has_a_personality() -> void:
+	# Scope guard: personality tags are exclusively for the 4 named NPCs this stage. Checked
+	# against the live cache (so a runtime-registered settler tree would be caught too) AND
+	# against the raw file, which must contain exactly those 4 authored entries and nothing else.
+	for id in DialogueDB.all_npc_ids():
+		if id in NAMED_NPC_IDS:
+			continue
+		assert_eq(DialogueDB.personality(id), "",
+			"non-named npc '%s' must not carry a personality tag" % id)
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(DialogueDB.PATH))
+	assert_true(parsed is Dictionary, "data/dialogue.json parses as a dictionary")
+	var authored: Dictionary = parsed
+	authored.erase("_comment")
+	assert_eq(authored.size(), NAMED_NPC_IDS.size(),
+		"data/dialogue.json holds only the 4 named NPCs (settlers are runtime-registered)")
+	for key in authored.keys():
+		assert_true(String(key) in NAMED_NPC_IDS,
+			"authored dialogue entry '%s' is one of the 4 named NPCs" % String(key))
+
+
+func test_personality_unknown_id_returns_empty() -> void:
+	# Same unknown-id contract as display_name()/start_node_id().
+	assert_eq(DialogueDB.personality("nobody"), "", "unknown npc id yields no personality")
+	assert_eq(DialogueDB.personality(""), "", "empty npc id yields no personality")
 
 
 func test_advance_from_linear_node_follows_next() -> void:

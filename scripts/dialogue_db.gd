@@ -61,6 +61,17 @@ static func start_node_id(npc_id: String) -> String:
 	return String(_dialogues.get(npc_id, {}).get("start", ""))
 
 
+## Phase 7 Stage 1: the NPC's personality archetype tag, one of the 6 frozen roadmap strings
+## (Paranoid Survivor, Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger,
+## Pragmatic Trader). "" for an unknown id AND for any NPC without the field — only the 4 named
+## NPCs are tagged; settlers (register_runtime below) are interchangeable by design and stay
+## untagged. Pure data lookup: later stages (schedule flavor text, dialogue tone) read it, nothing
+## in this file's traversal branches on it.
+static func personality(npc_id: String) -> String:
+	_ensure_loaded()
+	return String(_dialogues.get(npc_id, {}).get("personality", ""))
+
+
 ## The node dictionary for (npc_id, node_id), or {} if either is unknown. Named dialogue_node
 ## (not get_node) to stay clear of engine-builtin name collisions on the preloaded script
 ## resource — the same reasoning as ItemDB.is_tool_item's naming (see its comment).
