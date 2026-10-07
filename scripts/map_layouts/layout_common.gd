@@ -6,7 +6,7 @@ extends RefCounted
 ## Ranch zones (9 layout files total, all sharing one ASCII-grid + Wang-painting pipeline).
 ## This file is the deduplicated logic they all wrap, so each concrete layout file is just its
 ## ROWS/BUILDINGS data plus thin static delegating wrappers (see e.g. open_plains_layout.gd) —
-## same "pure functions operating on plain data" convention as farm_grid.gd/wang_tileset.gd,
+## same "pure functions operating on plain data" convention as farm_grid.gd/ground_rules.gd,
 ## just parameterized over which map's data to read.
 ##
 ## ## Legend (extends Phase 2/3's '.'/'f'/'p'/'#'/'@'/'T'/'O' with Phase 4 additions)

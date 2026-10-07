@@ -132,7 +132,7 @@ func can_place(kind: String, anchor: Vector2i) -> bool:
 			if _occupancy.has(c) or _test_map.is_blocked_at(c):
 				return false
 			var t := String(_test_map.terrain_at(c))
-			if t != "." and t != "@" and t != "T" and t != "O":
+			if t != "." and t != "," and t != "@" and t != "T" and t != "O":
 				return false
 			if _test_map.is_soil_at(c.x, c.y):
 				return false

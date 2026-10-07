@@ -55,22 +55,38 @@ func _physics_process(_delta: float) -> bool:
 		1:
 			if ticks == 20:
 				_capture("farm_start_%s_arrival_4x.png" % settlement)
-				var map: Node2D = main.zones["farm"]["map"]
-				var rect: Rect2 = map.get_global_map_rect()
 				var camera: Camera2D = main.get_node("GameCamera")
 				camera.target = null
+				camera.set_process(false)
 				main.get_node("HUD").visible = false
-				root.content_scale_size = Vector2i(rect.size)
-				root.size = Vector2i(rect.size)
-				camera.zoom = Vector2.ONE
-				camera.global_position = rect.get_center()
+				_frame_zone(ZONES[0])
 				_enter_stage(2)
 		2:
+			# One 1:1 overview per zone, the render resolution raised to the zone's map size.
 			if ticks == 10:
-				_capture("farm_start_%s_overview_1x.png" % settlement)
-				game_state.delete_save()
-				quit(0)
+				_capture("farm_start_%s_overview_%s_1x.png" % [settlement, ZONES[_zone_index]])
+				_zone_index += 1
+				if _zone_index >= ZONES.size():
+					game_state.delete_save()
+					quit(0)
+					return false
+				_frame_zone(ZONES[_zone_index])
+				_enter_stage(2)
 	return false
+
+
+const ZONES: Array[String] = ["farm", "path", "town", "ranch"]
+var _zone_index := 0
+
+
+func _frame_zone(zone: String) -> void:
+	var map: Node2D = main.zones[zone]["map"]
+	var rect: Rect2 = map.get_global_map_rect()
+	var camera: Camera2D = main.get_node("GameCamera")
+	root.content_scale_size = Vector2i(rect.size)
+	root.size = Vector2i(rect.size)
+	camera.zoom = Vector2.ONE
+	camera.global_position = rect.get_center()
 
 
 func _capture(file_name: String) -> void:

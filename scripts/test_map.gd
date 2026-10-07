@@ -1,57 +1,71 @@
 extends Node2D
-## Builds the active map at load by painting TileMapLayers from the pure layout data in
-## scripts/map_layouts/*.gd (Phase 2's single TestMapLayout generalized in Phase 4 to 3 named
-## layouts — see scripts/settlement_db.gd), using the Wang-corner lookup in scripts/wang_tileset.gd.
+## Builds the active map at load from the pure layout data in scripts/map_layouts/*.gd (Phase 2's
+## single TestMapLayout generalized in Phase 4 to 3 named layouts — see scripts/settlement_db.gd).
 ##
-## Layers (all share tilemaps/wasteland_tileset.tres):
-##  - Ground: grass/soil dual-grid. Each visual tile samples the terrain of the four layout
-##    cells meeting at its corners and picks the matching Wang transition tile, so farmland
-##    blends naturally into the surrounding meadow. The layer sits offset (-8, -8) in the
-##    scene so visual tiles straddle logical cell corners (standard dual-grid trick).
-##  - Decor: walkable plank floors ('p'), no collision — reused for Phase 4's dock boards
-##    exactly as Phase 2 used it for ruined-shack floors (same tile, same walkability).
-##  - Obstacles: solid rubble ('#'). These atlas tiles carry physics polygons on the tileset's
-##    physics layer 0 (collision layer 1 = "world"), which is what the player collides with.
-##  - Fence (Phase 4): solid perimeter ('F'), reuses the same solid ruins tile as Obstacles
-##    (same physics polygon) but modulated worn-wood to read as fence/palisade rather than
-##    rubble — a "simple recolor of existing tile art" per ROADMAP.md's scope note, no new art.
-##  - Water (Phase 4): solid water body/river tiles ('W'), same solid-tile reuse, modulated a
-##    cool blue-grey (GDD.md §9 "Rain-sky blue-grey") so it reads as water — same reasoning as
-##    Fence above.
+## ## Rendering v2 (2026-10-07)
+## Painted from the generated art/env sheets (docs/ART_STYLE.md §4) through runtime-built
+## TileSets (scripts/terrain_tiles.gd), with every placement decision in the pure
+## scripts/ground_rules.gd. Bottom to top:
+##  - Base: the season's grass, one of 8 seamless variants per cell (logical grid).
+##  - Dual-grid overlays, one TileMapLayer each, offset (-8, -8) so visual tiles straddle cell
+##    corners: old road ('p' away from water), rubble ground ('#'), tilled soil, wet soil
+##    (follows Farm.wet_changed) and animated water ('W', plus footbridge cells spanning it).
+##  - Planks: dock boards and footbridges ('p' touching water), boards across the walkway.
+##  - Decor: flowers, tufts and specks scattered on grass, thick on old fields (',').
+##  - Scenery (y-sorted with the player): connecting fence sprites per zone style ('F'),
+##    decorative gates (non-exit 'G') and rubble piles ('#').
+## Collision is a StaticBody2D on the "world" layer covering every solid cell ('#', 'F', 'W'),
+## merged into horizontal runs.
 ##
-## scripts/structures.gd (a sibling child, like Farm) reads this node's `layout` to spawn the
-## Phase 4 building volumes (farmhouse/mayor's house/store/shacks/chest/bulletin board) as real
-## collidable StaticBody2D props, the same way Phase 3's Farm spawns tree/ore resource nodes.
-##
-## Phase 3 adds a runtime "tilled" overlay (`_tilled`) on top of the static layout: hoeing a
+## A runtime "tilled" overlay (`_tilled`, Phase 3) sits on top of the static layout: hoeing a
 ## grass cell flips that cell's soil bit here rather than mutating the layout's ASCII data
 ## (which stays a fixed source-of-truth for the map's authored terrain). is_soil_at() is the
-## combined query every ground-painting call uses. See scripts/farm_grid.gd's class doc for the
-## full reasoning on why tilling targets logical cells while the dual-grid handles corners.
+## combined query every ground-painting call uses.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
-const WangTileset := preload("res://scripts/wang_tileset.gd")
 const FarmGrid := preload("res://scripts/farm_grid.gd")
 const SaveData := preload("res://scripts/save_data.gd")
+const GroundRules := preload("res://scripts/ground_rules.gd")
+const TerrainTiles := preload("res://scripts/terrain_tiles.gd")
+const Calendar := preload("res://scripts/calendar.gd")
 
 ## All 3 map_layouts/*.gd scripts share this tile size; hardcoded (rather than read off
 ## `layout`) because it's needed before `layout` is resolved in some call orders and every start
 ## agrees on it anyway (Phase 1's locked 16px tile size).
 const CELL_SIZE := 16
 
-## Atlas source ids inside tilemaps/wasteland_tileset.tres.
-const SOURCE_SETTLEMENT := 0
-const SOURCE_RUINS := 1
+## Dual-grid overlays, bottom to top.
+const OVERLAY_ORDER: Array[String] = ["road", "rubble_ground", "soil", "soil_wet", "water"]
+## Which sheet the old road ('p' away from water) uses per zone: broken concrete paving in the
+## settlement, cracked asphalt on the old highway.
+const ROAD_SHEET := {"path": "asphalt"}
+const DEFAULT_ROAD_SHEET := "concrete"
+const Z_BASE := -20
+const Z_OVERLAY := -19  # + index in OVERLAY_ORDER
+const Z_PLANKS := -10
+const Z_DECOR := -9
 
-## Placeholder tints for Fence/Water (see class doc above) — locked GDD.md §9 palette hexes.
-const FENCE_TINT := Color("#7b5025")  # worn wood (dark) — "beams, door frames, shadowed wood"
-const WATER_TINT := Color("#7fa1b7")  # Spring Rains' rain-sky blue-grey, reused as a water tint
+## Fence/gate art per zone: the farm and ranch are timber, the old highway is chain-link, the town
+## hides behind a palisade.
+const FENCE_STYLE := {"farm": "fence_wood", "path": "fence_chainlink", "town": "fence_palisade",
+	"ranch": "fence_wood"}
+const GATE_STYLE := {"farm": "gate_wood", "path": "gate_chainlink", "town": "gate_wood",
+	"ranch": "gate_wood"}
+const FENCE_DIR := "res://art/env/fences/"
+const RUBBLE_PILES: Array[String] = ["res://art/env/ruins/rubble_pile_1.png",
+	"res://art/env/ruins/rubble_pile_2.png"]
 
-@onready var ground: TileMapLayer = $Ground
-@onready var decor: TileMapLayer = $Decor
-@onready var obstacles: TileMapLayer = $Obstacles
-@onready var fence: TileMapLayer = $Fence
-@onready var water: TileMapLayer = $Water
+var _base: TileMapLayer = null
+var _overlays: Dictionary = {}  # terrain -> TileMapLayer
+var _planks: TileMapLayer = null
+var _decor: TileMapLayer = null
+var _scenery: Node2D = null
+var _walls: StaticBody2D = null
+var _plank_info: Dictionary = {"planks": {}, "road": {}, "bridge": {}}
+var _wet: Dictionary = {}
+var _season := "spring"
+var _fence_count := 0
+var _wall_cells := 0
 
 ## The active map_layouts/*.gd script for this playthrough (every member is a static func,
 ## called directly on this reference — see settlement_db.gd's layout_for_id() header comment).
@@ -88,34 +102,268 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
-	fence.modulate = FENCE_TINT
-	water.modulate = WATER_TINT
 	build()
+	var farm := get_node_or_null("Farm")
+	if farm != null and farm.has_signal("wet_changed"):
+		farm.wet_changed.connect(_on_wet_changed)
+	DayManager.day_started.connect(_on_day_started)
 
 
 func build() -> void:
-	ground.clear()
-	decor.clear()
-	obstacles.clear()
-	fence.clear()
-	water.clear()
+	_ensure_layers()
+	_season = Calendar.season(DayManager.day)
+	_plank_info = GroundRules.classify_planks(layout)
+	_sync_wet()
 	var size: Vector2i = layout.size()
-	# Dual-grid ground: one more visual tile than logical cells on each axis.
-	for y in size.y + 1:
-		for x in size.x + 1:
-			_paint_ground_tile(Vector2i(x, y))
-	# Decor + obstacles + fence + water are direct per-cell placements.
+	_base.clear()
+	_planks.clear()
+	_decor.clear()
+	for terrain in OVERLAY_ORDER:
+		(_overlays[terrain] as TileMapLayer).clear()
 	for y in size.y:
 		for x in size.x:
-			match layout.cell(x, y):
-				"p":
-					decor.set_cell(Vector2i(x, y), SOURCE_RUINS, WangTileset.ALL_UPPER)
-				"#":
-					obstacles.set_cell(Vector2i(x, y), SOURCE_RUINS, WangTileset.ALL_LOWER)
+			var cell := Vector2i(x, y)
+			_paint_base(cell)
+			_paint_decor(cell)
+	for terrain in OVERLAY_ORDER:
+		for vy in size.y + 1:
+			for vx in size.x + 1:
+				_paint_overlay(terrain, Vector2i(vx, vy))
+	var plank_map: Dictionary = _plank_info["planks"]
+	for cell in plank_map:
+		var source := TerrainTiles.SOURCE_PLANKS_V if plank_map[cell] == "v" else TerrainTiles.SOURCE_PLANKS_H
+		_planks.set_cell(cell, source, Vector2i(GroundRules.variant(cell, 21, 4), 0))
+	_build_scenery()
+	_build_walls()
+
+
+func _ensure_layers() -> void:
+	if _base != null:
+		return
+	_base = _new_layer("GroundBase", TerrainTiles.base_set(), Z_BASE, Vector2.ZERO)
+	for i in OVERLAY_ORDER.size():
+		var terrain := OVERLAY_ORDER[i]
+		_overlays[terrain] = _new_layer("Ground_" + terrain, TerrainTiles.overlay_set(_sheet_for(terrain)),
+			Z_OVERLAY + i, Vector2(-CELL_SIZE / 2.0, -CELL_SIZE / 2.0))
+	_planks = _new_layer("GroundPlanks", TerrainTiles.plank_set(), Z_PLANKS, Vector2.ZERO)
+	_decor = _new_layer("GroundDecor", TerrainTiles.decor_set(), Z_DECOR, Vector2.ZERO)
+	_scenery = Node2D.new()
+	_scenery.name = "Scenery"
+	_scenery.y_sort_enabled = true
+	add_child(_scenery)
+	_walls = StaticBody2D.new()
+	_walls.name = "Walls"
+	_walls.collision_layer = 1  # "world" — see project.godot [layer_names]
+	_walls.collision_mask = 0
+	add_child(_walls)
+
+
+func _new_layer(layer_name: String, tile_set: TileSet, z: int, offset: Vector2) -> TileMapLayer:
+	var layer := TileMapLayer.new()
+	layer.name = layer_name
+	layer.tile_set = tile_set
+	layer.z_index = z
+	layer.position = offset
+	layer.collision_enabled = false
+	add_child(layer)
+	move_child(layer, 0)
+	return layer
+
+
+## Whether logical `cell` belongs to an overlay terrain.
+func _in_terrain(terrain: String, cell: Vector2i) -> bool:
+	match terrain:
+		"soil":
+			return is_soil_at(cell.x, cell.y)
+		"soil_wet":
+			return _wet.has(cell) and is_soil_at(cell.x, cell.y)
+		"water":
+			return String(layout.cell(cell.x, cell.y)) == "W" or (_plank_info["bridge"] as Dictionary).has(cell)
+		"rubble_ground":
+			return String(layout.cell(cell.x, cell.y)) == "#"
+		"road":
+			return (_plank_info["road"] as Dictionary).has(cell)
+	return false
+
+
+## The art sheet an overlay layer paints with.
+func _sheet_for(terrain: String) -> String:
+	if terrain == "road":
+		return String(ROAD_SHEET.get(zone_id, DEFAULT_ROAD_SHEET))
+	return terrain
+
+
+func _paint_overlay(terrain: String, visual: Vector2i) -> void:
+	var layer: TileMapLayer = _overlays[terrain]
+	var mask := GroundRules.corner_mask(
+		_in_terrain(terrain, visual + Vector2i(-1, -1)),
+		_in_terrain(terrain, visual + Vector2i(0, -1)),
+		_in_terrain(terrain, visual + Vector2i(-1, 0)),
+		_in_terrain(terrain, visual))
+	if mask == 0:
+		layer.erase_cell(visual)
+	elif mask == GroundRules.FULL:
+		var v := GroundRules.variant(visual, 13, TerrainTiles.full_variants(_sheet_for(terrain)))
+		layer.set_cell(visual, TerrainTiles.SOURCE_FULL, Vector2i(v, 0))
+	else:
+		layer.set_cell(visual, TerrainTiles.SOURCE_EDGE, GroundRules.overlay_atlas(mask))
+
+
+func _repaint_overlay_around(terrain: String, cell: Vector2i) -> void:
+	for visual in GroundRules.visuals_touching(cell):
+		_paint_overlay(terrain, visual)
+
+
+func _paint_base(cell: Vector2i) -> void:
+	_base.set_cell(cell, TerrainTiles.season_source(_season),
+		Vector2i(GroundRules.weighted_variant(cell, 3, GroundRules.GRASS_VARIANT_WEIGHTS), 0))
+
+
+func _paint_decor(cell: Vector2i) -> void:
+	var ch := String(layout.cell(cell.x, cell.y))
+	var grassy := ch == "." or ch == "," or ch == "@" or ch == "T" or ch == "O"
+	if not grassy or is_soil_at(cell.x, cell.y) or layout.is_solid(cell.x, cell.y):
+		_decor.erase_cell(cell)
+		return
+	var source := TerrainTiles.decor_source(GroundRules.decor_for(cell, _season, ch == ","))
+	if source < 0:
+		_decor.erase_cell(cell)
+	else:
+		_decor.set_cell(cell, source, Vector2i.ZERO)
+
+
+## Fences, decorative gates and rubble piles: y-sorted sprites sharing the player's draw order.
+func _build_scenery() -> void:
+	for child in _scenery.get_children():
+		child.queue_free()
+	_fence_count = 0
+	var fence_tex: Texture2D = load(FENCE_DIR + String(FENCE_STYLE.get(zone_id, "fence_wood")) + ".png")
+	var gate_tex: Texture2D = load(FENCE_DIR + String(GATE_STYLE.get(zone_id, "gate_wood")) + ".png")
+	var size: Vector2i = layout.size()
+	for y in size.y:
+		for x in size.x:
+			var cell := Vector2i(x, y)
+			match String(layout.cell(x, y)):
 				"F":
-					fence.set_cell(Vector2i(x, y), SOURCE_RUINS, WangTileset.ALL_LOWER)
-				"W":
-					water.set_cell(Vector2i(x, y), SOURCE_RUINS, WangTileset.ALL_LOWER)
+					var mask := GroundRules.fence_mask(_fence_joins(cell + Vector2i.UP),
+						_fence_joins(cell + Vector2i.RIGHT), _fence_joins(cell + Vector2i.DOWN),
+						_fence_joins(cell + Vector2i.LEFT))
+					_add_cell_sprite(cell, fence_tex, GroundRules.fence_region(mask))
+					_fence_count += 1
+				"G":
+					if zone_exit_at(cell).is_empty():
+						_add_cell_sprite(cell, gate_tex, Rect2i(16, 0, 16, 32))  # open frame
+				"#":
+					var tex: Texture2D = load(RUBBLE_PILES[GroundRules.variant(cell, 17, RUBBLE_PILES.size())])
+					var sprite := Sprite2D.new()
+					sprite.texture = tex
+					sprite.centered = false
+					sprite.position = Vector2(x * CELL_SIZE + CELL_SIZE / 2.0, (y + 1) * CELL_SIZE)
+					sprite.offset = Vector2(-tex.get_width() / 2.0, -tex.get_height())
+					sprite.flip_h = GroundRules.variant(cell, 18, 2) == 1
+					_scenery.add_child(sprite)
+
+
+## A fence post joins toward a neighbouring fence, or a gate that sits in the fence line.
+func _fence_joins(cell: Vector2i) -> bool:
+	var ch := String(layout.cell(cell.x, cell.y))
+	return ch == "F" or (ch == "G" and zone_exit_at(cell).is_empty())
+
+
+## A 16x32 frame standing on `cell`: its bottom 16x16 covers the cell, its top half overhangs the
+## cell to the north; y-sorted from the cell's bottom edge.
+func _add_cell_sprite(cell: Vector2i, texture: Texture2D, region: Rect2i) -> void:
+	var sprite := Sprite2D.new()
+	sprite.texture = texture
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(region)
+	sprite.centered = false
+	sprite.position = Vector2(cell.x * CELL_SIZE, (cell.y + 1) * CELL_SIZE)
+	sprite.offset = Vector2(0, -region.size.y)
+	_scenery.add_child(sprite)
+
+
+## One collision rectangle per horizontal run of solid layout cells.
+func _build_walls() -> void:
+	for child in _walls.get_children():
+		child.queue_free()
+	_wall_cells = 0
+	var size: Vector2i = layout.size()
+	for y in size.y:
+		var x := 0
+		while x < size.x:
+			if not _solid_terrain(x, y):
+				x += 1
+				continue
+			var start := x
+			while x < size.x and _solid_terrain(x, y):
+				x += 1
+			var run := x - start
+			_wall_cells += run
+			var shape := RectangleShape2D.new()
+			shape.size = Vector2(run * CELL_SIZE, CELL_SIZE)
+			var col := CollisionShape2D.new()
+			col.shape = shape
+			col.position = Vector2((start + run / 2.0) * CELL_SIZE, (y + 0.5) * CELL_SIZE)
+			_walls.add_child(col)
+
+
+func _solid_terrain(x: int, y: int) -> bool:
+	return String(layout.cell(x, y)) in ["#", "F", "W"]
+
+
+## Painted-layer stats for the smoke tools: {base, fences, wall_cells, planks, road, water}.
+func render_stats() -> Dictionary:
+	return {
+		"base": _base.get_used_cells().size(),
+		"fences": _fence_count,
+		"wall_cells": _wall_cells,
+		"planks": _planks.get_used_cells().size(),
+		"road": (_plank_info["road"] as Dictionary).size(),
+		"water": (_overlays["water"] as TileMapLayer).get_used_cells().size(),
+		"decor": _decor.get_used_cells().size(),
+	}
+
+
+func _sync_wet() -> void:
+	_wet.clear()
+	var farm := get_node_or_null("Farm")
+	if farm != null and farm.has_method("wet_cells"):
+		for cell in farm.wet_cells():
+			_wet[cell] = true
+
+
+func _on_wet_changed(cell: Vector2i) -> void:
+	var farm := get_node_or_null("Farm")
+	var wet: bool = farm != null and farm.is_wet(cell)
+	if wet == _wet.has(cell):
+		return
+	if wet:
+		_wet[cell] = true
+	else:
+		_wet.erase(cell)
+	_repaint_overlay_around("soil_wet", cell)
+
+
+func _on_day_started(day: int) -> void:
+	var season := Calendar.season(day)
+	if season == _season:
+		return
+	_season = season
+	var size: Vector2i = layout.size()
+	for y in size.y:
+		for x in size.x:
+			_paint_base(Vector2i(x, y))
+			_paint_decor(Vector2i(x, y))
+
+
+## Old-road and plank cells (footstep surfaces).
+func is_path_at(cell: Vector2i) -> bool:
+	return (_plank_info["road"] as Dictionary).has(cell) or (_plank_info["planks"] as Dictionary).has(cell)
+
+
+func is_plank_at(cell: Vector2i) -> bool:
+	return (_plank_info["planks"] as Dictionary).has(cell)
 
 
 ## Combined soil query: static farmland from the layout OR a runtime-tilled cell.
@@ -164,7 +412,7 @@ func till_cell(cell: Vector2i) -> bool:
 	if not layout.is_tillable(cell.x, cell.y):
 		return false
 	_tilled[cell] = true
-	_repaint_ground_around(cell)
+	_on_soil_changed(cell)
 	return true
 
 
@@ -174,25 +422,16 @@ func force_till(cell: Vector2i) -> void:
 	if is_soil_at(cell.x, cell.y):
 		return
 	_tilled[cell] = true
-	_repaint_ground_around(cell)
+	_on_soil_changed(cell)
 
 
-## Repaints the four visual tiles whose corners sample this logical cell (see build()'s loop:
-## visual tile (vx, vy) samples logical cells (vx-1,vy-1)..(vx,vy)), i.e. visual tiles
-## cell, cell+(1,0), cell+(0,1), cell+(1,1).
-func _repaint_ground_around(cell: Vector2i) -> void:
-	for offset in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
-		_paint_ground_tile(cell + offset)
-
-
-func _paint_ground_tile(visual_tile: Vector2i) -> void:
-	var atlas := WangTileset.atlas_for_corners(
-		is_soil_at(visual_tile.x - 1, visual_tile.y - 1),
-		is_soil_at(visual_tile.x, visual_tile.y - 1),
-		is_soil_at(visual_tile.x - 1, visual_tile.y),
-		is_soil_at(visual_tile.x, visual_tile.y)
-	)
-	ground.set_cell(visual_tile, SOURCE_SETTLEMENT, atlas)
+## A cell turned to soil: repaint the soil layers around it and clear its decor.
+func _on_soil_changed(cell: Vector2i) -> void:
+	if _base == null:
+		return
+	_repaint_overlay_around("soil", cell)
+	_repaint_overlay_around("soil_wet", cell)
+	_decor.erase_cell(cell)
 
 
 ## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --
@@ -211,7 +450,7 @@ func load_state(data: Dictionary) -> void:
 		# is_tillable guard when it was legally tilled in the saved session — restoring is a
 		# replay of established fact, not a new gameplay action to re-validate.
 		_tilled[cell] = true
-		_repaint_ground_around(cell)
+		_on_soil_changed(cell)
 
 
 ## World position -> logical cell coordinate (floor division by the 16px tile size).

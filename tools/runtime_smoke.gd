@@ -418,27 +418,22 @@ func _physics_process(_delta: float) -> bool:
 			# -- The farm zone was actually painted correctly from its layout data (painting is a
 			#    per-cell char match, so painted == authored is the "fully painted" invariant; the
 			#    old hand-counted whole-combined-map literals died with the zone split) --
-			_check(test_map.get_node("Ground").get_used_cells().size() == 73 * 33,
-				"dual-grid ground fully painted (73x33 visual tiles, 72x32 farm zone)")
-			# Derived, not a hand-counted literal: the expansion grew Forest Edge's rubble from
-			# 2 cells to a whole treeline's worth plus the south-east foundation, and a literal
-			# here would only be a second place to forget to update.
-			var authored_rubble := 0
-			for rubble_row in ForestEdgeLayout.ROWS:
-				authored_rubble += String(rubble_row).count("#")
-			_check(authored_rubble > 0, "Forest Edge authors salvage-rubble cells")
-			_check(test_map.get_node("Obstacles").get_used_cells().size() == authored_rubble,
-				"every authored salvage-rubble '#' cell painted onto Obstacles (%d)" \
-					% authored_rubble)
-			_check(test_map.get_node("Fence").get_used_cells().size()
-					== ForestEdgeLayout.fence_cells().size(),
-				"every authored farm-zone fence cell painted")
-			_check(test_map.get_node("Water").get_used_cells().size()
-					== ForestEdgeLayout.water_cells().size(),
-				"every authored farm-zone water cell painted (the SW creek)")
-			_check(test_map.get_node("Decor").get_used_cells().size()
-					== ForestEdgeLayout.dock_cells().size(),
-				"every authored farm-zone decor cell painted")
+			# 2026-10-07 rendering v2: the map paints from the art/env sheets (see test_map.gd's
+			# class doc) and reports what it painted via render_stats().
+			var stats: Dictionary = test_map.render_stats()
+			_check(int(stats["base"]) == 72 * 32, "grass base fully painted (72x32 farm zone)")
+			var authored_solid := 0
+			for solid_row in ForestEdgeLayout.ROWS:
+				for ch in ["#", "F", "W"]:
+					authored_solid += String(solid_row).count(ch)
+			_check(int(stats["wall_cells"]) == authored_solid,
+				"every authored solid cell ('#', 'F', 'W') has collision (%d)" % authored_solid)
+			_check(int(stats["fences"]) == ForestEdgeLayout.fence_cells().size(),
+				"every authored farm-zone fence cell got a fence sprite")
+			_check(int(stats["water"]) > 0, "the SW creek painted onto the water layer")
+			_check(int(stats["planks"]) + int(stats["road"]) == ForestEdgeLayout.dock_cells().size(),
+				"every authored 'p' cell painted as decking or road")
+			_check(int(stats["planks"]) > 0, "the creek footbridge is decking")
 			# -- Farm-zone landmarks; the town core and ranch live in their own zones now --
 			var buildings: Array[Dictionary] = ForestEdgeLayout.buildings()
 			_check(buildings.size() == 4,
@@ -1844,23 +1839,22 @@ func _physics_process(_delta: float) -> bool:
 			# Painted == authored, derived from the layout's own data (see OTHER_LAYOUT_CHECKS'
 			# doc — a standalone test_map.tscn is that settlement's FARM zone since the split).
 			var layout_size: Vector2i = check["layout"].size()
-			_check(_other_layout_map.get_node("Ground").get_used_cells().size()
-					== (layout_size.x + 1) * (layout_size.y + 1),
-				"%s ground fully painted (dual-grid %dx%d)" % [id, layout_size.x + 1, layout_size.y + 1])
-			var expected_obstacles := 0
+			var other_stats: Dictionary = _other_layout_map.render_stats()
+			_check(int(other_stats["base"]) == layout_size.x * layout_size.y,
+				"%s grass base fully painted (%dx%d)" % [id, layout_size.x, layout_size.y])
+			var expected_solid := 0
 			for row in check["layout"].ROWS:
-				expected_obstacles += String(row).count("#")
-			_check(_other_layout_map.get_node("Obstacles").get_used_cells().size() == expected_obstacles,
-				"%s obstacles count matches its authored '#' cells" % id)
-			_check(_other_layout_map.get_node("Fence").get_used_cells().size()
-					== check["layout"].fence_cells().size(),
-				"%s fence count matches its authored 'F' cells" % id)
-			_check(_other_layout_map.get_node("Water").get_used_cells().size()
-					== check["layout"].water_cells().size(),
-				"%s water count matches its authored 'W' cells" % id)
-			_check(_other_layout_map.get_node("Decor").get_used_cells().size()
+				for ch in ["#", "F", "W"]:
+					expected_solid += String(row).count(ch)
+			_check(int(other_stats["wall_cells"]) == expected_solid,
+				"%s collision covers its authored solid cells" % id)
+			_check(int(other_stats["fences"]) == check["layout"].fence_cells().size(),
+				"%s fence sprites match its authored 'F' cells" % id)
+			_check((int(other_stats["water"]) > 0) == (check["layout"].water_cells().size() > 0),
+				"%s water layer painted iff it authors water" % id)
+			_check(int(other_stats["planks"]) + int(other_stats["road"])
 					== check["layout"].dock_cells().size(),
-				"%s dock/decor count matches its authored 'p' cells" % id)
+				"%s decking + road match its authored 'p' cells" % id)
 			_check(_other_layout_map.get_node("Structures").get_child_count()
 					== check["layout"].buildings().size(),
 				"%s spawned all %d buildings" % [id, check["layout"].buildings().size()])
