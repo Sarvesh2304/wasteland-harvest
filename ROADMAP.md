@@ -1,5 +1,62 @@
 # Roadmap — Phase Checklist (no calendar; milestone-gated)
 
+## ⚡ Accelerated Plan (2026-10-07) — supersedes the order of Phases 7(stages 4-5) and 9–18
+
+Sarvesh's direction (2026-10-07): ignore the old timeline, make a genuinely good game as fast as
+realistically possible, prioritising **Fun → Core gameplay → Content → Presentation → Polish**.
+Grounded in the full audit at `docs/AUDIT_2026-10-07.md`. The historical phase record below is
+kept as history; *forward* work is organised into these player-experience milestones instead.
+Phase checklist items below that these milestones deliver get checked off as they land.
+
+A milestone is done when its line is true in actual play (tests pass, screenshots reviewed, smoke
+drivers green) — not when code merely exists.
+
+### Milestone A — "The first hour feels great"
+- [ ] Audio foundation: `AudioManager` autoload (Music/SFX/Ambience/UI buses), code-synthesised
+      SFX library and music/ambience loops (`tools/audio/`, rebuilt fresh)
+- [ ] Interaction: visible target-tile cursor, mouse aiming within reach, separate Interact
+      action, mouse clicks for tool/interact, controller bindings
+- [ ] Feedback: per-action particles, item pickups + "+N item" toasts, screen shake/hit-stop,
+      tool-specific sounds
+- [ ] Farming rules: a dry day pauses growth (never kills), wet-soil visuals, regrowing crops,
+      fertiliser, seasons per crop
+- [ ] Reclaim-the-farm arc: farm starts overgrown (weeds, stones, branches, scrap, stumps);
+      multi-hit trees/rocks with drops; daily debris/forage respawn
+- [ ] Readable world art: layered terrain (grass variation, paths, tilled dry/wet soil, animated
+      water, real fences), trees/rocks/debris sprites, icons for every item
+
+### Milestone B — "A reason to come back tomorrow"
+- [ ] Calendar: 4 seasons × 28 days, years; weather (clear/rain/storm/radstorm) with forecast;
+      seasonal crop roster (12+ crops); seasonal tint
+- [ ] Crafting: recipes + crafting menu (sprinklers, fertiliser, chests, fences, lamps, food,
+      medicine, smelted metal)
+- [ ] Skills (Farming, Foraging, Scavenging, Combat, Crafting) with XP, levels and perks; tool
+      upgrade tiers
+- [ ] Quests: journal, daily bulletin-board requests, and the main "Rebuild the Settlement"
+      project line whose completions visibly change the town
+- [ ] NPCs: context dialogue (season/weather/time/affinity), gifts with preferences (Phase 7
+      Stages 4-5), more named NPCs
+
+### Milestone C — "The wasteland outside the fence"
+- [ ] Combat: player HP, melee + ranged weapons, ammo, knockback/hit-flash/i-frames
+- [ ] Enemies: Shambler, Runner, Bloater, Rad-Hound, Raider — patrol/alert/chase/attack AI
+- [ ] The Ruins: multi-level ruined-city expeditions built from hand-made chunks, loot
+      containers, salvage, radiation pockets, lore notes, blueprints
+- [ ] Expedition loop: depart via Kael's gate, extract or die (lose expedition loot), bring
+      salvage home to build/craft
+
+### Milestone D — "A living settlement"
+- [ ] Settlement evolution visible on the map (projects add buildings, lights, settlers)
+- [ ] Economy: dynamic prices, caravan trader, trading post
+- [ ] Events and festivals; main story arc beats
+
+### Milestone E — "Ship-ready"
+- [ ] Title screen, intro, character naming/appearance presets
+- [ ] Options (volumes, fullscreen, rebinding), controller support, accessibility
+- [ ] Balance pass, performance pass, exported builds
+
+---
+
 Adapted from `Wasteland Harvest 3-Year Dev Roadmap.html`, with all month/calendar pacing removed.
 Work phases in order — each depends on the last. Check off tasks as they land; a phase isn't done
 until its milestone line is true. Keep this file updated in the same commit as the work. "Year 1/2/3"
