@@ -82,9 +82,25 @@ const DayDial := preload("res://scripts/day_dial.gd")
 ## below — crossed_into_night() — can read DAY_START_MINUTES/is_late_night() from a headless
 ## test with no autoload running. Same pattern as player.gd's own DayManagerScript const.
 const DayManagerScript := preload("res://scripts/day_manager.gd")
+const Calendar := preload("res://scripts/calendar.gd")
+const Weather := preload("res://scripts/weather.gd")
+
+## -- HUD v2 (2026-10-07) --
+## "+N item" toasts (bottom-left), the context prompt above the hotbar, and the weather icon
+## beside the day sign. Toasts merge repeats of the same item while it's still on screen.
+const TOAST_SECONDS := 2.6
+const TOAST_MAX := 4
+const TOAST_BG := Color("#281a0b", 0.82)
+const TEXT_COLOR := Color("#ffedb1")
+const TEXT_OUTLINE := Color("#281a0b")
+const WARN_COLOR := Color("#ffb72d")
+const WATER_GAUGE_COLOR := Color("#6aa6b8")
 
 const HOTBAR_SIZE := Inventory.HOTBAR_SIZE
-const SLOT_SIZE := 14.0
+## 18px slots (2026-10-07 HUD v2): a 16px icon at native size inside a 1px selection frame. The
+## old 14px slot squeezed 16px icons down to 12px, dropping pixel rows.
+const SLOT_SIZE := 18.0
+const SLOT_GAP := 1
 const SELECTED_COLOR := Color("#ffc948")  # lamplight gold — GDD.md §9 settlement anchor palette
 const EMPTY_BG_COLOR := Color("#281a0b", 0.75)  # warm near-black, per §9
 
@@ -168,6 +184,14 @@ const SAVE_NOTICE_FADE := 0.8
 
 var _save_notice_tween: Tween = null
 
+var _toast_box: VBoxContainer = null
+## item_id (or "" for messages) -> {node, label, count, time_left}
+var _toasts: Array = []
+var _prompt: Label = null
+var _target_cursor: Node = null
+var _weather_icon: TextureRect = null
+var _weather_shown := ""
+
 
 func _ready() -> void:
 	_sleepy_timer = Timer.new()
@@ -187,6 +211,7 @@ func _ready() -> void:
 	# Phase 4 Stage 3: transient "WORLD SAVED" notice, driven by the GameState autoload's
 	# game_saved signal (fired from the bed's auto-save) — the save system stays UI-agnostic.
 	GameState.game_saved.connect(_on_game_saved)
+	_build_v2()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -204,7 +229,9 @@ func _unhandled_input(event: InputEvent) -> void:
 ## continuously while it's open, since nothing freezes the player while a chest is open (it's a
 ## passive overlay, not a modal surface). Also pulses the late-night sleepy cue's alpha while
 ## it's up (visibility itself is time-driven — see _on_time_changed).
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_tick_toasts(delta)
+	_refresh_prompt()
 	if chest_grid.visible and _player != null \
 			and chest_out_of_range(_player.global_position, _chest_cell):
 		chest_grid.visible = false
@@ -310,8 +337,8 @@ func _make_slot_widget(parent: Control) -> Dictionary:
 	frame.add_child(bg)
 
 	var icon := TextureRect.new()
-	icon.position = Vector2(2, 2)
-	icon.size = Vector2(SLOT_SIZE - 4, SLOT_SIZE - 4)
+	icon.position = Vector2(1, 1)
+	icon.size = Vector2(SLOT_SIZE - 2, SLOT_SIZE - 2)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_SCALE
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -373,7 +400,24 @@ func _make_slot_widget(parent: Control) -> Dictionary:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(label)
 
-	return {"frame": frame, "bg": bg, "icon": icon, "tag_bg": tag_bg, "tag": tag, "label": label}
+	# Watering-can level (HUD v2): a 2px gauge along the slot's bottom edge.
+	var gauge_bg := ColorRect.new()
+	gauge_bg.position = Vector2(2, SLOT_SIZE - 4)
+	gauge_bg.size = Vector2(SLOT_SIZE - 4, 2)
+	gauge_bg.color = Color("#281a0b", 0.9)
+	gauge_bg.visible = false
+	gauge_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(gauge_bg)
+	var gauge := ColorRect.new()
+	gauge.position = Vector2(2, SLOT_SIZE - 4)
+	gauge.size = Vector2(0, 2)
+	gauge.color = WATER_GAUGE_COLOR
+	gauge.visible = false
+	gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(gauge)
+
+	return {"frame": frame, "bg": bg, "icon": icon, "tag_bg": tag_bg, "tag": tag, "label": label,
+		"gauge_bg": gauge_bg, "gauge": gauge}
 
 
 func _refresh_all_slots() -> void:
@@ -398,6 +442,12 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 
 	frame.color = SELECTED_COLOR if selected else Color.TRANSPARENT
 
+	var gauge_bg: ColorRect = widget.get("gauge_bg")
+	var gauge: ColorRect = widget.get("gauge")
+	if gauge_bg != null:
+		gauge_bg.visible = false
+		gauge.visible = false
+
 	if slot.is_empty():
 		bg.color = EMPTY_BG_COLOR
 		icon.texture = null
@@ -408,7 +458,7 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 
 	var item_id := String(slot.get("item_id", ""))
 	var item_def := ItemDB.get_item(item_id)
-	var icon_path := String(item_def.get("icon", ""))
+	var icon_path := slot_icon_path(item_id, int(slot.get("tier", 1)), String(item_def.get("icon", "")))
 	if icon_path != "" and ResourceLoader.exists(icon_path):
 		icon.texture = load(icon_path)
 		bg.color = EMPTY_BG_COLOR
@@ -420,12 +470,19 @@ func _paint_slot(widget: Dictionary, slot: Dictionary, selected: bool) -> void:
 		tag.text = String(item_def.get("placeholder_label", ""))
 	tag_bg.visible = tag.text != ""
 
-	if slot.has("durability"):
-		label.text = str(int(slot["durability"]))
-	elif int(slot.get("count", 1)) > 1:
+	# Tools never wear out any more (2026-10-07), so the old durability badge is gone; stacks show
+	# their count, the watering can shows its water.
+	if not slot.has("durability") and int(slot.get("count", 1)) > 1:
 		label.text = str(int(slot["count"]))
 	else:
 		label.text = ""
+	if gauge_bg != null and ItemDB.tool_kind(item_id) == "watering_can":
+		var capacity := ItemDB.can_capacity(int(slot.get("tier", 1)))
+		# A can with no recorded level is full (player.gd's _can_water_left rule).
+		var fraction := clampf(float(slot.get("water", capacity)) / float(capacity), 0.0, 1.0)
+		gauge_bg.visible = true
+		gauge.visible = true
+		gauge.size.x = roundf((SLOT_SIZE - 4) * fraction)
 
 
 ## -- Phase 4: farmland storage chest UI --
@@ -480,7 +537,7 @@ func _on_game_saved() -> void:
 
 func _on_time_changed(day: int, minutes_into_day: float) -> void:
 	# time_changed fires every frame; only touch the labels when the visible text changes.
-	var day_text := "Day %d" % day
+	var day_text := Calendar.date_text(day)
 	if day_label.text != day_text:
 		day_label.text = day_text
 	var clock := DayManager.format_clock(minutes_into_day)
@@ -500,6 +557,7 @@ func _on_time_changed(day: int, minutes_into_day: float) -> void:
 	# fraction naturally wraps back to 0 the instant a new day's minutes_into_day resets.
 	day_dial.set_fraction(DayDial.day_progress_fraction(
 		minutes_into_day, DayManager.MINUTES_PER_DAY, DayManager.DAY_START_MINUTES))
+	_refresh_weather_icon()
 
 
 ## Lived-time driver for the one-shot sleepy cue, connected to DayManager.time_advanced in
@@ -538,3 +596,198 @@ func _on_energy_changed(current: float, max_energy: float) -> void:
 
 func _on_credits_changed(current: int) -> void:
 	credits_label.text = "%d Cr" % current
+
+
+
+## -- HUD v2 (2026-10-07) --
+
+## Pure: which icon a slot shows — an upgraded tool's own art (hoe_t3.png) when it exists.
+static func slot_icon_path(item_id: String, tier: int, base_icon: String) -> String:
+	if tier > 1 and ItemDB.is_tool_item(item_id):
+		var upgraded := "res://art/items/%s_t%d.png" % [item_id, tier]
+		if ResourceLoader.exists(upgraded):
+			return upgraded
+	return base_icon
+
+
+## Pure: the prompt line for a describe_action() result, e.g. "Space Chop   E Pick up".
+static func prompt_text(actions: Dictionary, use_key: String, interact_key: String) -> String:
+	var use_verb := String(actions.get("use", ""))
+	var interact_verb := String(actions.get("interact", ""))
+	if use_verb != "" and use_verb == interact_verb:
+		return "%s %s" % [interact_key, interact_verb]
+	var parts: Array[String] = []
+	if use_verb != "":
+		parts.append("%s %s" % [use_key, use_verb])
+	if interact_verb != "":
+		parts.append("%s %s" % [interact_key, interact_verb])
+	return "   ".join(parts)
+
+
+## Called by main.gd: the prompt mirrors the target cursor's current actions.
+func bind_target_cursor(cursor: Node) -> void:
+	_target_cursor = cursor
+
+
+func _build_v2() -> void:
+	var root: Control = $Root
+	hotbar_row.add_theme_constant_override("separation", SLOT_GAP)
+	var hotbar_width := HOTBAR_SIZE * SLOT_SIZE + (HOTBAR_SIZE - 1) * SLOT_GAP
+	hotbar_row.offset_left = -hotbar_width / 2.0
+	hotbar_row.offset_right = hotbar_width / 2.0
+	hotbar_row.offset_top = -SLOT_SIZE - 2.0
+	hotbar_row.offset_bottom = -2.0
+
+	_toast_box = VBoxContainer.new()
+	_toast_box.name = "Toasts"
+	_toast_box.anchor_left = 0.0
+	_toast_box.anchor_right = 0.0
+	_toast_box.anchor_top = 1.0
+	_toast_box.anchor_bottom = 1.0
+	_toast_box.offset_left = 3
+	_toast_box.offset_right = 110
+	_toast_box.offset_top = -SLOT_SIZE - 96.0
+	_toast_box.offset_bottom = -SLOT_SIZE - 16.0  # clear of the hotbar and the prompt line
+	_toast_box.alignment = BoxContainer.ALIGNMENT_END
+	_toast_box.add_theme_constant_override("separation", 1)
+	_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_toast_box)
+
+	_prompt = Label.new()
+	_prompt.name = "Prompt"
+	_prompt.anchor_left = 0.5
+	_prompt.anchor_right = 0.5
+	_prompt.anchor_top = 1.0
+	_prompt.anchor_bottom = 1.0
+	_prompt.offset_left = -120
+	_prompt.offset_right = 120
+	_prompt.offset_top = -SLOT_SIZE - 13.0
+	_prompt.offset_bottom = -SLOT_SIZE - 4.0
+	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_prompt.add_theme_color_override("font_color", TEXT_COLOR)
+	_prompt.add_theme_color_override("font_outline_color", TEXT_OUTLINE)
+	_prompt.add_theme_constant_override("outline_size", 2)
+	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_prompt)
+
+	var sign_node: Control = $Root/DaySign
+	_weather_icon = TextureRect.new()
+	_weather_icon.name = "WeatherIcon"
+	_weather_icon.anchor_left = 1.0
+	_weather_icon.anchor_right = 1.0
+	_weather_icon.offset_left = sign_node.offset_left - 18.0
+	_weather_icon.offset_right = sign_node.offset_left - 2.0
+	_weather_icon.offset_top = 13.0
+	_weather_icon.offset_bottom = 29.0
+	_weather_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_weather_icon)
+	_refresh_weather_icon()
+
+	Events.item_gained.connect(_on_item_gained)
+	Events.message.connect(_on_message)
+
+
+func _refresh_weather_icon() -> void:
+	if _weather_icon == null:
+		return
+	var kind := String(DayManager.weather_today)
+	if kind == _weather_shown:
+		return
+	_weather_shown = kind
+	var path := "res://art/ui/weather_%s.png" % kind
+	_weather_icon.texture = load(path) if ResourceLoader.exists(path) else null
+	_weather_icon.tooltip_text = Weather.display_name(kind)
+
+
+func _refresh_prompt() -> void:
+	if _prompt == null:
+		return
+	var text := ""
+	if _target_cursor != null and _target_cursor.visible:
+		text = prompt_text(_target_cursor.actions, _key_name("use_tool"), _key_name("interact"))
+	if _prompt.text != text:
+		_prompt.text = text
+		var warn := text.contains("Too tough") or text.contains("Wrong season") or text.contains("Empty")
+		_prompt.add_theme_color_override("font_color", WARN_COLOR if warn else TEXT_COLOR)
+
+
+## The first keyboard key bound to an action, as text ("Space", "E").
+func _key_name(action: String) -> String:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			var code: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+			return OS.get_keycode_string(code)
+	return ""
+
+
+func _on_item_gained(item_id: String, count: int) -> void:
+	if count <= 0:
+		return
+	for toast in _toasts:
+		if toast["item"] == item_id:
+			toast["count"] += count
+			toast["time_left"] = TOAST_SECONDS
+			(toast["label"] as Label).text = _toast_text(item_id, int(toast["count"]))
+			(toast["node"] as Control).modulate.a = 1.0
+			return
+	_add_toast(item_id, count, _toast_text(item_id, count))
+
+
+func _on_message(text: String) -> void:
+	_add_toast("", 0, text)
+
+
+static func _toast_text(item_id: String, count: int) -> String:
+	return "+%d %s" % [count, ItemDB.display_name(item_id)]
+
+
+func _add_toast(item_id: String, count: int, text: String) -> void:
+	if _toast_box == null:
+		return
+	while _toasts.size() >= TOAST_MAX:
+		var oldest: Dictionary = _toasts.pop_front()
+		(oldest["node"] as Control).queue_free()
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = TOAST_BG
+	style.content_margin_left = 2
+	style.content_margin_right = 4
+	style.content_margin_top = 1
+	style.content_margin_bottom = 1
+	panel.add_theme_stylebox_override("panel", style)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(row)
+	if item_id != "":
+		var icon_path := String(ItemDB.get_item(item_id).get("icon", ""))
+		if ResourceLoader.exists(icon_path):
+			var icon := TextureRect.new()
+			icon.texture = load(icon_path)
+			icon.custom_minimum_size = Vector2(16, 16)
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(icon)
+	var label := Label.new()
+	label.text = text
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", TEXT_COLOR)
+	label.add_theme_color_override("font_outline_color", TEXT_OUTLINE)
+	label.add_theme_constant_override("outline_size", 2)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(label)
+	_toast_box.add_child(panel)
+	_toasts.append({"item": item_id, "count": count, "time_left": TOAST_SECONDS,
+		"node": panel, "label": label})
+
+
+func _tick_toasts(delta: float) -> void:
+	for toast in _toasts.duplicate():
+		toast["time_left"] = float(toast["time_left"]) - delta
+		var node: Control = toast["node"]
+		if toast["time_left"] <= 0.0:
+			_toasts.erase(toast)
+			node.queue_free()
+		elif toast["time_left"] < 0.5:
+			node.modulate.a = float(toast["time_left"]) / 0.5

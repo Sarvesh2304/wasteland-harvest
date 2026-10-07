@@ -70,6 +70,14 @@ static func stack_max(item_id: String) -> int:
 	return int(get_item(item_id).get("stack_max", 1))
 
 
+## Watering-can capacity by upgrade tier (Rusty 1 ... Pre-War 4).
+const CAN_CAPACITY: Array[int] = [40, 55, 70, 100]
+
+
+static func can_capacity(tier: int) -> int:
+	return CAN_CAPACITY[clampi(tier, 1, CAN_CAPACITY.size()) - 1]
+
+
 static func is_tool_item(item_id: String) -> bool:
 	return item_type(item_id) == "tool"
 

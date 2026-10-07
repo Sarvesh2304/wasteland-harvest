@@ -65,6 +65,7 @@ func _ready() -> void:
 	hud.bind_inventory(player.inventory)
 	Fx.register_camera(camera)
 	target_cursor.bind(player)
+	hud.bind_target_cursor(target_cursor)
 	GameState.clear_save_sections()
 	GameState.register_save_section("weather", func() -> Dictionary:
 		return {"today": DayManager.weather_today, "tomorrow": DayManager.weather_tomorrow,

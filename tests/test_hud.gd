@@ -137,3 +137,28 @@ func test_compensation_is_capped_against_a_black_sky() -> void:
 	var comp := HudScript.tint_compensation(Color(0.0, 0.0, 0.0), 8.0)
 	assert_true(comp.r == 8.0 and comp.g == 8.0 and comp.b == 8.0,
 		"a black sky clamps at max_gain instead of exploding (got %s)" % comp)
+
+
+## -- HUD v2 (2026-10-07) --
+
+func test_prompt_text_lists_both_buttons() -> void:
+	assert_eq(HudScript.prompt_text({"use": "Chop", "interact": "Pick up"}, "Space", "E"),
+		"Space Chop   E Pick up")
+	assert_eq(HudScript.prompt_text({"use": "Till", "interact": ""}, "Space", "E"), "Space Till")
+	assert_eq(HudScript.prompt_text({"use": "Talk", "interact": "Talk"}, "Space", "E"), "E Talk",
+		"one verb on both buttons shows once, on Interact")
+	assert_eq(HudScript.prompt_text({"use": "", "interact": ""}, "Space", "E"), "")
+
+
+func test_upgraded_tools_use_their_own_icon() -> void:
+	assert_eq(HudScript.slot_icon_path("hoe", 3, "res://art/items/hoe.png"), "res://art/items/hoe_t3.png")
+	assert_eq(HudScript.slot_icon_path("hoe", 1, "res://art/items/hoe.png"), "res://art/items/hoe.png")
+	assert_eq(HudScript.slot_icon_path("wood", 3, "res://art/items/wood.png"), "res://art/items/wood.png",
+		"only tools have tiers")
+
+
+func test_watering_can_capacity_by_tier() -> void:
+	const ItemDBScript := preload("res://scripts/item_db.gd")
+	assert_eq(ItemDBScript.can_capacity(1), 40)
+	assert_eq(ItemDBScript.can_capacity(4), 100)
+	assert_eq(ItemDBScript.can_capacity(9), 100, "clamped")

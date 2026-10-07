@@ -53,6 +53,9 @@ func _physics_process(_delta: float) -> bool:
 			day_manager.time_paused = true
 			_enter_stage(1)
 		1:
+			if ticks == 8:  # HUD v2 check: a couple of pickup toasts
+				root.get_node("Events").item_gained.emit("wood", 5)
+				root.get_node("Events").item_gained.emit("wild_greens", 1)
 			if ticks == 20:
 				_capture("farm_start_%s_arrival_4x.png" % settlement)
 				var camera: Camera2D = main.get_node("GameCamera")

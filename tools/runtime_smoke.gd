@@ -114,6 +114,7 @@ extends SceneTree
 ## with Esc, then proves the reverse exclusion: build mode works again after closing, the menu is
 ## refused while build mode is active, and Tab re-opens/re-closes it once nothing else is open.
 
+const Calendar := preload("res://scripts/calendar.gd")
 const CropDB := preload("res://scripts/crop_db.gd")
 const NpcSchedule := preload("res://scripts/npc_schedule.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -400,7 +401,7 @@ func _physics_process(_delta: float) -> bool:
 				"spawn position matches Forest Edge's authored spawn cell (17,5)")
 			_check(test_map.get_map_rect() == Rect2(0, 0, 1152, 512),
 				"farm-zone map bounds are 72x32 cells (the 2026-08-09 farm expansion)")
-			_check(hud.get_node("%DayLabel").text == "Day 1", "HUD day label bound")
+			_check(hud.get_node("%DayLabel").text == "Spring 1", "HUD day label bound (season date)")
 			_check(hud.get_node("%EnergyFill").value == 100.0, "energy bar full")
 			_check(player.farm == farm and player.test_map == test_map and player.structures == structures,
 				"player bound to farm/map/structures")
@@ -1591,7 +1592,7 @@ func _physics_process(_delta: float) -> bool:
 			_check(day_manager.day == saved_day,
 				"day restored (%d, expected %d)" % [day_manager.day, saved_day])
 			_check(day_manager.clock_text() == "6:00 AM", "clock restored to the saved morning")
-			_check(hud.get_node("%DayLabel").text == "Day %d" % saved_day, "HUD shows the loaded day")
+			_check(hud.get_node("%DayLabel").text == Calendar.date_text(saved_day), "HUD shows the loaded day")
 			_check(player.global_position == saved_position,
 				"player position restored (%s, expected %s)" % [player.global_position, saved_position])
 			_check(player.facing == "north", "player facing restored")

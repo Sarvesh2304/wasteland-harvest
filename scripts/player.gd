@@ -52,7 +52,7 @@ const ENERGY_SCYTHE := 0.0
 const ENERGY_BUILD := 1.25
 
 ## Watering-can capacity by tool tier (index = tier - 1).
-const CAN_CAPACITY: Array[int] = [40, 55, 70, 100]
+const CAN_CAPACITY := ItemDB.CAN_CAPACITY
 ## How long the mouse counts as "in charge" of aiming after it last moved.
 const MOUSE_AIM_SECONDS := 2.5
 
@@ -628,7 +628,7 @@ func _is_water(cell: Vector2i) -> bool:
 
 
 func _can_capacity() -> int:
-	return CAN_CAPACITY[clampi(inventory.selected_tool_tier(), 1, CAN_CAPACITY.size()) - 1]
+	return ItemDB.can_capacity(inventory.selected_tool_tier())
 
 
 ## Water left in the selected watering can (a can without a recorded level counts as full).

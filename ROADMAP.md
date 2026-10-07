@@ -12,26 +12,20 @@ A milestone is done when its line is true in actual play (tests pass, screenshot
 drivers green) — not when code merely exists.
 
 ### Milestone A — "The first hour feels great"
-- [ ] Audio foundation: `AudioManager` autoload (Music/SFX/Ambience/UI buses), code-synthesised
+- [x] Audio foundation: `AudioManager` autoload (Music/SFX/Ambience/UI buses), code-synthesised
       SFX library and music/ambience loops (`tools/audio/`, rebuilt fresh)
-      *(2026-10-07: `Audio` autoload + `SoundDirector` zone/time/weather rules landed and wired;
-      the synthesised SFX/music/ambience files are still being generated)*
 - [x] Interaction: visible target-tile cursor, mouse aiming within reach, separate Interact
       action, mouse clicks for tool/interact, controller bindings
-- [ ] Feedback: per-action particles, item pickups + "+N item" toasts, screen shake/hit-stop,
-      tool-specific sounds *(2026-10-07: `Fx` particles/shake/wobble, magnetised pickups and the
-      `Events` bus are in; the HUD toasts and the sound files are left)*
+- [x] Feedback: per-action particles, item pickups + "+N item" toasts, screen shake/hit-stop,
+      tool-specific sounds
 - [x] Farming rules: a dry day pauses growth (never kills), wet-soil visuals, regrowing crops,
       fertiliser, seasons per crop
 - [x] Reclaim-the-farm arc: farm starts overgrown (weeds, stones, branches, scrap, stumps);
       multi-hit trees/rocks with drops; daily debris/forage respawn *(2026-10-07: each farm keeps a
       4x3 tilled starter patch; the rest of its farmland is overgrown "old field" that starts
       smothered in weeds and is fertile once hoed)*
-- [ ] Readable world art: layered terrain (grass variation, paths, tilled dry/wet soil, animated
-      water, real fences), trees/rocks/debris sprites, icons for every item *(2026-10-07: the
-      terrain renderer and all environment art are in — seasonal grass, dual-grid road/soil/wet
-      soil/water, decking, decor, connecting fences, trees/rocks/debris/props; item icons and crop
-      sprites are generated but not yet reviewed and wired in)*
+- [x] Readable world art: layered terrain (grass variation, paths, tilled dry/wet soil, animated
+      water, real fences), trees/rocks/debris sprites, icons for every item
 
 ### Milestone B — "A reason to come back tomorrow"
 - [ ] Calendar: 4 seasons × 28 days, years; weather (clear/rain/storm/radstorm) with forecast;
