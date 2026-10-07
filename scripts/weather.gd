@@ -34,9 +34,8 @@ const CHANCES := {
 
 
 ## Picks weather for an absolute day from one uniform roll in [0, 1). The first day of the game
-## and the first day of every season are always clear (a gentle start, Stardew-style), and
-## radstorms never happen in the first spring/summer of year 1 before day 20 (new players meet
-## them once they've found their feet).
+## and the first day of every season are always clear (a gentle start, Stardew-style), and no
+## radstorm rolls before day 20 (new players meet them once they've found their feet).
 static func roll(day: int, season: String, day_of_season: int, roll_value: float) -> String:
 	if day <= 1 or day_of_season == 1:
 		return CLEAR

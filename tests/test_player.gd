@@ -146,3 +146,33 @@ func test_instant_latch_disarms_on_frame_after_modal_closed() -> void:
 	# frame AFTER the modal closed — modal_open is already false, but modal_was_open is not.
 	assert_false(PlayerScript.instant_armed_next(true, true, false, true),
 		"the press that closed a modal must not reopen the interaction one frame later")
+
+
+## -- 2026-10-07 aiming: keyboard faces the next cell; the mouse picks any cell within reach --
+
+func test_keyboard_targets_the_faced_cell() -> void:
+	var at := Vector2i(10, 10)
+	assert_eq(PlayerScript.target_cell_for(at, "north", Vector2i.ZERO, false), Vector2i(10, 9))
+	assert_eq(PlayerScript.target_cell_for(at, "east", Vector2i.ZERO, false), Vector2i(11, 10))
+	assert_eq(PlayerScript.target_cell_for(at, "bogus", Vector2i.ZERO, false), Vector2i(10, 11),
+		"unknown facing falls back to south")
+
+
+func test_mouse_targets_within_reach() -> void:
+	var at := Vector2i(10, 10)
+	assert_eq(PlayerScript.target_cell_for(at, "south", Vector2i(11, 9), true), Vector2i(11, 9),
+		"diagonal neighbours are in reach")
+	assert_eq(PlayerScript.target_cell_for(at, "south", Vector2i(15, 10), true), Vector2i(11, 10),
+		"far clicks clamp to the adjacent cell in that direction")
+	assert_eq(PlayerScript.target_cell_for(at, "south", Vector2i(4, 2), true), Vector2i(9, 9))
+	assert_eq(PlayerScript.target_cell_for(at, "west", at, true), Vector2i(9, 10),
+		"pointing at yourself uses your facing")
+
+
+func test_facing_toward_a_target() -> void:
+	assert_eq(PlayerScript.facing_toward(Vector2i(5, 5), Vector2i(6, 5), "south"), "east")
+	assert_eq(PlayerScript.facing_toward(Vector2i(5, 5), Vector2i(5, 4), "south"), "north")
+	assert_eq(PlayerScript.facing_toward(Vector2i(5, 5), Vector2i(4, 4), "south"), "west",
+		"horizontal wins diagonal ties")
+	assert_eq(PlayerScript.facing_toward(Vector2i(5, 5), Vector2i(5, 5), "north"), "north",
+		"no direction keeps the current facing")

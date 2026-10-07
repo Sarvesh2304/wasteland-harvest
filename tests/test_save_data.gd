@@ -222,3 +222,39 @@ func test_story_flags_round_trip_through_json() -> void:
 	assert_true(decoded["day_28_food_shortage_seen"])
 	assert_false(SaveData.decode_story_flags({})["day_28_food_shortage_seen"],
 		"missing additive story flags stay safely unseen")
+
+
+## -- 2026-10-07: v2 plot fields and generic cell->int maps --
+
+func test_v2_plot_fields_round_trip() -> void:
+	var plots := {
+		Vector2i(3, 4): {"crop_id": "bloodberry", "stage": 3, "watered": true, "growth": 6,
+			"fertilizer": 2, "dead": false},
+		Vector2i(5, 4): {"crop_id": "rain_radish", "stage": 2, "watered": false, "growth": 2,
+			"fertilizer": 0, "dead": true},
+	}
+	var decoded: Dictionary = SaveData.decode_plots(_through_json(SaveData.encode_plots(plots)))
+	var berry: Dictionary = decoded[Vector2i(3, 4)]
+	assert_eq(berry["growth"], 6)
+	assert_eq(berry["fertilizer"], 2)
+	assert_false(berry.has("dead"), "a living plot doesn't write the dead flag")
+	var radish: Dictionary = decoded[Vector2i(5, 4)]
+	assert_true(radish["dead"])
+	assert_false(radish.has("fertilizer"), "unfertilised plots don't write fertilizer")
+
+
+func test_pre_v2_plots_still_decode() -> void:
+	var decoded: Dictionary = SaveData.decode_plots({"7,8": {"crop_id": "mutant_potato", "stage": 2,
+		"watered": true}})
+	var plot: Dictionary = decoded[Vector2i(7, 8)]
+	assert_eq(plot["stage"], 2)
+	assert_false(plot.has("growth"), "growth is left for farm_grid.normalize_plot to rebuild")
+
+
+func test_cell_ints_round_trip() -> void:
+	var values := {Vector2i(1, 2): 3, Vector2i(-4, 5): 1}
+	var decoded: Dictionary = SaveData.decode_cell_ints(_through_json(SaveData.encode_cell_ints(values)))
+	assert_eq(decoded, values)
+	assert_eq(typeof(decoded[Vector2i(1, 2)]), TYPE_INT, "JSON floats come back as ints")
+	assert_eq(SaveData.decode_cell_ints(null), {}, "missing sections decode empty")
+	assert_eq(SaveData.decode_cell_ints("junk"), {})
