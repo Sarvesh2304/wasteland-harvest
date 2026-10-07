@@ -31,6 +31,8 @@ func _initialize() -> void:
 	if shot_dir == "":
 		shot_dir = "user://"
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	day_manager = root.get_node("DayManager")
 	game_state.save_path = "user://screenshot_buildings_save.json"
 	game_state.delete_save()

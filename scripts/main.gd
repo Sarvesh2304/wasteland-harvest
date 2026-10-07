@@ -37,6 +37,8 @@ var zones: Dictionary = {}
 ## direct child of Main for the same reason Settlers/Animals are: relationships belong to the
 ## settlement, not to whichever zone an NPC happens to stand in.
 @onready var affinity: Node = $Affinity
+@onready var sound_director: Node = $SoundDirector
+@onready var target_cursor: Node2D = $TargetCursor
 
 ## Phase 6: the shared modal mutual-exclusion registry (see modal_gate.gd's class doc). Owned
 ## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
@@ -57,9 +59,16 @@ func _ready() -> void:
 			"farm": map.get_node("Farm"),
 			"structures": map.get_node("Structures"),
 			"npcs": map.get_node("Npcs"),
+			"objects": map.get_node("Objects"),
 		}
 	hud.bind_player(player)
 	hud.bind_inventory(player.inventory)
+	Fx.register_camera(camera)
+	target_cursor.bind(player)
+	GameState.clear_save_sections()
+	GameState.register_save_section("weather", func() -> Dictionary:
+		return {"today": DayManager.weather_today, "tomorrow": DayManager.weather_tomorrow,
+			"seed": DayManager.weather_seed})
 	# Zone-wide signal wiring, ONCE per zone at boot (never re-run on transitions): any zone's
 	# storage interaction opens the same chest UI, and any zone's shipping sale credits the same
 	# player — uniform across all four zones (only the farm authors a shipping box today, but
@@ -150,6 +159,7 @@ func _ready() -> void:
 	# Both paths bind unfaded — boot is not a live transition, there's nothing to mask.
 	var save_data := GameState.take_pending_save()
 	if save_data.is_empty():
+		DayManager.reset_weather(randi())
 		_bind_zone("farm")
 		camera.set_target(player)
 		_grant_starting_resource_bonus()
@@ -183,6 +193,7 @@ func _process(_delta: float) -> void:
 ## and if a modal happened to be open at teardown nothing would ever set time_paused back.
 func _exit_tree() -> void:
 	DayManager.time_paused = false
+	GameState.clear_save_sections()
 
 
 ## -- Zone binding (the zone split's core) --
@@ -194,9 +205,10 @@ func _exit_tree() -> void:
 func _bind_zone_refs(zone_id: String) -> void:
 	var zone: Dictionary = zones[zone_id]
 	player.current_zone_id = zone_id
-	player.bind_world(zone["farm"], zone["map"], zone["structures"], zone["npcs"])
+	player.bind_world(zone["farm"], zone["map"], zone["structures"], zone["npcs"], zone["objects"])
 	_builder.bind(player, zone["map"], zone["structures"])
 	camera.set_map_bounds(zone["map"].get_global_map_rect())
+	sound_director.set_zone(zone_id)
 
 
 ## Full zone entry: rebind refs, teleport the player to `entry_cell` (or the zone's authored
@@ -234,12 +246,25 @@ func _on_zone_exit_requested(target_zone: String, entry_cell: Vector2i) -> void:
 func _apply_save(data: Dictionary) -> void:
 	DayManager.day = int(data.get("day", 1))
 	DayManager.minutes_into_day = float(data.get("minutes_into_day", DayManager.DAY_START_MINUTES))
+	var weather: Dictionary = data.get("weather", {})
+	if weather.is_empty():
+		DayManager.reset_weather(hash([data.get("settlement_id", ""), data.get("saved_unix", 0)]))
+	else:
+		DayManager.weather_seed = int(weather.get("seed", 0))
+		DayManager.weather_today = String(weather.get("today", "clear"))
+		DayManager.weather_tomorrow = String(weather.get("tomorrow", "clear"))
 	var zones_data: Dictionary = data.get("zones", {})
 	for zone_id in zones:
 		var zone_data: Dictionary = zones_data.get(zone_id, {})
 		zones[zone_id]["map"].load_state(zone_data.get("map", {}))
-		zones[zone_id]["farm"].load_state(zone_data.get("farm", {}))
+		var farm_data: Dictionary = zone_data.get("farm", {})
+		zones[zone_id]["farm"].load_state(farm_data)
 		zones[zone_id]["structures"].load_state(zone_data.get("structures", {}))
+		# Pre-world-objects saves kept trees/ore as the farm section's "resource_nodes".
+		var legacy = null
+		if farm_data.has("resource_nodes"):
+			legacy = SaveData.decode_resource_nodes(farm_data.get("resource_nodes", {}))
+		zones[zone_id]["objects"].load_state(zone_data.get("objects", {}), legacy)
 	player.load_state(data.get("player", {}))
 	# Phase 8 Stage 3: restores roster/pending-visitor state and re-spawns each as a real NPC in
 	# Town, re-registering their runtime dialogue trees — AFTER the zone loop above (Town's Npcs

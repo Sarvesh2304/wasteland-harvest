@@ -14,14 +14,20 @@ drivers green) — not when code merely exists.
 ### Milestone A — "The first hour feels great"
 - [ ] Audio foundation: `AudioManager` autoload (Music/SFX/Ambience/UI buses), code-synthesised
       SFX library and music/ambience loops (`tools/audio/`, rebuilt fresh)
-- [ ] Interaction: visible target-tile cursor, mouse aiming within reach, separate Interact
+      *(2026-10-07: `Audio` autoload + `SoundDirector` zone/time/weather rules landed and wired;
+      the synthesised SFX/music/ambience files are still being generated)*
+- [x] Interaction: visible target-tile cursor, mouse aiming within reach, separate Interact
       action, mouse clicks for tool/interact, controller bindings
 - [ ] Feedback: per-action particles, item pickups + "+N item" toasts, screen shake/hit-stop,
-      tool-specific sounds
+      tool-specific sounds *(2026-10-07: `Fx` particles/shake/wobble, magnetised pickups and the
+      `Events` bus are in; the HUD toasts and the sound files are left)*
 - [ ] Farming rules: a dry day pauses growth (never kills), wet-soil visuals, regrowing crops,
-      fertiliser, seasons per crop
+      fertiliser, seasons per crop *(2026-10-07: all the rules are in and tested — 15 crops,
+      regrowth, fertiliser, out-of-season withering; only the wet-soil visuals are left)*
 - [ ] Reclaim-the-farm arc: farm starts overgrown (weeds, stones, branches, scrap, stumps);
-      multi-hit trees/rocks with drops; daily debris/forage respawn
+      multi-hit trees/rocks with drops; daily debris/forage respawn *(2026-10-07: the world-object
+      system — multi-hit objects, tool tiers, drop tables, stumps, daily respawn — is in; the farm
+      layouts still start mostly pre-tilled)*
 - [ ] Readable world art: layered terrain (grass variation, paths, tilled dry/wet soil, animated
       water, real fences), trees/rocks/debris sprites, icons for every item
 

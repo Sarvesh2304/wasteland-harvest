@@ -52,6 +52,19 @@ func add_item(item_id: String, count: int, durability: int = -1) -> int:
 	return result["leftover"]
 
 
+## Adds one tool/weapon instance with its upgrade tier (never stacks). Returns false if full.
+## The "durability" key stays on the slot as the codebase's non-stacking instance marker; farming
+## tools no longer wear out (2026-10-07).
+func add_tool(item_id: String, tier: int = 1) -> bool:
+	for i in slots.size():
+		if (slots[i] as Dictionary).is_empty():
+			slots[i] = {"item_id": item_id, "count": 1, "durability": maxi(ItemDB.durability_max(item_id), 1),
+				"tier": clampi(tier, 1, ItemDB.MAX_TOOL_TIER)}
+			changed.emit()
+			return true
+	return false
+
+
 ## Remove up to `count` of item_id from the first matching slots. Returns how many were removed.
 func remove_item(item_id: String, count: int) -> int:
 	var result := remove_from_slots(slots, item_id, count)
@@ -59,6 +72,66 @@ func remove_item(item_id: String, count: int) -> int:
 	if result["removed"] > 0:
 		changed.emit()
 	return result["removed"]
+
+
+## How many more units of item_id fit (existing stacks + empty slots). Tool instances
+## (durability-tagged slots) never absorb more.
+func space_for(item_id: String) -> int:
+	var stack := maxi(ItemDB.stack_max(item_id), 1)
+	var room := 0
+	for slot in slots:
+		if (slot as Dictionary).is_empty():
+			room += stack
+		elif slot.get("item_id", "") == item_id and not slot.has("durability"):
+			room += maxi(stack - int(slot.get("count", 0)), 0)
+	return room
+
+
+## Whether `count` units (default 1) fit right now.
+func can_add(item_id: String, count: int = 1) -> bool:
+	return space_for(item_id) >= count
+
+
+func is_full() -> bool:
+	for slot in slots:
+		if (slot as Dictionary).is_empty():
+			return false
+	return true
+
+
+## Swaps two slots wholesale (inventory UI drag/drop). Same-item stackables merge into `to`
+## instead, overflow staying in `from`.
+func move_slot(from: int, to: int) -> void:
+	if from == to or from < 0 or to < 0 or from >= slots.size() or to >= slots.size():
+		return
+	var a: Dictionary = slots[from]
+	var b: Dictionary = slots[to]
+	var same: bool = not a.is_empty() and not b.is_empty() and a.get("item_id") == b.get("item_id") \
+		and not a.has("durability") and not b.has("durability")
+	if same:
+		var stack := ItemDB.stack_max(String(a["item_id"]))
+		var total := int(a.get("count", 0)) + int(b.get("count", 0))
+		b["count"] = mini(total, stack)
+		var rest := total - int(b["count"])
+		slots[to] = b
+		slots[from] = {} if rest <= 0 else {"item_id": a["item_id"], "count": rest}
+	else:
+		slots[from] = b
+		slots[to] = a
+	changed.emit()
+
+
+## Directly replaces one slot (crafting/shop UIs, debug tooling).
+func set_slot(index: int, slot: Dictionary) -> void:
+	if index < 0 or index >= slots.size():
+		return
+	slots[index] = slot.duplicate(true)
+	changed.emit()
+
+
+## Tier (1..4) of the tool in the selected hotbar slot; 1 when untiered.
+func selected_tool_tier() -> int:
+	return clampi(int(get_selected_slot().get("tier", 1)), 1, ItemDB.MAX_TOOL_TIER)
 
 
 func count_of(item_id: String) -> int:

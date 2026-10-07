@@ -61,7 +61,7 @@ var _index := 0
 
 func _ready() -> void:
 	box.visible = false
-	_row_ids = ShopDB.stock_ids().duplicate()
+	_row_ids = ShopDB.stock_ids(DayManager.season()).duplicate()
 	_row_ids.append("")  # trailing Leave row
 	for child in rows_box.get_children():
 		_row_labels.append(child as Label)
@@ -90,10 +90,16 @@ func open_store(_target_npc: Node) -> void:
 	box.visible = true
 	_index = 0
 	status_label.text = ""
+	# The shelf follows the season (scripts/shop_db.gd), so rebuild it every time the store opens.
+	_row_ids = ShopDB.stock_ids(DayManager.season()).duplicate()
+	_row_ids.append("")
+	Audio.play_sfx("ui_open", -4.0)
 	_refresh()
 
 
 func close() -> void:
+	if active:
+		Audio.play_sfx("ui_close", -4.0)
 	active = false
 	box.visible = false
 
@@ -109,10 +115,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("move_up"):
 		_index = wrapi(_index - 1, 0, _row_ids.size())
 		status_label.text = ""
+		Audio.play_sfx("ui_hover", -8.0)
 		_refresh()
 	elif event.is_action_pressed("move_down"):
 		_index = wrapi(_index + 1, 0, _row_ids.size())
 		status_label.text = ""
+		Audio.play_sfx("ui_hover", -8.0)
 		_refresh()
 	elif event.is_action_pressed("use_tool"):
 		_confirm()
@@ -129,14 +137,19 @@ func _confirm() -> void:
 	var result := ShopDB.attempt_purchase(_player.credits, item_id)
 	if not result["ok"]:
 		status_label.text = "Not enough Credits."
+		Audio.play_sfx("ui_error", -4.0)
 		return
 	# set_credits() emits credits_changed, which _on_credits_changed() turns back into a _refresh()
 	# call while active — no need to also refresh explicitly here (see bind()'s comment).
 	_player.set_credits(int(result["credits"]))
 	# Tools need a fresh full-durability instance (mirrors player._give_starting_loadout()'s own
 	# Inventory.add_item(id, 1, durability) call); everything else is a plain stackable grant.
-	var durability := ItemDB.durability_max(item_id) if ItemDB.is_tool_item(item_id) else -1
-	_player.inventory.add_item(item_id, 1, durability)
+	if ItemDB.is_tool_item(item_id) or ItemDB.is_weapon(item_id):
+		_player.inventory.add_tool(item_id, 1)
+	else:
+		_player.inventory.add_item(item_id, 1)
+	Events.item_gained.emit(item_id, 1)
+	Audio.play_sfx("ui_purchase", -2.0)
 	status_label.text = "Bought %s." % String(ItemDB.get_item(item_id).get("name", item_id))
 
 
@@ -149,8 +162,12 @@ func _on_credits_changed(_current: int) -> void:
 
 func _refresh() -> void:
 	credits_label.text = "Credits: %d" % (_player.credits if _player != null else 0)
-	for i in _row_labels.size():
-		var label := _row_labels[i]
+	# A scrolling window over the shelf: the highlighted row is always on screen.
+	var window := _row_labels.size()
+	var start := clampi(_index - window / 2, 0, maxi(_row_ids.size() - window, 0))
+	for slot in window:
+		var label := _row_labels[slot]
+		var i := start + slot
 		if i >= _row_ids.size():
 			label.visible = false
 			continue

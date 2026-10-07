@@ -41,13 +41,13 @@ static func shippable_ids() -> Array[String]:
 
 ## Crops only — see class doc. Unknown items are not shippable.
 static func is_shippable(item_id: String) -> bool:
-	return String(ItemDB.get_item(item_id).get("type", "")) == "crop"
+	return ItemDB.is_shippable(item_id)
 
 
 ## Credits per unit sold: the item's data/items.json `value`, the same field shop_db.gd prices
 ## purchases from (0 for unknown/unpriced — such an item is also never shippable).
 static func unit_value(item_id: String) -> int:
-	return int(ItemDB.get_item(item_id).get("value", 0))
+	return ItemDB.sell_value(item_id)
 
 
 ## Pure contents mutation (returns a NEW dictionary, input untouched — same discipline as

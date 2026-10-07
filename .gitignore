@@ -15,3 +15,7 @@ screenshots/
 
 # Editor
 *.tmp
+
+# Python art/audio generators
+__pycache__/
+*.pyc

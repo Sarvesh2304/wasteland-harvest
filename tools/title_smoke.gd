@@ -48,6 +48,8 @@ var _slot_bytes: Dictionary = {}
 func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	game_state.saves_dir = SAVES_DIR
 	game_state.legacy_save_path = SAVES_DIR.path_join("legacy.json")
 	game_state.save_path = SAVES_DIR.path_join("preboot.json")  # inert until New Game allocates

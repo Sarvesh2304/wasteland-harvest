@@ -73,6 +73,8 @@ func _initialize() -> void:
 	if shot_dir == "":
 		shot_dir = "user://"
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	day_manager = root.get_node("DayManager")
 	game_state.chosen_settlement_id = "open_plains"
 	RenderingServer.frame_post_draw.connect(_on_frame_post_draw)

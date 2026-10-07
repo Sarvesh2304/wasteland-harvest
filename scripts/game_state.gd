@@ -51,6 +51,9 @@ var chosen_settlement_id: String = SettlementDB.DEFAULT_ID
 var day_28_food_shortage_seen := false
 
 var save_path := "user://savegame.json"
+## Test seam (2026-10-07): smoke drivers that predate the reclaim-the-farm overgrowth set this
+## false so zones boot without scattered debris or daily regrowth. Gameplay never touches it.
+var world_spawning_enabled := true
 
 ## Where slot files live / where a pre-multi-slot save is adopted from (see class doc). Vars —
 ## not consts — so test tooling can point a whole run at throwaway locations.
@@ -138,6 +141,9 @@ func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: 
 			"farm": zone["farm"].save_state(),
 			"structures": zone["structures"].save_state(),
 		}
+		var objects = zone.get("objects")
+		if objects != null:
+			zones_out[zone_id]["objects"] = objects.save_state()
 	var data := SaveData.build_save({
 		"settlement_id": chosen_settlement_id,
 		"day": DayManager.day,
@@ -159,6 +165,10 @@ func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: 
 		"affinity": affinity.save_state() if affinity != null else {},
 		"story_flags": SaveData.encode_story_flags(day_28_food_shortage_seen),
 	})
+	for section in _section_providers:
+		var provider: Callable = _section_providers[section]
+		if provider.is_valid():
+			data[section] = provider.call()
 	# Slot files live in a subdirectory that won't exist before the first-ever save (slot
 	# allocation is eager, file creation lazy — see start_new_slot()); a no-op for paths whose
 	# directory already exists, e.g. the user:// roots every test tool points save_path at.
@@ -179,6 +189,21 @@ func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: 
 ## chosen_settlement_id is set immediately — it must be in place BEFORE main.tscn instantiates,
 ## because test_map.gd resolves its layout from it in _enter_tree() (the same
 ## before-children's-_ready() ordering constraint the settlement picker already relies on).
+## -- Additive save sections (2026-10-07) --
+## Systems added after the zone split (weather, skills, quests, ...) register a provider that
+## returns their JSON-safe section instead of growing save_game()'s signature each time. main.gd
+## registers them on boot and clears them on teardown; loading reads data[section] directly.
+var _section_providers: Dictionary = {}
+
+
+func register_save_section(section: String, provider: Callable) -> void:
+	_section_providers[section] = provider
+
+
+func clear_save_sections() -> void:
+	_section_providers.clear()
+
+
 func load_save_from_disk() -> bool:
 	if not has_save():
 		return false

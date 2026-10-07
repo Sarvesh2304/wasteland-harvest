@@ -110,15 +110,24 @@ static func decode_cells(data: Array) -> Array[Vector2i]:
 
 ## -- Farm plots (farm.gd's _plots: cell -> {crop_id, stage, watered}) --
 
+## v2 plots (2026-10-07) add growth/fertilizer/dead; a pre-v2 plot simply lacks them and
+## farm_grid.gd's normalize_plot() fills them in from "stage".
 static func encode_plots(plots: Dictionary) -> Dictionary:
 	var out := {}
 	for cell in plots:
 		var plot: Dictionary = plots[cell]
-		out[cell_key(cell)] = {
+		var entry := {
 			"crop_id": String(plot.get("crop_id", "")),
 			"stage": int(plot.get("stage", 0)),
 			"watered": bool(plot.get("watered", false)),
 		}
+		if plot.has("growth"):
+			entry["growth"] = int(plot["growth"])
+		if int(plot.get("fertilizer", 0)) > 0:
+			entry["fertilizer"] = int(plot["fertilizer"])
+		if bool(plot.get("dead", false)):
+			entry["dead"] = true
+		out[cell_key(cell)] = entry
 	return out
 
 
@@ -126,11 +135,36 @@ static func decode_plots(data: Dictionary) -> Dictionary:
 	var out := {}
 	for key in data:
 		var plot: Dictionary = data[key]
-		out[parse_cell_key(String(key))] = {
+		var entry := {
 			"crop_id": String(plot.get("crop_id", "")),
 			"stage": int(plot.get("stage", 0)),
 			"watered": bool(plot.get("watered", false)),
 		}
+		if plot.has("growth"):
+			entry["growth"] = int(plot["growth"])
+		if plot.has("fertilizer"):
+			entry["fertilizer"] = int(plot["fertilizer"])
+		if plot.has("dead"):
+			entry["dead"] = bool(plot["dead"])
+		out[parse_cell_key(String(key))] = entry
+	return out
+
+
+## -- Generic cell -> int maps (fertilised soil, etc.) --
+
+static func encode_cell_ints(values: Dictionary) -> Dictionary:
+	var out := {}
+	for cell in values:
+		out[cell_key(cell)] = int(values[cell])
+	return out
+
+
+static func decode_cell_ints(data) -> Dictionary:
+	var out := {}
+	if not (data is Dictionary):
+		return out
+	for key in data:
+		out[parse_cell_key(String(key))] = int(data[key])
 	return out
 
 
@@ -154,6 +188,11 @@ static func decode_resource_nodes(data: Dictionary) -> Dictionary:
 ## A slot is {} | {item_id, count} | {item_id, count, durability} — already JSON-friendly
 ## except for JSON's float round-trip on the int fields (see class doc).
 
+## Optional per-slot integer fields that round-trip: tool instance marker, upgrade tier,
+## watering-can level, item quality, weapon ammo loaded.
+const SLOT_INT_EXTRAS: Array[String] = ["durability", "tier", "water", "quality", "ammo"]
+
+
 static func encode_inventory(slots: Array, selected_hotbar_index: int) -> Dictionary:
 	var out_slots: Array = []
 	for slot in slots:
@@ -164,8 +203,9 @@ static func encode_inventory(slots: Array, selected_hotbar_index: int) -> Dictio
 			"item_id": String(slot.get("item_id", "")),
 			"count": int(slot.get("count", 0)),
 		}
-		if slot.has("durability"):
-			out_slot["durability"] = int(slot["durability"])
+		for extra in SLOT_INT_EXTRAS:
+			if slot.has(extra):
+				out_slot[extra] = int(slot[extra])
 		out_slots.append(out_slot)
 	return {"slots": out_slots, "selected_hotbar_index": selected_hotbar_index}
 
@@ -181,8 +221,9 @@ static func decode_inventory(data: Dictionary) -> Dictionary:
 			"item_id": String(slot_dict.get("item_id", "")),
 			"count": int(slot_dict.get("count", 0)),
 		}
-		if slot_dict.has("durability"):
-			out_slot["durability"] = int(slot_dict["durability"])
+		for extra in SLOT_INT_EXTRAS:
+			if slot_dict.has(extra):
+				out_slot[extra] = int(slot_dict[extra])
 		out_slots.append(out_slot)
 	return {
 		"slots": out_slots,

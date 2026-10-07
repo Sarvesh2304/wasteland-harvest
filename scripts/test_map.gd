@@ -168,6 +168,15 @@ func till_cell(cell: Vector2i) -> bool:
 	return true
 
 
+## Save-restore helper: marks a cell tilled without the tillable-terrain check (a saved crop
+## must never end up floating on grass after a layout change).
+func force_till(cell: Vector2i) -> void:
+	if is_soil_at(cell.x, cell.y):
+		return
+	_tilled[cell] = true
+	_repaint_ground_around(cell)
+
+
 ## Repaints the four visual tiles whose corners sample this logical cell (see build()'s loop:
 ## visual tile (vx, vy) samples logical cells (vx-1,vy-1)..(vx,vy)), i.e. visual tiles
 ## cell, cell+(1,0), cell+(0,1), cell+(1,1).

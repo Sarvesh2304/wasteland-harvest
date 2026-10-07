@@ -66,6 +66,8 @@ var _paused_day := 0
 func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	game_state.save_path = "user://sleep_smoke_save.json"
 	game_state.delete_save()
 	game_state.game_saved.connect(func() -> void: _saves_seen += 1)

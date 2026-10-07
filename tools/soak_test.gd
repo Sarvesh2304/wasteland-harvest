@@ -15,7 +15,7 @@ extends SceneTree
 ## Run: godot --headless --path . --script res://tools/soak_test.gd
 ##
 ## ## The playthrough (Forest Edge, chosen for its buildable-materials starting bonus)
-##   Day 1: till/plant/water 3 mutant-potato plots through the real player.use_tool() dispatch;
+##   Day 1: till/plant/water 3 rain-radish plots through the real player.use_tool() dispatch;
 ##          full conversation with Scout Kael — DURING which the Phase 6 modal-conflict fix is
 ##          exercised (a "B" press through builder.gd's real input handler must refuse to engage
 ##          build mode mid-dialogue, and a shared "use_tool" press delivered to both nodes must
@@ -25,7 +25,9 @@ extends SceneTree
 ##          placed through the real build-mode input path — during which the REVERSE exclusion
 ##          is checked (dialogue/shipping open attempts refused while build mode is active) —
 ##          and the day ends with a real bed sleep (auto-save #1).
-##   Day 2: water everything, chop a tree, then stay up ALL NIGHT via 1-minute advance_minutes()
+##   Day 2: water everything, fell a tree (2026-10-07 world objects: ten real axe swings, a stump
+##          left behind, wood spilled as pickups and swept up), then stay up ALL NIGHT via
+##          1-minute advance_minutes()
 ##          ticks (the same API DayManager._process drives with frame deltas — a legitimate
 ##          acceleration of the real path, not a test-only fork; every other day ends through
 ##          the bed path, so both day-rollover routes get soaked). Crossing midnight exercises
@@ -36,16 +38,17 @@ extends SceneTree
 ##          reboot through the real resume path — with crops mid-growth, a completed player
 ##          building standing, and the save file's JSON re-parsed to prove it isn't corrupt.
 ##   Day 4: water, sleep.
-##   Day 5: harvest 2 of the 3 mature potatoes (the third stays standing), place a Shelter Tent
-##          blueprint, load both potatoes into the shipping box, sleep -> the day-6 morning tick
+##   Day 5: harvest 2 of the 3 mature radishes (the third stays standing), place a Shelter Tent
+##          blueprint, load both radishes into the shipping box, sleep -> the day-6 morning tick
 ##          resolves CONSTRUCTION COMPLETION and the SHIPPING SALE and the FARM GROWTH pass all
 ##          on the same day_started emission — the exact multi-subscriber pileup the checklist's
-##          "without conflicts" is about. Credits are asserted EXACTLY (+40, no double-credit).
-##   Day 6: buy 2 dustwheat seeds at Marta's store through the real dialogue-choice path (spending
-##          the sale's Credits — economy loop live mid-soak), with another build-toggle refusal
-##          check while the store is open; harvest the last potato; till/plant/water 2 dustwheat
-##          plots (second crop type growing concurrently); ship the last potato; sleep.
-##   Day 7: second morning sale resolves (+20, exact); dustwheat advanced a stage; the player
+##          "without conflicts" is about. Credits are asserted EXACTLY (+60, no double-credit).
+##   Day 6: buy 2 mutant-potato seeds off Marta's SEASONAL spring shelf through the real
+##          dialogue-choice path (spending the sale's Credits — economy loop live mid-soak), with
+##          another build-toggle refusal check while the store is open; harvest the last radish;
+##          till/plant/water 2 potato plots (second crop type growing concurrently); ship the
+##          last radish; sleep.
+##   Day 7: second morning sale resolves (+30, exact); the potatoes advanced a stage; the player
 ##          walks away under real held input (the "never stuck" check); final save-file hygiene.
 ## Day counter: 1 -> 7 = six full in-game days end to end (the checklist asks for 5).
 ##
@@ -69,8 +72,13 @@ const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.
 ## farmland patches, the SW creek, treeline/salvage, and every building. The old NPC-clearance
 ## constraint is gone with the split — no NPC lives in the farm zone anymore (town visits warp,
 ## see _warp_to below).
-const POTATO_CELLS: Array[Vector2i] = [Vector2i(5, 14), Vector2i(6, 14), Vector2i(7, 14)]
-const DUSTWHEAT_CELLS: Array[Vector2i] = [Vector2i(9, 14), Vector2i(10, 14)]
+## 2026-10-07: the day-1 crop is the starting rain radish (4 watered days, one stage a day — the
+## same 5-stage cadence the original potato had); the day-6 second crop is mutant potato, bought
+## off the spring shelf (dustwheat is a summer/autumn crop now).
+const RADISH_CELLS: Array[Vector2i] = [Vector2i(5, 14), Vector2i(6, 14), Vector2i(7, 14)]
+const POTATO_CELLS: Array[Vector2i] = [Vector2i(9, 14), Vector2i(10, 14)]
+const RADISH_PRICE := 30
+const POTATO_SEED_PRICE := 25
 const SHED_STAND := Vector2i(30, 8)   # facing south -> 2x2 shed lands at (30,9)-(31,10)
 const SHED_CELL := Vector2i(30, 9)    # the shed footprint's top-left (storage checks)
 const TENT_STAND := Vector2i(24, 13)  # facing south -> 1x1 tent lands at (24,14)
@@ -125,11 +133,21 @@ var failures: Array[String] = []
 var _walk_start_pos := Vector2.ZERO
 ## The title screen instance the day-3 reboot creates (stage 7) and drives (stage 8).
 var _title: Control = null
+## Day-2 tree felling (CHOP_STAGE) and the all-nighter that follows it (NIGHT_STAGE): stage 5
+## splits in three since a tree takes ten animation-locked swings, not one.
+const CHOP_STAGE := 21
+const NIGHT_STAGE := 22
+var _chop_swings := 0
+var _chop_fell_at := -1
+var _wood_before_chop := 0
+var _energy_before_night := 0.0
 
 
 func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	# Test-only saves DIRECTORY, wiped up front (see class doc / runtime_smoke.gd's identical
 	# rule, extended for the 2026-07-11 multi-slot system): save_path is pinned to a slot file
 	# INSIDE it so the day-3 reboot's title-screen Load list (stage 8) can find the save, and
@@ -181,7 +199,7 @@ func _physics_process(_delta: float) -> bool:
 				return false
 			_fetch_world_nodes()
 			_check(day_manager.day == 1, "soak starts on day 1")
-			_check(player.inventory.count_of("seed_mutant_potato") == 5, "5 starting potato seeds")
+			_check(player.inventory.count_of("seed_rain_radish") == 15, "15 starting radish seeds")
 			_check(player.inventory.count_of("wood") == 15, "Forest Edge bonus wood granted")
 			_check(main.modal_gate != null, "main.gd owns a modal gate")
 			for surface in [builder, dialogue_ui, store_ui, shipping_ui, menu_screen]:
@@ -189,23 +207,25 @@ func _physics_process(_delta: float) -> bool:
 					"%s is wired to the shared modal gate" % surface.name)
 			_enter_stage(1)
 		1:
-			# -- Day 1: till/plant/water all 3 potato plots via the real use_tool dispatch --
+			# -- Day 1: till/plant/water all 3 radish plots via the real use_tool dispatch --
 			if ticks < 5:
 				return false
-			for cell in POTATO_CELLS:
+			for cell in RADISH_CELLS:
 				_use_on_cell(cell, 0)  # hoe: till
-				_use_on_cell(cell, 5)  # slot 6 = starting potato seeds: plant
+				_use_on_cell(cell, 5)  # slot 6 = the starting radish seeds: plant
 				_use_on_cell(cell, 1)  # watering can: water
-			for cell in POTATO_CELLS:
+			for cell in RADISH_CELLS:
 				_check(test_map.is_tilled_at(cell), "cell %s tilled" % cell)
 				var plot: Dictionary = farm.get_plot(cell)
-				_check(String(plot.get("crop_id", "")) == "mutant_potato",
-					"potato planted at %s" % cell)
+				_check(String(plot.get("crop_id", "")) == "rain_radish",
+					"radish planted at %s" % cell)
 				_check(bool(plot.get("watered", false)), "plot %s watered" % cell)
-			_check(player.inventory.count_of("seed_mutant_potato") == 2,
-				"3 of 5 potato seeds consumed")
-			_check(player.energy == 92.5,
-				"day-1 farming energy ledger holds (100 - 3x2.5 = 92.5, got %.2f)" % player.energy)
+			_check(player.inventory.count_of("seed_rain_radish") == 12,
+				"3 of 15 radish seeds consumed")
+			# 2026-10-07 costs: till 1, plant 0, water 1.
+			_check(player.energy == 94.0,
+				"day-1 farming energy ledger holds (100 - 3 till - 3 water = 94, got %.2f)" \
+					% player.energy)
 			# Head to town for Kael THROUGH the real gate-cell walk (farm→path→town) — see
 			# GATE_WALK_STAGE's doc.
 			_begin_gate_walk(ROUTE_FARM_TO_TOWN, 2)
@@ -299,7 +319,7 @@ func _physics_process(_delta: float) -> bool:
 				_check(structures._pending.is_empty() and structures._completed.size() == 1,
 					"shed construction completed on the day-2 morning")
 				_check(structures.is_chest_at(SHED_CELL), "completed shed is storage")
-				for cell in POTATO_CELLS:
+				for cell in RADISH_CELLS:
 					var plot: Dictionary = farm.get_plot(cell)
 					_check(int(plot.get("stage", -1)) == 1 and not bool(plot.get("watered", true)),
 						"plot %s advanced to stage 1, watered flag consumed" % cell)
@@ -318,18 +338,52 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 5:
 				return false
 			if ticks == 5:
-				for cell in POTATO_CELLS:
+				for cell in RADISH_CELLS:
 					_use_on_cell(cell, 1)
-				# Chop the (33,2) treeline tree: 3 wood -> 6 total, affording day 5's tent.
+				# Fell the (33,2) treeline tree for the wood that affords day 5's tent: since the
+				# 2026-10-07 world objects it takes 10 HP of tier-1 axe swings (CHOP_STAGE).
 				player.global_position = test_map.get_global_cell_center(TREE_CELL + Vector2i(-1, 0))
 				player.velocity = Vector2.ZERO
 				player.facing = "east"
 				player.inventory.select_hotbar(2)  # axe
-				_check(farm.can_chop(TREE_CELL), "treeline tree standing")
+				_check(String(_objects().kind_at(TREE_CELL)).begins_with("tree"),
+					"treeline tree standing")
+				_wood_before_chop = player.inventory.count_of("wood")
+				_chop_swings = 0
+				_chop_fell_at = -1
 				player.use_tool()
-				_check(player.inventory.count_of("wood") == 6, "chop granted 3 wood (3 -> 6)")
-				_check(player.energy == 95.5,
-					"day-2 ledger before the all-nighter (100 - 3 water - 1.5 chop = 95.5)")
+				_chop_swings += 1
+				_enter_stage(CHOP_STAGE)
+		CHOP_STAGE:
+			# -- Day 2: keep swinging (one swing per finished animation, like a held button)
+			#    until the tree topples, let the drops land, sweep them up --
+			if String(_objects().kind_at(TREE_CELL)).begins_with("tree"):
+				if not player.using_tool:
+					player.use_tool()
+					_chop_swings += 1
+				return false
+			if _chop_fell_at < 0:
+				_chop_fell_at = ticks
+				_check(_chop_swings == 10, "the tree fell on the 10th swing (took %d)" % _chop_swings)
+				_check(String(_objects().kind_at(TREE_CELL)).begins_with("stump"),
+					"a stump is left behind")
+				return false
+			if ticks - _chop_fell_at < 90:
+				return false
+			_objects().collect_all_pickups(player.inventory)
+			_check(player.inventory.count_of("wood") >= _wood_before_chop + 8,
+				"the felled tree dropped 8+ wood (%d -> %d)"
+					% [_wood_before_chop, player.inventory.count_of("wood")])
+			_check(player.energy == 87.0,
+				"day-2 ledger before the all-nighter (100 - 3 water - 10 swings = 87, got %.2f)"
+					% player.energy)
+			_enter_stage(NIGHT_STAGE)
+		NIGHT_STAGE:
+			# -- Day 2 -> 3: the all-nighter (see stage 5's doc) --
+			if ticks < 2:
+				return false
+			if ticks == 2:
+				_energy_before_night = player.energy
 				# Prove the pass-out itself writes a save: start provably save-free (the bed's
 				# stage-4 save would otherwise mask it).
 				game_state.delete_save()
@@ -342,7 +396,7 @@ func _physics_process(_delta: float) -> bool:
 					day_manager.advance_minutes(1.0)
 					guard += 1
 				_check(day_manager.day == 3, "natural midnight rollover reached day 3")
-				for cell in POTATO_CELLS:
+				for cell in RADISH_CELLS:
 					_check(int(farm.get_plot(cell).get("stage", -1)) == 2,
 						"plot %s advanced to stage 2 on the natural rollover" % cell)
 				_check(sleepy_label.visible, "the GETTING SLEEPY cue is up past midnight")
@@ -351,13 +405,13 @@ func _physics_process(_delta: float) -> bool:
 				while day_manager.minutes_into_day < 60.0 and guard < 2000:
 					day_manager.advance_minutes(1.0)
 					guard += 1
-				var expected: float = 95.5 \
+				var expected: float = _energy_before_night \
 					- day_manager.minutes_into_day * player.SLEEPY_DRAIN_PER_GAME_MINUTE
 				_check(absf(player.energy - expected) < 0.001,
 					"sleepy drain integrates exactly (expected %.3f, got %.3f)"
 						% [expected, player.energy])
 				# ...and into the 2 AM wall: the forced pass-out ends the night regardless of
-				# the ~77 energy still in the bar.
+				# the ~69 energy still in the bar.
 				while day_manager.day == 3 and guard < 2000 \
 						and day_manager.minutes_into_day < float(day_manager.DAY_START_MINUTES):
 					day_manager.advance_minutes(1.0)
@@ -369,7 +423,7 @@ func _physics_process(_delta: float) -> bool:
 					"woke rested despite collapsing with energy left")
 				_check(game_state.has_save(), "the 2 AM forced pass-out auto-saved")
 				_check(not sleepy_label.visible, "the sleepy cue cleared on waking")
-				for cell in POTATO_CELLS:
+				for cell in RADISH_CELLS:
 					_check(int(farm.get_plot(cell).get("stage", -1)) == 2,
 						"plot %s did NOT double-advance for the one night" % cell)
 				_enter_stage(6)
@@ -377,7 +431,7 @@ func _physics_process(_delta: float) -> bool:
 			# -- Day 3: water, talk to Harlan, then the mid-sim save with everything in flight --
 			if ticks < 5:
 				if ticks == 1:  # exactly once: water at home (farm-bound), then head to town
-					for cell in POTATO_CELLS:
+					for cell in RADISH_CELLS:
 						_use_on_cell(cell, 1)
 					_warp_to("town")  # zone split: Harlan lives in the Town zone
 				var npc: Node = _npc_by_id("mayor_harlan")
@@ -451,7 +505,7 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.energy == 97.0,
 				"mid-day energy restored exactly (97, got %.2f)" % player.energy)
 			_check(player.credits == 0, "no phantom Credits appeared across the reload")
-			for cell in POTATO_CELLS:
+			for cell in RADISH_CELLS:
 				var plot: Dictionary = farm.get_plot(cell)
 				_check(int(plot.get("stage", -1)) == 2 and bool(plot.get("watered", false)),
 					"plot %s restored at stage 2, watered" % cell)
@@ -463,7 +517,7 @@ func _physics_process(_delta: float) -> bool:
 				"the fresh boot re-wired a fresh modal gate")
 			_sleep_in_bed()
 			_check(day_manager.day == 4, "slept into day 4")
-			_check(int(farm.get_plot(POTATO_CELLS[0]).get("stage", -1)) == 3,
+			_check(int(farm.get_plot(RADISH_CELLS[0]).get("stage", -1)) == 3,
 				"restored watered crops kept growing (stage 3)")
 			_enter_stage(9)
 		9:
@@ -471,25 +525,25 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 5:
 				return false
 			if ticks == 5:
-				for cell in POTATO_CELLS:
+				for cell in RADISH_CELLS:
 					_use_on_cell(cell, 1)
 				_sleep_in_bed()
 				_check(day_manager.day == 5, "slept into day 5")
-				for cell in POTATO_CELLS:
+				for cell in RADISH_CELLS:
 					_check(farm.can_harvest(cell),
-						"potato at %s mature on day 5 (4 watered nights, 5 stages)" % cell)
+						"radish at %s mature on day 5 (4 watered nights, 5 stages)" % cell)
 				_enter_stage(10)
 		10:
-			# -- Day 5: harvest 2, place the tent, ship both potatoes, sleep -> the day-6 tick
+			# -- Day 5: harvest 2, place the tent, ship both radishes, sleep -> the day-6 tick
 			#    resolves growth + construction + the sale on ONE day_started emission --
 			if ticks < 5:
 				return false
 			if ticks == 5:
-				_use_on_cell(POTATO_CELLS[0], 0)  # harvest (tool-agnostic)
-				_use_on_cell(POTATO_CELLS[1], 0)
-				_check(player.inventory.count_of("mutant_potato") == 2, "2 potatoes harvested")
-				_check(farm.can_harvest(POTATO_CELLS[2]),
-					"the third potato stays standing (mature plots hold)")
+				_use_on_cell(RADISH_CELLS[0], 0)  # harvest (tool-agnostic)
+				_use_on_cell(RADISH_CELLS[1], 0)
+				_check(player.inventory.count_of("rain_radish") == 2, "2 radishes harvested")
+				_check(farm.can_harvest(RADISH_CELLS[2]),
+					"the third radish stays standing (mature plots hold)")
 				# Tent blueprint through the real input path. Note: this Builder is the FRESH
 				# node the stage-7/8 reload rebuilt, so its catalog_index is back at 0 (the
 				# tent) — the shed cycle from stage 3 died with the old scene, correctly (build
@@ -500,23 +554,25 @@ func _physics_process(_delta: float) -> bool:
 				_drive(builder, "build_toggle")
 				_check(builder.current_id() == "shelter_tent",
 					"the rebooted builder's catalog starts back on the tent")
+				var wood_before_tent: int = player.inventory.count_of("wood")
 				_check(builder.confirm_placement(), "tent blueprint placed")
-				_check(player.inventory.count_of("wood") == 0, "tent spent the gathered 6 wood")
+				_check(player.inventory.count_of("wood") == wood_before_tent - 6,
+					"the tent spent 6 of the felled tree's wood")
 				_drive(builder, "build_toggle")
-				# Load both potatoes through the real shipping UI input path.
+				# Load both radishes through the real shipping UI input path (2026-10-07: one
+				# confirm loads the whole carried stack).
 				player.global_position = test_map.get_global_cell_center(BOX_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				player.use_tool()
 				_check(shipping_ui.active, "shipping UI opened with a tent pending nearby")
-				_drive(shipping_ui, "use_tool")  # row 0 = mutant_potato
+				_select_row(shipping_ui, shipping_ui._row_ids.find("rain_radish"))
 				_drive(shipping_ui, "use_tool")
-				_check(structures.shipping_contents == {"mutant_potato": 2},
-					"both potatoes loaded into the box")
-				_check(player.inventory.count_of("mutant_potato") == 0,
+				_check(structures.shipping_contents == {"rain_radish": 2},
+					"both radishes loaded into the box in one confirm")
+				_check(player.inventory.count_of("rain_radish") == 0,
 					"loading emptied them from the inventory")
-				for i in 4:
-					_drive(shipping_ui, "move_down")
+				_select_row(shipping_ui, shipping_ui._row_ids.size() - 1)
 				_drive(shipping_ui, "use_tool")  # Leave
 				_check(not shipping_ui.active, "left the loading UI")
 				# THE CONCURRENT TICK: growth + construction completion + shipping sale all ride
@@ -525,17 +581,18 @@ func _physics_process(_delta: float) -> bool:
 				_check(day_manager.day == 6, "slept into day 6")
 				_check(structures._pending.is_empty() and structures._completed.size() == 2,
 					"tent completed on the same tick the sale resolved")
-				_check(player.credits == 40,
-					"sale #1 credited EXACTLY 2 x 20 Cr (no double-credit; got %d)" % player.credits)
+				_check(player.credits == 2 * RADISH_PRICE,
+					"sale #1 credited EXACTLY 2 x %d Cr (no double-credit; got %d)"
+						% [RADISH_PRICE, player.credits])
 				_check(structures.shipping_contents.is_empty(), "the sale emptied the box")
 				_check(structures.sale_history.size() == 1, "one history entry after sale #1")
 				if structures.sale_history.size() == 1:
 					var sale: Dictionary = structures.sale_history[0]
-					_check(int(sale["day"]) == 6 and sale["items"] == {"mutant_potato": 2} \
-							and int(sale["total"]) == 40,
+					_check(int(sale["day"]) == 6 and sale["items"] == {"rain_radish": 2} \
+							and int(sale["total"]) == 2 * RADISH_PRICE,
 						"history entry #1 itemizes the sale (got %s)" % str(sale))
-				_check(farm.can_harvest(POTATO_CELLS[2]),
-					"the standing mature potato survived the same growth tick unharmed")
+				_check(farm.can_harvest(RADISH_CELLS[2]),
+					"the standing mature radish survived the same growth tick unharmed")
 				_enter_stage(11)
 		11:
 			# -- Day 6: spend the sale Credits at Marta's (real dialogue-choice path), with a
@@ -559,64 +616,75 @@ func _physics_process(_delta: float) -> bool:
 					"the dialogue->store handoff still works with the modal gate in place")
 				_drive(builder, "build_toggle")
 				_check(not builder.active, "build_toggle is refused while the STORE is open too")
-				_drive(store_ui, "move_down")  # row 0 (potato seeds) -> row 1 (dustwheat seeds)
-				_check(store_ui._index == 1, "on the dustwheat-seed row")
+				var potato_row: int = store_ui._row_ids.find("seed_mutant_potato")
+				_check(potato_row >= 0, "the spring shelf stocks mutant-potato seeds")
+				_select_row(store_ui, potato_row)
 				_drive(store_ui, "use_tool")
-				_drive(store_ui, "use_tool")  # buy 2 x seed_dustwheat @ 6 Cr
-				_check(player.credits == 28,
-					"bought 2 dustwheat seeds with sale Credits (40 -> 28, got %d)" % player.credits)
-				_check(player.inventory.count_of("seed_dustwheat") == 2, "2 dustwheat seeds held")
-				_drive(store_ui, "move_up")
-				_drive(store_ui, "move_up")  # 1 -> 0 -> wraps to Leave (10)
-				_check(store_ui._index == 10, "wrapped up to the Leave row")
+				_drive(store_ui, "use_tool")  # buy 2 x seed_mutant_potato
+				var expected_credits := 2 * RADISH_PRICE - 2 * POTATO_SEED_PRICE
+				_check(player.credits == expected_credits,
+					"bought 2 potato seeds with sale Credits (%d -> %d, got %d)"
+						% [2 * RADISH_PRICE, expected_credits, player.credits])
+				_check(player.inventory.count_of("seed_mutant_potato") == 2, "2 potato seeds held")
+				_select_row(store_ui, store_ui._row_ids.size() - 1)
+				_check(store_ui._row_ids[store_ui._index] == "", "on the trailing Leave row")
 				_drive(store_ui, "use_tool")
 				_check(not store_ui.active, "left the store")
 				_enter_stage(12)
 		12:
-			# -- Day 6: harvest the last potato, start the second crop, ship, sleep -> sale #2 --
+			# -- Day 6: harvest the last radish, start the second crop, ship, sleep -> sale #2 --
 			if ticks < 5:
 				_warp_to("farm")  # home from the store: the day's work is all farm-zone
 				return false
 			if ticks == 5:
-				_use_on_cell(POTATO_CELLS[2], 0)  # harvest
-				_check(player.inventory.count_of("mutant_potato") == 1, "last potato harvested")
-				var seed_slot := _hotbar_index_of("seed_dustwheat")
-				_check(seed_slot >= 0, "the bought dustwheat seeds landed in a hotbar slot")
-				for cell in DUSTWHEAT_CELLS:
+				_use_on_cell(RADISH_CELLS[2], 0)  # harvest
+				_check(player.inventory.count_of("rain_radish") == 1, "last radish harvested")
+				# The hotbar is full (5 tools, radish seeds, wood, scrap, stone), so the bought
+				# seeds went to the backpack: drag them onto the stone's hotbar slot, the same
+				# move_slot swap the inventory menu's drag/drop performs.
+				if _hotbar_index_of("seed_mutant_potato") < 0:
+					player.inventory.move_slot(_slot_index_of("seed_mutant_potato"),
+						player.inventory.HOTBAR_SIZE - 1)
+				var seed_slot := _hotbar_index_of("seed_mutant_potato")
+				_check(seed_slot >= 0, "the bought potato seeds are on the hotbar")
+				for cell in POTATO_CELLS:
 					_use_on_cell(cell, 0)          # till
 					_use_on_cell(cell, seed_slot)  # plant
 					_use_on_cell(cell, 1)          # water
-				for cell in DUSTWHEAT_CELLS:
+				for cell in POTATO_CELLS:
 					var plot: Dictionary = farm.get_plot(cell)
-					_check(String(plot.get("crop_id", "")) == "dustwheat"
+					_check(String(plot.get("crop_id", "")) == "mutant_potato"
 							and bool(plot.get("watered", false)),
-						"dustwheat planted+watered at %s" % cell)
-				_check(player.inventory.count_of("seed_dustwheat") == 0, "both seeds planted")
-				# Ship the last potato.
+						"potato planted+watered at %s" % cell)
+				_check(player.inventory.count_of("seed_mutant_potato") == 0, "both seeds planted")
+				# Ship the last radish.
 				player.global_position = test_map.get_global_cell_center(BOX_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "north"
 				player.use_tool()
 				_check(shipping_ui.active, "shipping UI opened for the second load")
+				_select_row(shipping_ui, shipping_ui._row_ids.find("rain_radish"))
 				_drive(shipping_ui, "use_tool")
-				_check(structures.shipping_contents == {"mutant_potato": 1}, "third potato loaded")
-				for i in 4:
-					_drive(shipping_ui, "move_down")
+				_check(structures.shipping_contents == {"rain_radish": 1}, "third radish loaded")
+				_select_row(shipping_ui, shipping_ui._row_ids.size() - 1)
 				_drive(shipping_ui, "use_tool")  # Leave
+				var credits_before_sale: int = player.credits
 				_sleep_in_bed()
 				_check(day_manager.day == 7, "slept into day 7 — six full days end to end")
-				_check(player.credits == 48,
-					"sale #2 credited EXACTLY 20 more (28 + 20 = 48, got %d)" % player.credits)
+				_check(player.credits == credits_before_sale + RADISH_PRICE,
+					"sale #2 credited EXACTLY %d more (%d -> %d, got %d)"
+						% [RADISH_PRICE, credits_before_sale, credits_before_sale + RADISH_PRICE,
+							player.credits])
 				_check(structures.sale_history.size() == 2,
 					"two separate morning sales resolved across the soak")
 				if structures.sale_history.size() == 2:
 					var sale: Dictionary = structures.sale_history[1]
-					_check(int(sale["day"]) == 7 and sale["items"] == {"mutant_potato": 1} \
-							and int(sale["total"]) == 20,
+					_check(int(sale["day"]) == 7 and sale["items"] == {"rain_radish": 1} \
+							and int(sale["total"]) == RADISH_PRICE,
 						"history entry #2 itemizes sale #2 (got %s)" % str(sale))
-				for cell in DUSTWHEAT_CELLS:
+				for cell in POTATO_CELLS:
 					_check(int(farm.get_plot(cell).get("stage", -1)) == 1,
-						"dustwheat at %s advanced overnight alongside the sale" % cell)
+						"potato at %s advanced overnight alongside the sale" % cell)
 				_enter_stage(13)
 		13:
 			# -- Final integrity: nothing stuck, nothing left open, clean save hygiene --
@@ -777,6 +845,28 @@ func _delete_test_saves() -> void:
 	for file_name in DirAccess.get_files_at(abs_dir):
 		DirAccess.remove_absolute(abs_dir.path_join(file_name))
 	DirAccess.remove_absolute(abs_dir)
+
+
+## The farm zone's world-objects layer (trees, rocks, debris, forage, pickups).
+func _objects() -> Node:
+	return main.zones["farm"]["map"].get_node("Objects")
+
+
+## Presses move_down through a list UI's real _unhandled_input until `row` is highlighted
+## (bounded; both the store and the shipping box wrap their row lists).
+func _select_row(ui: Node, row: int) -> void:
+	_check(row >= 0, "%s has the wanted row" % ui.name)
+	var guard := 0
+	while int(ui._index) != row and guard < 64 and row >= 0:
+		_drive(ui, "move_down")
+		guard += 1
+
+
+func _slot_index_of(item_id: String) -> int:
+	for i in player.inventory.TOTAL_SLOTS:
+		if String(player.inventory.get_slot(i).get("item_id", "")) == item_id:
+			return i
+	return -1
 
 
 func _hotbar_index_of(item_id: String) -> int:

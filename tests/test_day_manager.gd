@@ -18,22 +18,25 @@ func test_initial_state() -> void:
 
 
 func test_real_seconds_advance_clock() -> void:
-	# 1 in-game minute per real second: simulate 90 frames of 1.0s deltas via the same
-	# math _process uses.
+	# Stardew pace (2026-10-07): 10 game minutes per 7 real seconds — so 63 real seconds of
+	# 1.0s deltas (via the same math _process uses) is exactly 90 game minutes.
 	var dm = _make_dm()
-	for i in 90:
+	for i in 63:
 		dm.advance_minutes(1.0 * DayManagerScript.GAME_MINUTES_PER_REAL_SECOND)
-	assert_eq(dm.clock_text(), "7:30 AM", "90 real seconds = 90 game minutes")
+	assert_eq(dm.clock_text(), "7:30 AM", "63 real seconds = 90 game minutes")
 	assert_eq(dm.day, 1, "still the same day")
 	dm.free()
 
 
+func test_waking_day_lasts_about_fourteen_real_minutes() -> void:
+	var real_seconds := (20.0 * 60.0) / DayManagerScript.GAME_MINUTES_PER_REAL_SECOND
+	assert_true(absf(real_seconds - 840.0) < 0.01, "6 AM to 2 AM = 840 real seconds (got %f)" % real_seconds)
+
+
 func test_fractional_deltas_accumulate() -> void:
-	# 600 frames at 1/60s each = 10 real seconds = 10 game minutes (within float epsilon —
-	# the displayed clock floors, so it may legitimately read 6:09 when the sum lands a hair
-	# under 10.0).
+	# 420 frames at 1/60s each = 7 real seconds = 10 game minutes (within float epsilon).
 	var dm = _make_dm()
-	for i in 600:
+	for i in 420:
 		dm.advance_minutes((1.0 / 60.0) * DayManagerScript.GAME_MINUTES_PER_REAL_SECOND)
 	var expected := float(DayManagerScript.DAY_START_MINUTES) + 10.0
 	assert_true(absf(dm.minutes_into_day - expected) < 0.001,

@@ -1,32 +1,19 @@
 {
-  "_comment": "Phase 3 crop database (ROADMAP.md Phase 3's 4 post-apoc crops). Loaded by scripts/crop_db.gd. growth_stages is the count of visual stages (checklist range 4-6, varied across crops here to demonstrate the range rather than using one number everywhere); a plot's stage index is 0-based and stage (growth_stages-1) is 'mature' / harvestable, per the growth rule in scripts/farm_grid.gd (advance_plot). sprite_dir holds stage_0.png..stage_{n-1}.png, PixelLab-generated (see art/crops/README.md for provenance). yield_item/yield_quantity is what harvesting grants.",
+  "_comment": "Crop database (v2, 2026-10-07). Loaded by scripts/crop_db.gd. stage_days[i] = days a plant spends in growth stage i before moving on; a crop is mature once it has grown sum(stage_days) watered days, so it shows len(stage_days)+1 sprites (stage_0 = freshly planted ... stage_N = mature). An unwatered day pauses growth; it never kills the plant. regrow_days > 0 means harvesting leaves the plant in place and it fruits again after that many watered days. seasons lists when it can grow; on the first day of a season it can't grow in, it withers. yield_min/max plus extra_chance (an independent chance of +1) decide the harvest count. form drives the procedural art generator (tools/art/items) and has no gameplay effect. growth_stages is derived (= len(stage_days)+1) and kept for older callers.",
 
-  "mutant_potato": {
-    "name": "Mutant Potato",
-    "growth_stages": 5,
-    "sprite_dir": "res://art/crops/mutant_potato/",
-    "yield_item": "mutant_potato",
-    "yield_quantity": 1
-  },
-  "dustwheat": {
-    "name": "Dustwheat",
-    "growth_stages": 4,
-    "sprite_dir": "res://art/crops/dustwheat/",
-    "yield_item": "dustwheat_grain",
-    "yield_quantity": 1
-  },
-  "ironroot": {
-    "name": "Ironroot",
-    "growth_stages": 5,
-    "sprite_dir": "res://art/crops/ironroot/",
-    "yield_item": "ironroot",
-    "yield_quantity": 1
-  },
-  "sunbloom": {
-    "name": "Sunbloom",
-    "growth_stages": 6,
-    "sprite_dir": "res://art/crops/sunbloom/",
-    "yield_item": "sunbloom",
-    "yield_quantity": 1
-  }
+  "rain_radish": {"name": "Rain Radish", "seasons": ["spring"], "stage_days": [1, 1, 1, 1], "regrow_days": 0, "yield_item": "rain_radish", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_rain_radish", "form": "root_leafy", "colors": ["#c8384a", "#e8eef0"], "sprite_dir": "res://art/crops/rain_radish/"},
+  "mutant_potato": {"name": "Mutant Potato", "seasons": ["spring"], "stage_days": [1, 1, 2, 2], "regrow_days": 0, "yield_item": "mutant_potato", "yield_min": 1, "yield_max": 1, "extra_chance": 0.25, "seed_item": "seed_mutant_potato", "form": "bush_flowering", "colors": ["#8a5aa8", "#e8d27a"], "sprite_dir": "res://art/crops/mutant_potato/"},
+  "cleanleaf_kale": {"name": "Cleanleaf Kale", "seasons": ["spring"], "stage_days": [1, 2, 2, 1], "regrow_days": 0, "yield_item": "cleanleaf_kale", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_cleanleaf_kale", "form": "leafy_head", "colors": ["#4a8a5a", "#9ad07a"], "sprite_dir": "res://art/crops/cleanleaf_kale/"},
+  "ironroot": {"name": "Ironroot", "seasons": ["spring"], "stage_days": [1, 2, 2, 2, 3], "regrow_days": 0, "yield_item": "ironroot", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_ironroot", "form": "root_leafy", "colors": ["#8a3a2a", "#c46a3a"], "sprite_dir": "res://art/crops/ironroot/"},
+  "bloodberry": {"name": "Bloodberry", "seasons": ["spring"], "stage_days": [1, 1, 2, 2, 2], "regrow_days": 4, "yield_item": "bloodberry", "yield_min": 1, "yield_max": 2, "extra_chance": 0.2, "seed_item": "seed_bloodberry", "form": "bush_fruit", "colors": ["#a01828", "#e04050"], "sprite_dir": "res://art/crops/bloodberry/"},
+  "scorch_pepper": {"name": "Scorch Pepper", "seasons": ["summer"], "stage_days": [1, 1, 1, 1, 1], "regrow_days": 3, "yield_item": "scorch_pepper", "yield_min": 1, "yield_max": 1, "extra_chance": 0.1, "seed_item": "seed_scorch_pepper", "form": "bush_fruit", "colors": ["#e0501a", "#ffb02a"], "sprite_dir": "res://art/crops/scorch_pepper/"},
+  "blister_tomato": {"name": "Blister Tomato", "seasons": ["summer"], "stage_days": [1, 2, 2, 2, 2], "regrow_days": 4, "yield_item": "blister_tomato", "yield_min": 1, "yield_max": 1, "extra_chance": 0.05, "seed_item": "seed_blister_tomato", "form": "vine_trellis", "colors": ["#d8402a", "#f07a50"], "sprite_dir": "res://art/crops/blister_tomato/"},
+  "dust_corn": {"name": "Dust Corn", "seasons": ["summer", "autumn"], "stage_days": [2, 3, 3, 3, 3], "regrow_days": 4, "yield_item": "dust_corn", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_dust_corn", "form": "tall_stalk", "colors": ["#e8c048", "#c8a46a"], "sprite_dir": "res://art/crops/dust_corn/"},
+  "sunbloom": {"name": "Sunbloom", "seasons": ["summer"], "stage_days": [1, 2, 2, 2, 1], "regrow_days": 0, "yield_item": "sunbloom", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_sunbloom", "form": "flower", "colors": ["#ffc948", "#c86a1a"], "sprite_dir": "res://art/crops/sunbloom/"},
+  "glow_melon": {"name": "Glow Melon", "seasons": ["summer"], "stage_days": [1, 2, 3, 3, 3], "regrow_days": 0, "yield_item": "glow_melon", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_glow_melon", "form": "ground_gourd", "colors": ["#b8e070", "#f4f0a0"], "sprite_dir": "res://art/crops/glow_melon/"},
+  "dustwheat": {"name": "Dustwheat", "seasons": ["summer", "autumn"], "stage_days": [1, 1, 1, 1], "regrow_days": 0, "yield_item": "dustwheat_grain", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_dustwheat", "form": "grain", "colors": ["#e1b04a", "#c8903a"], "sprite_dir": "res://art/crops/dustwheat/"},
+  "ash_beet": {"name": "Ash Beet", "seasons": ["autumn"], "stage_days": [1, 1, 2, 2], "regrow_days": 0, "yield_item": "ash_beet", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_ash_beet", "form": "root_leafy", "colors": ["#6a4a7a", "#9a8a96"], "sprite_dir": "res://art/crops/ash_beet/"},
+  "ember_pumpkin": {"name": "Ember Pumpkin", "seasons": ["autumn"], "stage_days": [1, 2, 3, 4, 3], "regrow_days": 0, "yield_item": "ember_pumpkin", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_ember_pumpkin", "form": "ground_gourd", "colors": ["#e86a12", "#ffb02a"], "sprite_dir": "res://art/crops/ember_pumpkin/"},
+  "rustvine_grape": {"name": "Rustvine Grapes", "seasons": ["autumn"], "stage_days": [1, 1, 2, 3, 3], "regrow_days": 3, "yield_item": "rustvine_grape", "yield_min": 1, "yield_max": 2, "extra_chance": 0.1, "seed_item": "seed_rustvine_grape", "form": "vine_trellis", "colors": ["#a04a2a", "#c87048"], "sprite_dir": "res://art/crops/rustvine_grape/"},
+  "frostroot": {"name": "Frostroot", "seasons": ["winter"], "stage_days": [1, 2, 2, 2], "regrow_days": 0, "yield_item": "frostroot", "yield_min": 1, "yield_max": 1, "extra_chance": 0.0, "seed_item": "seed_frostroot", "form": "root_leafy", "colors": ["#9ac8e0", "#e8f4f8"], "sprite_dir": "res://art/crops/frostroot/"}
 }

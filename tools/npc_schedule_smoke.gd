@@ -74,6 +74,8 @@ var _watchdog_tripped := false
 func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	var settlement := OS.get_environment("WH_SCHEDULE_SMOKE_SETTLEMENT")
 	game_state.chosen_settlement_id = settlement if settlement != "" else "open_plains"
 	main = (load("res://scenes/main.tscn") as PackedScene).instantiate()

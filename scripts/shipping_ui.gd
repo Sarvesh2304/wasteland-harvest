@@ -19,9 +19,9 @@ extends CanvasLayer
 ##     convention now would cost more consistency than it saves presses at this stage's tiny
 ##     harvest sizes.
 ##
-## Rows are the FIXED shippable roster (ShippingDB.shippable_ids() — all 4 crops), not just
-## what the player currently holds: stable row positions can't shift under the cursor as counts
-## hit zero mid-session, and a "held 0" row confirming to a status refusal teaches the roster.
+## Rows (2026-10-07) are the shippable items the player is CARRYING, in backpack order, plus
+## Leave — with ~100 sellable items in the catalogue a fixed roster would be a wall of zeros.
+## Confirming loads the whole carried amount of that item at once (Stardew's bin takes stacks).
 ##
 ## One-way (Stardew's bin convention, documented in shipping_db.gd/structures.gd): nothing here
 ## takes an item back out — no retrieval flow exists to build, and the overnight sale is the
@@ -36,7 +36,7 @@ const ItemDB := preload("res://scripts/item_db.gd")
 const ROW_COLOR := Color("#7b5025")            # worn wood (dark) — unselected row
 const ROW_SELECTED_COLOR := Color("#c5520f")   # rust red — matches store_ui/dialogue_ui highlights
 const LEAVE_TEXT := "Leave"
-const INFO_TEXT := "Crops ship overnight. Credits arrive in the morning — no taking them back out."
+const INFO_TEXT := "Everything in the box sells overnight. Credits arrive in the morning."
 
 @onready var box: Control = %Box
 @onready var value_label: Label = %ValueLabel
@@ -63,8 +63,7 @@ var _index := 0
 
 func _ready() -> void:
 	box.visible = false
-	_row_ids = ShippingDB.shippable_ids().duplicate()
-	_row_ids.append("")  # trailing Leave row
+	_row_ids = [""]
 	for child in rows_box.get_children():
 		_row_labels.append(child as Label)
 	info_label.text = INFO_TEXT
@@ -86,10 +85,24 @@ func open_box() -> void:
 	box.visible = true
 	_index = 0
 	status_label.text = ""
+	_rebuild_rows()
 	_refresh()
 
 
+## Carried shippable items in backpack order, plus the trailing Leave row ("").
+func _rebuild_rows() -> void:
+	_row_ids.clear()
+	for slot in _player.inventory.slots:
+		var item_id := String((slot as Dictionary).get("item_id", ""))
+		if item_id != "" and ShippingDB.is_shippable(item_id) and not _row_ids.has(item_id):
+			_row_ids.append(item_id)
+	_row_ids.append("")
+	_index = clampi(_index, 0, _row_ids.size() - 1)
+
+
 func close() -> void:
+	if active:
+		Audio.play_sfx("chest_close", -6.0)
 	active = false
 	box.visible = false
 
@@ -105,42 +118,48 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("move_up"):
 		_index = wrapi(_index - 1, 0, _row_ids.size())
 		status_label.text = ""
+		Audio.play_sfx("ui_hover", -8.0)
 		_refresh()
 	elif event.is_action_pressed("move_down"):
 		_index = wrapi(_index + 1, 0, _row_ids.size())
 		status_label.text = ""
+		Audio.play_sfx("ui_hover", -8.0)
 		_refresh()
 	elif event.is_action_pressed("use_tool"):
 		_confirm()
 
 
-## Loads one unit of the highlighted crop, or closes on the trailing "Leave" row. Holding
-## nothing of the highlighted crop is a visible refusal (status message, nothing moved) — the
-## same silent-but-visible standard store_ui's insufficient-funds path set. Removal happens
-## only AFTER structures accepted the deposit, so a refusal can never eat the item; with a
-## positive count_of() and a crop-typed row id, add_to_shipping_box can't actually refuse, but
-## the ordering keeps the invariant structural rather than incidental.
+## Loads everything carried of the highlighted item, or closes on the trailing "Leave" row.
+## Removal happens only AFTER structures accepted the deposit, so a refusal can never eat items.
 func _confirm() -> void:
 	var item_id := _row_ids[_index]
 	if item_id == "":
 		close()
 		return
-	if _player.inventory.count_of(item_id) <= 0:
+	var count: int = _player.inventory.count_of(item_id)
+	if count <= 0:
 		status_label.text = "None to load."
+		Audio.play_sfx("ui_error", -6.0)
 		return
-	if not _structures.add_to_shipping_box(item_id, 1):
-		status_label.text = "The box refuses that."  # unreachable for a crop row; see above
+	if not _structures.add_to_shipping_box(item_id, count):
+		status_label.text = "The box refuses that."
+		Audio.play_sfx("ui_error", -6.0)
 		return
-	_player.inventory.remove_item(item_id, 1)
-	status_label.text = "Loaded 1 %s." % String(ItemDB.get_item(item_id).get("name", item_id))
+	_player.inventory.remove_item(item_id, count)
+	Audio.play_sfx("ship", -3.0)
+	status_label.text = "Loaded %d %s." % [count, String(ItemDB.get_item(item_id).get("name", item_id))]
+	_rebuild_rows()
 	_refresh()
 
 
 func _refresh() -> void:
 	var contents: Dictionary = _structures.shipping_contents
 	value_label.text = "In box: %d Cr" % ShippingDB.sale_total(contents)
-	for i in _row_labels.size():
-		var label := _row_labels[i]
+	var window := _row_labels.size()
+	var start := clampi(_index - window / 2, 0, maxi(_row_ids.size() - window, 0))
+	for slot in window:
+		var label := _row_labels[slot]
+		var i := start + slot
 		if i >= _row_ids.size():
 			label.visible = false
 			continue
@@ -149,11 +168,10 @@ func _refresh() -> void:
 		if item_id == "":
 			label.text = LEAVE_TEXT
 		else:
-			label.text = "%s — %d Cr each — held %d, in box %d" % [
-				String(ItemDB.get_item(item_id).get("name", item_id)),
-				ShippingDB.unit_value(item_id),
-				_player.inventory.count_of(item_id),
-				int(contents.get(item_id, 0)),
+			var held: int = _player.inventory.count_of(item_id)
+			label.text = "%s x%d — %d Cr" % [
+				String(ItemDB.get_item(item_id).get("name", item_id)), held,
+				ShippingDB.unit_value(item_id) * held,
 			]
 		label.add_theme_color_override("font_color",
 			ROW_SELECTED_COLOR if i == _index else ROW_COLOR)

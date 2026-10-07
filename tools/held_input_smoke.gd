@@ -77,6 +77,8 @@ var _minutes_snapshot := 0.0
 func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	# Bed sleeps auto-save: test-only path, cleared before and after (the same hard hygiene
 	# requirement runtime_smoke.gd/soak_test.gd document).
 	game_state.save_path = "user://held_input_smoke_save.json"

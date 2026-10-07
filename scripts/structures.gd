@@ -274,7 +274,8 @@ func can_place(top_left: Vector2i, footprint_size: Vector2i) -> bool:
 			return false
 		if not farm.get_plot(cell).is_empty():
 			return false
-		if farm.can_chop(cell) or farm.can_mine(cell):
+		var objects: Node = _test_map.get_node_or_null("Objects")
+		if objects != null and objects.has_object(cell):
 			return false
 	return true
 

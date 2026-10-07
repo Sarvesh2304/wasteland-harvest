@@ -1,8 +1,9 @@
 extends Node
 ## Global day/night clock (autoload "DayManager", ROADMAP Phase 2).
 ##
-## Tracks in-game time at 1 in-game minute per real second (a full day = 24 real minutes) and
-## the day counter. Emits signals the HUD listens to, and exposes a pure static sky-color
+## Tracks in-game time (10 in-game minutes per 7 real seconds, Stardew's pace: a waking day from
+## 6 AM to 2 AM lasts ~14 real minutes) and the day counter, plus calendar accessors (season,
+## day-of-season, year) delegating to the pure scripts/calendar.gd. Emits signals the HUD listens to, and exposes a pure static sky-color
 ## gradient (dawn → noon → dusk → night) that main.tscn's CanvasModulate samples every frame.
 ## All time math and the gradient are static/pure so the headless test suite can exercise them
 ## without a running scene (see tests/test_day_manager.gd).
@@ -19,14 +20,18 @@ signal day_started(day: int)
 ## moves forward, so a receiver can trust any wrap is a genuine midnight crossing.
 signal time_advanced(prev_minutes: float, new_minutes: float)
 
-## 1 in-game minute passes per real second (ROADMAP Phase 2's suggested rate).
-const GAME_MINUTES_PER_REAL_SECOND := 1.0
+## 10 in-game minutes per 7 real seconds (2026-10-07: Stardew's proven pace, replacing Phase 2's
+## 1 min/s — a 20-real-minute day dragged and diluted the "one more day" loop).
+const GAME_MINUTES_PER_REAL_SECOND := 10.0 / 7.0
 const MINUTES_PER_DAY := 24 * 60
 ## Each day begins at 6:00 AM, Stardew-style. (Judgment call: the day *counter* still rolls
 ## over at midnight for Phase 2 simplicity. Stardew's 2 AM pass-out rule, deferred since then,
 ## landed 2026-07-11 from direct playtest feedback — it lives in player.gd's forced-sleep
 ## rules, riding this clock's time_advanced signal; see player.gd's "night rules" section.)
 const DAY_START_MINUTES := 6 * 60
+
+const Calendar := preload("res://scripts/calendar.gd")
+const Weather := preload("res://scripts/weather.gd")
 
 ## Sky gradient keyframes: [hour (0-24), CanvasModulate color]. Piecewise-linearly
 ## interpolated, wrapping across midnight. Night is a cool moonlit blue; dawn and dusk pass
@@ -51,6 +56,18 @@ var minutes_into_day := float(DAY_START_MINUTES)
 ## cutscenes/sleep transitions the same way.
 var time_paused := false
 
+## Today's and tomorrow's weather (scripts/weather.gd kinds). Rolled the moment a new day begins,
+## BEFORE day_started fires, so every morning subscriber (crops, NPCs, HUD) sees today's weather.
+## Tomorrow's is known a day ahead for the forecast. Saved/restored by main.gd.
+var weather_today := Weather.CLEAR
+var weather_tomorrow := Weather.CLEAR
+## Seed for the deterministic per-day weather roll; set per save slot so two playthroughs differ
+## but a reload reproduces the same forecast.
+var weather_seed := 0
+## Test/tooling override: when non-empty every roll returns this kind (e.g. "clear" so a smoke
+## driver's crops only grow when it waters them). Never set by gameplay.
+var forced_weather := ""
+
 
 func _process(delta: float) -> void:
 	if time_paused:
@@ -65,6 +82,7 @@ func advance_minutes(game_minutes: float) -> void:
 	while minutes_into_day >= MINUTES_PER_DAY:
 		minutes_into_day -= MINUTES_PER_DAY
 		day += 1
+		_roll_weather_for_new_day()
 		day_started.emit(day)
 	time_changed.emit(day, minutes_into_day)
 	# After time_changed on purpose: if a night-rules receiver ends the day (the 2 AM forced
@@ -98,6 +116,7 @@ func skip_to_next_morning() -> void:
 	if morning_skip_adds_day(minutes_into_day):
 		day += 1
 		minutes_into_day = float(DAY_START_MINUTES)
+		_roll_weather_for_new_day()
 		day_started.emit(day)
 		time_changed.emit(day, minutes_into_day)
 		return
@@ -107,6 +126,53 @@ func skip_to_next_morning() -> void:
 
 func clock_text() -> String:
 	return format_clock(minutes_into_day)
+
+
+## -- Calendar (delegates to scripts/calendar.gd) --
+
+func season() -> String:
+	return Calendar.season(day)
+
+
+func day_of_season() -> int:
+	return Calendar.day_of_season(day)
+
+
+func year() -> int:
+	return Calendar.year(day)
+
+
+func date_text() -> String:
+	return Calendar.date_text(day)
+
+
+## -- Weather --
+
+## Shifts tomorrow's forecast into today and rolls a new tomorrow. Deterministic per
+## (weather_seed, day) so save/reload reproduces the same forecast.
+func _roll_weather_for_new_day() -> void:
+	weather_today = weather_tomorrow
+	weather_tomorrow = roll_weather_for(day + 1)
+
+
+func roll_weather_for(target_day: int) -> String:
+	if forced_weather != "":
+		return forced_weather
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([weather_seed, target_day])
+	return Weather.roll(target_day, Calendar.season(target_day), Calendar.day_of_season(target_day),
+		rng.randf())
+
+
+## Fresh-game initialisation: day 1 is clear and tomorrow's forecast is rolled from the seed.
+func reset_weather(seed_value: int) -> void:
+	weather_seed = seed_value
+	weather_today = forced_weather if forced_weather != "" else Weather.CLEAR
+	weather_tomorrow = roll_weather_for(day + 1)
+
+
+func is_raining() -> bool:
+	return Weather.is_wet(weather_today)
 
 
 func current_sky_color() -> Color:

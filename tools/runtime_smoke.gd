@@ -115,6 +115,7 @@ extends SceneTree
 ## refused while build mode is active, and Tab re-opens/re-closes it once nothing else is open.
 
 const CropDB := preload("res://scripts/crop_db.gd")
+const NpcSchedule := preload("res://scripts/npc_schedule.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
@@ -175,6 +176,8 @@ var _store_check_start_pos := Vector2.ZERO
 var spawn := Vector2.ZERO
 var stage := 0
 var stage_started_at := 0
+var _chop_swings := 0
+var _chop_wait_started := -1
 var failures: Array[String] = []
 
 ## Snapshot taken at the moment of the stage-20 bed save, compared against the reloaded world
@@ -249,6 +252,8 @@ func _initialize() -> void:
 	# instantiation, not in this top-level --script entry file itself — hence root.get_node().
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	# Stage 3 test hygiene (hard requirement, see class doc): point the whole save system —
 	# slot directory, legacy-migration source, and the pre-allocation save_path — at test-only
 	# locations and wipe any stale slots a previous crashed run may have left. Redirecting
@@ -401,8 +406,11 @@ func _physics_process(_delta: float) -> bool:
 				"player bound to farm/map/structures")
 			_check(player.inventory.get_slot(0).get("item_id", "") == "hoe",
 				"starting loadout: hoe in hotbar slot 1")
-			_check(player.inventory.count_of("seed_mutant_potato") == 5,
-				"starting loadout: 5 mutant potato seeds")
+			_check(player.inventory.count_of("seed_rain_radish") == 15,
+				"starting loadout: 15 rain radish seeds")
+			_check(int(player.inventory.get_slot(4).get("tier", 0)) == 1 \
+					and player.inventory.get_slot(4).get("item_id", "") == "scythe",
+				"starting loadout: a tier-1 scythe in hotbar slot 5")
 			# -- Forest Edge's "ruin materials" starting-resource bonus (ROADMAP Phase 4) --
 			_check(player.inventory.count_of("wood") == 15, "Forest Edge bonus: 15 wood granted")
 			_check(player.inventory.count_of("scrap_metal") == 8, "Forest Edge bonus: 8 scrap metal granted")
@@ -613,10 +621,8 @@ func _physics_process(_delta: float) -> bool:
 				_check(not player.using_tool, "till swing finished")
 				_check(test_map.is_tilled_at(FARM_TEST_CELL), "hoe tilled the target cell")
 				_check(player.energy == 99.0, "till cost 1 energy (100 -> 99)")
-				_check(int(player.inventory.get_slot(0).get("durability", -1)) == 49,
-					"hoe durability decremented by 1")
-				player.inventory.select_hotbar(5)  # seed_mutant_potato (see _give_starting_loadout)
-				_check(player.inventory.get_slot(5).get("item_id", "") == "seed_mutant_potato",
+				player.inventory.select_hotbar(5)  # seed_rain_radish (see _give_starting_loadout)
+				_check(player.inventory.get_slot(5).get("item_id", "") == "seed_rain_radish",
 					"seeds are in hotbar slot 6")
 				player.use_tool()  # plant
 				_enter_stage(12)
@@ -624,10 +630,10 @@ func _physics_process(_delta: float) -> bool:
 			if ticks >= 60:
 				_check(not player.using_tool, "plant swing finished")
 				var plot: Dictionary = farm.get_plot(FARM_TEST_CELL)
-				_check(plot.get("crop_id", "") == "mutant_potato", "seed planted mutant potato")
+				_check(plot.get("crop_id", "") == "rain_radish", "seed planted rain radish")
 				_check(int(plot.get("stage", -1)) == 0, "freshly planted crop starts at stage 0")
-				_check(player.inventory.count_of("seed_mutant_potato") == 4, "one seed consumed")
-				_check(player.energy == 98.5, "planting cost 0.5 energy (99 -> 98.5)")
+				_check(player.inventory.count_of("seed_rain_radish") == 14, "one seed consumed")
+				_check(player.energy == 99.0, "planting is free (2026-10-07: Stardew-faithful)")
 				player.inventory.select_hotbar(1)  # watering_can
 				player.use_tool()  # water
 				_enter_stage(13)
@@ -635,10 +641,10 @@ func _physics_process(_delta: float) -> bool:
 			if ticks >= 60:
 				_check(not player.using_tool, "water swing finished")
 				_check(farm.is_watered(FARM_TEST_CELL), "watering can watered the crop")
-				_check(player.energy == 97.5, "watering cost 1 energy (98.5 -> 97.5)")
-				_check(int(player.inventory.get_slot(1).get("durability", -1)) == 49,
-					"watering can durability decremented by 1")
-				var growth_stages := CropDB.growth_stages("mutant_potato")
+				_check(player.energy == 98.0, "watering cost 1 energy (99 -> 98)")
+				_check(int(player.inventory.get_slot(1).get("water", -1)) == 39,
+					"watering can used one of its 40 charges")
+				var growth_stages := CropDB.total_days("rain_radish") + 1
 				var days_advanced := 0
 				while not farm.can_harvest(FARM_TEST_CELL) and days_advanced < growth_stages + 2:
 					if farm.can_water(FARM_TEST_CELL):
@@ -651,16 +657,16 @@ func _physics_process(_delta: float) -> bool:
 				_enter_stage(14)
 		14:
 			if ticks >= 10:
-				var potatoes_before: int = player.inventory.count_of("mutant_potato")
-				_check(potatoes_before == 0, "no mutant potato in inventory before harvest")
+				var potatoes_before: int = player.inventory.count_of("rain_radish")
+				_check(potatoes_before == 0, "no rain radish in inventory before harvest")
 				player.inventory.select_hotbar(0)  # harvest ignores selection, but pick something valid
 				player.use_tool()  # harvest
 				_enter_stage(15)
 		15:
 			if ticks >= 60:
 				_check(not player.using_tool, "harvest swing finished")
-				_check(player.inventory.count_of("mutant_potato") == 1,
-					"harvested mutant potato landed in inventory")
+				_check(player.inventory.count_of("rain_radish") == 1,
+					"harvested rain radish landed in inventory")
 				_check(farm.get_plot(FARM_TEST_CELL).is_empty(),
 					"plot cleared back to bare soil after harvest")
 				_check(test_map.is_tilled_at(FARM_TEST_CELL),
@@ -835,52 +841,50 @@ func _physics_process(_delta: float) -> bool:
 					"credits label reflects the granted balance")
 				_enter_stage(91)
 		91:
-			# -- Buy the first stock row (seed_mutant_potato, 8 Cr) via the real use_tool path --
+			# -- Buy the first spring stock row (seed_rain_radish, 12 Cr) via the real use_tool
+			#    path (2026-10-07: Marta's shelf is seasonal — spring seeds, then staples) --
 			if ticks >= 2:
-				var seeds_before: int = player.inventory.count_of("seed_mutant_potato")
+				_check(store_ui._row_ids[0] == "seed_rain_radish", "spring shelf starts with radish seeds")
+				var seeds_before: int = player.inventory.count_of("seed_rain_radish")
 				_drive_store_action("use_tool")
-				_check(player.credits == 42,
-					"buying seed_mutant_potato (8 Cr) deducted from 50 -> 42 (got %d)" % player.credits)
-				_check(player.inventory.count_of("seed_mutant_potato") == seeds_before + 1,
+				_check(player.credits == 38,
+					"buying seed_rain_radish (12 Cr) deducted from 50 -> 38 (got %d)" % player.credits)
+				_check(player.inventory.count_of("seed_rain_radish") == seeds_before + 1,
 					"the purchased seed landed in inventory via Inventory.add_item")
 				_check(store_ui.get_node("%StatusLabel").text != "",
 					"a purchase confirmation status message is shown")
 				_enter_stage(92)
 		92:
-			# -- Cycle down to the pickaxe row (index 9 of the 10-item catalog) and buy a
-			#    replacement tool — confirms a FRESH full-durability instance, not a stacked count --
+			# -- Cycle down to the purified-water row (index 7 of the 10-item spring shelf) and
+			#    buy one --
 			if ticks >= 2:
-				for i in 9:
+				for i in 7:
 					_drive_store_action("move_down")
-				_check(store_ui._index == 9, "move_down cycled all the way to the pickaxe row")
+				_check(store_ui._index == 7, "move_down cycled to the purified water row")
+				_check(store_ui._row_ids[7] == "purified_water", "row 7 is purified water")
 				_check(store_ui.get_node("%DescriptionLabel").text != "",
 					"the highlighted row's description populates the detail label")
 				var credits_before: int = player.credits
-				_drive_store_action("use_tool")  # buy a replacement pickaxe (28 Cr)
-				_check(player.credits == credits_before - 28,
-					"pickaxe purchase deducted exactly 28 Credits (%d -> %d)" \
-						% [credits_before, player.credits])
-				var found_fresh_pickaxe := false
-				for slot in player.inventory.slots:
-					if String(slot.get("item_id", "")) == "pickaxe" \
-							and int(slot.get("durability", -1)) == ItemDB.durability_max("pickaxe"):
-						found_fresh_pickaxe = true
-				_check(found_fresh_pickaxe,
-					"a fresh full-durability replacement pickaxe landed in inventory")
+				var water_before: int = player.inventory.count_of("purified_water")
+				_drive_store_action("use_tool")  # 25 Cr
+				_check(player.credits == credits_before - 25,
+					"purified water deducted exactly 25 Credits (%d -> %d)" % [credits_before, player.credits])
+				_check(player.inventory.count_of("purified_water") == water_before + 1,
+					"the purchased water landed in inventory")
 				_enter_stage(93)
 		93:
 			# -- Insufficient funds: drop the balance too low for anything left, attempt a
 			#    purchase, confirm it's refused with zero deduction and zero items granted --
 			if ticks >= 2:
-				player.set_credits(2)  # below every remaining stocked item's price
-				_drive_store_action("move_up")  # pickaxe(9) -> axe(8), still 28 Cr, unaffordable
-				_check(store_ui._index == 8, "move_up returned to the axe row")
+				player.set_credits(2)  # below every stocked item's price
+				_drive_store_action("move_up")  # purified_water(7) -> preserved_food(6), 40 Cr
+				_check(store_ui._index == 6, "move_up returned to the preserved food row")
 				var credits_before: int = player.credits
-				var axes_before: int = player.inventory.count_of("axe")
+				var rations_before: int = player.inventory.count_of("preserved_food")
 				_drive_store_action("use_tool")  # attempt an unaffordable purchase
 				_check(player.credits == credits_before,
 					"an insufficient-funds purchase attempt deducted nothing")
-				_check(player.inventory.count_of("axe") == axes_before,
+				_check(player.inventory.count_of("preserved_food") == rations_before,
 					"an insufficient-funds purchase attempt granted nothing")
 				_check(store_ui.get_node("%StatusLabel").text != "",
 					"a can't-afford status message is shown")
@@ -888,8 +892,8 @@ func _physics_process(_delta: float) -> bool:
 		94:
 			# -- Cycle to the trailing "Leave" row and confirm it closes the store --
 			if ticks >= 2:
-				for i in 2:
-					_drive_store_action("move_down")  # axe(8) -> pickaxe(9) -> Leave(10)
+				for i in 4:
+					_drive_store_action("move_down")  # preserved_food(6) -> ... -> Leave(10)
 				_check(store_ui._index == 10, "cycled down to the trailing Leave row")
 				_drive_store_action("use_tool")  # confirm Leave -> closes the store
 				_check(not store_ui.active, "confirming the Leave row closes the store")
@@ -947,6 +951,10 @@ func _physics_process(_delta: float) -> bool:
 				#    in-zone / off solid terrain) after simulated time in stage 61. Rosters are
 				#    per zone since the split (town 3 + ranch 1); inactive zones aren't paused,
 				#    so NPCs keep wandering there while the player stands on the farm. --
+				# Pin the clock early in the home-waypoint hour: every scheduled NPC's first
+				# waypoint is home until 7:00 (Kael) / 7:30 (Silas), and at Stardew's pace (10 game
+				# minutes per 7 real seconds) the window below must not cross those departures.
+				day_manager.minutes_into_day = 6.0 * 60.0 + 5.0
 				for zone_id in ["town", "ranch"]:
 					var zmap: Node2D = main.zones[zone_id]["map"]
 					for entry in zmap.layout.npcs():
@@ -980,8 +988,15 @@ func _physics_process(_delta: float) -> bool:
 						var home: Vector2i = entry["home"]
 						var npc: Node = _npc_by_id(id, zone_id)
 						var cell: Vector2i = zmap.world_to_cell(npc.global_position)
-						_check(NpcGrid.within_zone(cell, home, int(entry["wander_radius"])),
-							"%s's wander stayed within its authorized zone (at %s, home %s)" % [id, cell, home])
+						# A scheduled NPC ambles around its CURRENT waypoint (home is just the
+						# first); one walking between waypoints is exempt until it arrives.
+						var anchor: Vector2i = home
+						if NpcSchedule.has_schedule(id):
+							anchor = NpcSchedule.current_waypoint(NpcSchedule.schedule_for(id),
+								day_manager.minutes_into_day)
+						if not bool(npc.get("_traveling")):
+							_check(NpcGrid.within_zone(cell, anchor, int(entry["wander_radius"])),
+								"%s's wander stayed within its authorized zone (at %s, anchor %s)" % [id, cell, anchor])
 						_check(not zmap.is_blocked_at(cell),
 							"%s never wandered onto solid/blocked terrain (at %s)" % [id, cell])
 				_check(not _wander_moved.is_empty(),
@@ -1138,14 +1153,38 @@ func _physics_process(_delta: float) -> bool:
 				player.velocity = Vector2.ZERO
 				player.facing = "east"
 				player.inventory.select_hotbar(2)  # axe
-				_check(farm.can_chop(Vector2i(33, 2)), "tree node present east of the player")
+				var objects: Node = test_map.get_node("Objects")
+				_check(String(objects.kind_at(Vector2i(33, 2))).begins_with("tree"),
+					"tree present east of the player")
+				_chop_swings = 0
 				player.use_tool()
+				_chop_swings += 1
 				_enter_stage(19)
 		19:
+			# -- 2026-10-07 world objects: a tree takes several hits (10 HP, tier-1 axe = 1 dmg),
+			#    topples, leaves a stump and spills its wood as pickups. Keep swinging until it
+			#    falls, then let the drops land and sweep them into the backpack. --
+			var objects19: Node = test_map.get_node("Objects")
+			if String(objects19.kind_at(Vector2i(33, 2))).begins_with("tree"):
+				if not player.using_tool:
+					player.use_tool()
+					_chop_swings += 1
+				return false
+			if _chop_wait_started < 0:
+				_chop_wait_started = ticks
+				_check(_chop_swings == 10, "the tree fell on the 10th swing (took %d)" % _chop_swings)
+				_check(String(objects19.kind_at(Vector2i(33, 2))) == "stump_ashwood" \
+						or String(objects19.kind_at(Vector2i(33, 2))) == "stump_pine",
+					"a stump is left behind")
+				return false
+			if ticks - _chop_wait_started < 90:
+				return false
+			objects19.collect_all_pickups(player.inventory)
 			# -- Gathered wood affords the Shelter Tent; place + complete it too --
-			if ticks >= 60:
+			if true:
 				_check(not player.using_tool, "chop swing finished")
-				_check(player.inventory.count_of("wood") == 6, "chop granted 3 wood (3 -> 6)")
+				_check(player.inventory.count_of("wood") >= 3 + 8, "the felled tree dropped 8+ wood")
+				player.inventory.remove_item("wood", player.inventory.count_of("wood") - 6)
 				player.global_position = test_map.get_global_cell_center(TENT_STAND)
 				player.velocity = Vector2.ZERO
 				player.facing = "south"  # tent (1x1) lands on TENT_CELL, open grass
@@ -1161,8 +1200,8 @@ func _physics_process(_delta: float) -> bool:
 				_check(builder.current_id() == "shelter_tent", "build_cycle wraps around the catalog")
 				_check(builder.confirm_placement(), "tent blueprint placed")
 				_check(player.inventory.count_of("wood") == 0, "tent spent 6 wood")
-				_check(player.energy == 96.0,
-					"energy ledger holds: 100 - 1.25 (shed) - 1.5 (chop) - 1.25 (tent) = 96, got %.2f" \
+				_check(player.energy == 87.5,
+					"energy ledger holds: 100 - 1.25 (shed) - 10 x 1 (chops) - 1.25 (tent) = 87.5, got %.2f" \
 						% player.energy)
 				_check(test_map.is_blocked_at(TENT_CELL), "tent cell blocked while building")
 				_drive_builder_action("build_toggle")
@@ -1391,31 +1430,36 @@ func _physics_process(_delta: float) -> bool:
 				_check(shipping_ui._index == 0, "loading UI opens on the first crop row")
 				_enter_stage(71)
 		71:
-			# -- Drive the loading UI's real _unhandled_input: load the potato, prove the box is
-			#    crop-only and refusals move nothing, then Leave — no sale until morning. --
+			# -- Drive the loading UI's real _unhandled_input (2026-10-07: rows are the shippable
+			#    items being carried, and confirming loads the whole carried amount). Load the
+			#    radish, prove tools/seeds are refused, then Leave — no sale until morning. --
 			if ticks >= 2:
-				_check(shipping_ui._row_ids.size() == 5, "4 crop rows + trailing Leave")
-				_check(player.inventory.count_of("mutant_potato") == 1,
-					"the stage-15 harvested potato is still in inventory")
-				_drive_shipping_action("use_tool")  # row 0 = mutant_potato: load 1
-				_check(player.inventory.count_of("mutant_potato") == 0,
-					"loading moved the potato OUT of the inventory")
-				_check(structures.shipping_contents == {"mutant_potato": 1},
+				_check(shipping_ui._row_ids.has("rain_radish") and shipping_ui._row_ids.back() == "",
+					"rows list the carried radish plus a trailing Leave")
+				_check(player.inventory.count_of("rain_radish") == 1,
+					"the stage-15 harvested radish is still in inventory")
+				var radish_row: int = shipping_ui._row_ids.find("rain_radish")
+				for i in radish_row:
+					_drive_shipping_action("move_down")
+				_check(shipping_ui._index == radish_row, "cycled to the radish row")
+				_drive_shipping_action("use_tool")
+				_check(player.inventory.count_of("rain_radish") == 0,
+					"loading moved the radish OUT of the inventory")
+				_check(structures.shipping_contents == {"rain_radish": 1},
 					"and INTO the box's pending contents")
-				_check(shipping_ui.get_node("%ValueLabel").text == "In box: 20 Cr",
-					"pending value readout shows the potato's 20 Cr")
-				_drive_shipping_action("use_tool")  # none left: must refuse visibly
-				_check(structures.shipping_contents == {"mutant_potato": 1},
-					"an empty-handed load attempt moves nothing")
-				_check(shipping_ui.get_node("%StatusLabel").text == "None to load.",
-					"and shows the refusal status")
-				_check(not structures.add_to_shipping_box("wood", 1),
-					"the box refuses non-crop resources outright")
+				_check(shipping_ui.get_node("%ValueLabel").text == "In box: 30 Cr",
+					"pending value readout shows the radish's 30 Cr")
+				_check(not shipping_ui._row_ids.has("rain_radish"),
+					"a fully loaded item leaves the row list")
+				_check(not structures.add_to_shipping_box("hoe", 1),
+					"the box refuses tools outright")
 				_check(not structures.add_to_shipping_box("seed_mutant_potato", 1),
 					"the box refuses seeds outright (can't ship away what you need)")
-				for i in 4:
-					_drive_shipping_action("move_down")  # mutant_potato(0) -> Leave(4)
-				_check(shipping_ui._index == 4, "cycled down to the trailing Leave row")
+				var leave_row: int = shipping_ui._row_ids.size() - 1
+				shipping_ui._index = 0
+				for i in leave_row:
+					_drive_shipping_action("move_down")
+				_check(shipping_ui._index == leave_row, "cycled down to the trailing Leave row")
 				_drive_shipping_action("use_tool")
 				_check(not shipping_ui.active, "confirming Leave closes the loading UI")
 				_check(not player.using_tool, "closing the box leaves no stray tool-swing lock")
@@ -1430,9 +1474,9 @@ func _physics_process(_delta: float) -> bool:
 				# farming-test plot (sleeping will advance it to stage 1/unwatered — that
 				# advanced state is what must survive the reload), and drop items into BOTH
 				# storage inventories (layout chest + built shed) so their contents round-trip.
-				farm.plant(FARM_TEST_CELL, "mutant_potato")
+				farm.plant(FARM_TEST_CELL, "rain_radish")
 				farm.water(FARM_TEST_CELL)
-				player.inventory.remove_item("seed_mutant_potato", 1)  # match a real replant's cost
+				player.inventory.remove_item("seed_rain_radish", 1)  # match a real replant's cost
 				structures.chest_inventory.add_item("stone", 2)
 				structures.storage_inventory_at(SHED_CELL).add_item("wood", 1)
 				player.set_energy(42.0)
@@ -1463,10 +1507,10 @@ func _physics_process(_delta: float) -> bool:
 				_check(hud.get_node("%SaveNotice").text == "WORLD SAVED", "notice reads WORLD SAVED")
 				# -- Phase 5 Stage 3: the overnight sale resolved during that same sleep, and
 				#    (critically) BEFORE its auto-save — "Credits added next morning" exactly. --
-				_check(player.credits == 57,
-					"the sale credited exactly the potato's value (37 + 20 = 57, got %d)" \
+				_check(player.credits == 67,
+					"the sale credited exactly the radish's value (37 + 30 = 67, got %d)" \
 						% player.credits)
-				_check(hud.get_node("%CreditsLabel").text == "57 Cr",
+				_check(hud.get_node("%CreditsLabel").text == "67 Cr",
 					"HUD credits plaque shows the credited balance")
 				_check(structures.shipping_contents.is_empty(), "the sale emptied the box")
 				_check(structures.sale_history.size() == 1, "one sale-history entry recorded")
@@ -1474,9 +1518,9 @@ func _physics_process(_delta: float) -> bool:
 					var sale: Dictionary = structures.sale_history[0]
 					_check(int(sale["day"]) == day_manager.day,
 						"history entry records the morning the Credits landed")
-					_check(sale["items"] == {"mutant_potato": 1},
+					_check(sale["items"] == {"rain_radish": 1},
 						"history entry itemizes the sold crop")
-					_check(int(sale["total"]) == 20, "history entry records the 20 Cr total")
+					_check(int(sale["total"]) == 30, "history entry records the 30 Cr total")
 				saved_day = day_manager.day
 				saved_position = player.global_position
 				_enter_stage(21)
@@ -1558,30 +1602,33 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.facing == "north", "player facing restored")
 			_check(player.energy == player.max_energy, "energy restored (full — saved after waking)")
 			_check(hud.get_node("%EnergyFill").value == player.max_energy, "HUD energy bar restored")
-			_check(player.credits == 57,
-				"Credits balance restored INCLUDING the sale credit (%d, expected 57)" % player.credits)
-			_check(hud.get_node("%CreditsLabel").text == "57 Cr", "HUD credits label restored")
+			_check(player.credits == 67,
+				"Credits balance restored INCLUDING the sale credit (%d, expected 67)" % player.credits)
+			_check(hud.get_node("%CreditsLabel").text == "67 Cr", "HUD credits label restored")
 			# Inventory: exact contents from the played-through session, not the starting loadout
 			# + settlement bonus a fresh game would have granted.
 			_check(player.inventory.get_slot(0).get("item_id", "") == "hoe", "hoe back in slot 1")
-			_check(int(player.inventory.get_slot(0).get("durability", -1)) == 49,
-				"hoe durability (49) survived the round trip")
+			_check(int(player.inventory.get_slot(0).get("tier", -1)) == 1,
+				"hoe tier survived the round trip")
 			_check(player.inventory.count_of("wood") == 0, "wood count (all spent building) restored")
-			_check(player.inventory.count_of("mutant_potato") == 0,
-				"the shipped potato stays gone from the inventory after reload")
-			_check(player.inventory.count_of("seed_mutant_potato") == 4,
-				"seed count (5 - planted 2 + 1 bought from Marta's store) restored")
+			_check(player.inventory.count_of("rain_radish") == 0,
+				"the shipped radish stays gone from the inventory after reload")
+			_check(player.inventory.count_of("seed_rain_radish") == 14,
+				"seed count (15 - planted 2 + 1 bought from Marta's store) restored")
 			_check(player.inventory.selected_hotbar_index == 2,
 				"hotbar selection (axe, from the chop) restored")
 			# World modifications:
 			_check(test_map.is_tilled_at(FARM_TEST_CELL), "player-tilled cell restored")
 			var plot: Dictionary = farm.get_plot(FARM_TEST_CELL)
-			_check(plot.get("crop_id", "") == "mutant_potato", "planted crop restored")
+			_check(plot.get("crop_id", "") == "rain_radish", "planted crop restored")
 			_check(int(plot.get("stage", -1)) == 1,
 				"crop stage restored at 1 (watered plot advanced by the sleep's day tick)")
 			_check(not bool(plot.get("watered", true)), "watered flag consumed by the day tick")
-			_check(not farm.can_chop(Vector2i(33, 2)), "chopped tree stays gone after reload")
-			_check(farm.can_chop(Vector2i(20, 1)), "an unchopped tree is still standing")
+			var objects_reloaded: Node = test_map.get_node("Objects")
+			_check(String(objects_reloaded.kind_at(Vector2i(33, 2))).begins_with("stump"),
+				"the felled tree's stump (not the tree) is what reloads")
+			_check(String(objects_reloaded.kind_at(Vector2i(20, 1))).begins_with("tree"),
+				"an unchopped tree is still standing")
 			# Player-built structures + storage:
 			_check(structures._pending.is_empty() and structures._completed.size() == 4,
 				"all 4 completed structures restored (shed, tent, fence, gate)")
@@ -1615,8 +1662,8 @@ func _physics_process(_delta: float) -> bool:
 			_check(structures.sale_history.size() == 1, "sale history restored from the save")
 			if structures.sale_history.size() == 1:
 				var sale: Dictionary = structures.sale_history[0]
-				_check(int(sale["day"]) == saved_day and sale["items"] == {"mutant_potato": 1} \
-						and int(sale["total"]) == 20,
+				_check(int(sale["day"]) == saved_day and sale["items"] == {"rain_radish": 1} \
+						and int(sale["total"]) == 30,
 					"restored history entry matches the recorded sale (got %s)" % str(sale))
 			# Test hygiene (hard requirement): remove the test save so repeated runs start clean.
 			# (Stage 81 below writes a fresh one for the pending-box round trip.)
@@ -1649,13 +1696,13 @@ func _physics_process(_delta: float) -> bool:
 				_drive_dialogue_action("use_tool")  # reveal stocktake's branch prompt
 				_drive_dialogue_action("use_tool")  # confirm "Let's see what you've got"
 				_check(store_ui.active, "the store opened via the real dialogue choice")
-				_check(player.credits == 57,
-					"walking in with exactly the sale-earned balance (57, got %d)" % player.credits)
-				var seeds_before: int = player.inventory.count_of("seed_mutant_potato")
-				_drive_store_action("use_tool")  # buy row 0: seed_mutant_potato, 8 Cr
-				_check(player.credits == 49,
-					"bought seeds WITH the shipping-box Credits (57 -> 49, got %d)" % player.credits)
-				_check(player.inventory.count_of("seed_mutant_potato") == seeds_before + 1,
+				_check(player.credits == 67,
+					"walking in with exactly the sale-earned balance (67, got %d)" % player.credits)
+				var seeds_before: int = player.inventory.count_of("seed_rain_radish")
+				_drive_store_action("use_tool")  # buy row 0: seed_rain_radish, 12 Cr
+				_check(player.credits == 55,
+					"bought seeds WITH the shipping-box Credits (67 -> 55, got %d)" % player.credits)
+				_check(player.inventory.count_of("seed_rain_radish") == seeds_before + 1,
 					"the purchased seed landed in inventory — the economy loop is closed")
 				_drive_store_action("move_up")  # row 0 wraps straight up to the Leave row (10)
 				_check(store_ui._index == 10, "move_up wraps to the trailing Leave row")
@@ -1681,15 +1728,16 @@ func _physics_process(_delta: float) -> bool:
 			if ticks == 5:
 				player.use_tool()
 				_check(shipping_ui.active, "the loading UI opens after the reload too")
-				for i in 3:
-					_drive_shipping_action("move_down")  # mutant_potato(0) -> sunbloom(3)
-				_check(shipping_ui._index == 3, "cycled to the sunbloom row")
-				_drive_shipping_action("use_tool")
-				_drive_shipping_action("use_tool")  # one unit per confirm: load both
+				var sun_row: int = shipping_ui._row_ids.find("sunbloom")
+				for i in sun_row:
+					_drive_shipping_action("move_down")
+				_check(shipping_ui._index == sun_row, "cycled to the sunbloom row")
+				_drive_shipping_action("use_tool")  # loads the whole stack: both
 				_check(player.inventory.count_of("sunbloom") == 0, "both sunbloom left the inventory")
 				_check(structures.shipping_contents == {"sunbloom": 2},
 					"box holds the pending 2-sunbloom load")
-				_drive_shipping_action("move_down")  # sunbloom(3) -> Leave(4)
+				shipping_ui._index = shipping_ui._row_ids.size() - 2
+				_drive_shipping_action("move_down")  # -> Leave
 				_drive_shipping_action("use_tool")
 				_check(not shipping_ui.active, "left the loading UI")
 				# Mid-session save through the SAME GameState call the bed makes — called
@@ -1752,7 +1800,7 @@ func _physics_process(_delta: float) -> bool:
 						% str(structures.shipping_contents))
 				_check(structures.sale_history.size() == 1,
 					"history still holds exactly the one earlier sale (no phantom sale on load)")
-				_check(player.credits == 49, "credits restored un-credited (49, got %d)" % player.credits)
+				_check(player.credits == 55, "credits restored un-credited (55, got %d)" % player.credits)
 				player.global_position = test_map.get_global_cell_center(Vector2i(18, 5))
 				player.velocity = Vector2.ZERO
 				player.facing = "north"  # targets (18,4), the bed
@@ -1761,15 +1809,15 @@ func _physics_process(_delta: float) -> bool:
 				var day_before: int = day_manager.day
 				player.use_tool()  # sleep: the reloaded pending load must sell now
 				_check(day_manager.day == day_before + 1, "sleeping advanced the day")
-				_check(player.credits == 109,
-					"the reloaded load sold for exactly 2 x 30 Cr (49 + 60 = 109, got %d)" \
+				_check(player.credits == 355,
+					"the reloaded load sold for exactly 2 x 150 Cr (55 + 300 = 355, got %d)" \
 						% player.credits)
 				_check(structures.shipping_contents.is_empty(), "box emptied by the post-reload sale")
 				_check(structures.sale_history.size() == 2, "second sale-history entry appended")
 				if structures.sale_history.size() == 2:
 					var sale: Dictionary = structures.sale_history[1]
 					_check(int(sale["day"]) == day_manager.day and sale["items"] == {"sunbloom": 2} \
-							and int(sale["total"]) == 60,
+							and int(sale["total"]) == 300,
 						"second entry itemizes the sunbloom sale (got %s)" % str(sale))
 				# Final test hygiene: the sleep re-saved; wipe the whole test saves dir so
 				# repeated runs start clean.

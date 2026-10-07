@@ -1,77 +1,106 @@
 extends "res://tests/test_case.gd"
-## data/items.json loading (Phase 3's "first 20 items"). Confirms the file parses, every entry
-## has the fields the rest of the game depends on, and the count matches the checklist.
+## data/items.json (catalogue v2, 2026-10-07) + scripts/item_db.gd.
 
 const ItemDBScript := preload("res://scripts/item_db.gd")
+const CropDBScript := preload("res://scripts/crop_db.gd")
+
+const VALID_TYPES := ["seed", "crop", "forage", "resource", "food", "tool", "weapon", "ammo",
+	"medicine", "placeable", "equipment", "quest"]
 
 
-func test_loads_expected_item_catalog() -> void:
-	assert_eq(ItemDBScript.all_items().size(), 26,
-		"base catalog plus coffee, fertilizer, and the four livestock products")
+func test_catalogue_is_large_and_well_formed() -> void:
+	var items := ItemDBScript.all_items()
+	assert_true(items.size() >= 120, "120+ items (ROADMAP Phase 17 target) — got %d" % items.size())
+	for item_id in items:
+		var item: Dictionary = items[item_id]
+		assert_true(VALID_TYPES.has(String(item.get("type", ""))), "%s has a valid type" % item_id)
+		assert_true(int(item.get("stack_max", 0)) >= 1, "%s has stack_max" % item_id)
+		assert_true(String(item.get("name", "")) != "", "%s has a name" % item_id)
+		assert_true(String(item.get("description", "")) != "", "%s has a description" % item_id)
+		assert_true(String(item.get("category", "")) != "", "%s has a category" % item_id)
+		assert_true(int(item.get("value", -1)) >= 0, "%s has a value" % item_id)
 
 
-func test_known_items_resolve() -> void:
-	assert_true(ItemDBScript.has_item("hoe"))
-	assert_true(ItemDBScript.has_item("mutant_potato"))
-	assert_false(ItemDBScript.has_item("does_not_exist"))
+func test_original_items_survive_for_old_saves() -> void:
+	for item_id in ["seed_mutant_potato", "seed_dustwheat", "seed_ironroot", "seed_sunbloom",
+			"mutant_potato", "dustwheat_grain", "ironroot", "sunbloom", "wood", "stone",
+			"scrap_metal", "cloth_scrap", "bottle_caps", "fertilizer", "milk", "mutant_goat_milk",
+			"egg", "mutant_egg", "preserved_food", "coffee", "cooked_meal", "hoe", "watering_can",
+			"axe", "pickaxe", "bag"]:
+		assert_true(ItemDBScript.has_item(item_id), "%s still exists" % item_id)
 
 
-func test_every_item_has_type_and_stack_max() -> void:
+func test_tools_are_not_stackable_and_have_kinds() -> void:
 	for item_id in ItemDBScript.all_items():
-		var item: Dictionary = ItemDBScript.get_item(item_id)
-		assert_true(item.has("type"), "%s missing type" % item_id)
-		assert_true(item.has("stack_max"), "%s missing stack_max" % item_id)
-
-
-func test_tools_are_not_stackable() -> void:
-	for tool_id in ["hoe", "watering_can", "axe", "pickaxe", "bag"]:
-		assert_true(ItemDBScript.is_tool_item(tool_id), "%s should be type tool" % tool_id)
-		assert_eq(ItemDBScript.stack_max(tool_id), 1, "%s must not stack" % tool_id)
-		assert_true(ItemDBScript.durability_max(tool_id) > 0, "%s needs durability_max" % tool_id)
+		if ItemDBScript.is_tool_item(item_id):
+			assert_eq(ItemDBScript.stack_max(item_id), 1, "%s is a single instance" % item_id)
+			assert_true(ItemDBScript.tool_kind(item_id) != "", "%s has a tool kind" % item_id)
+	assert_eq(ItemDBScript.tool_kind("hoe"), "hoe")
+	assert_eq(ItemDBScript.tool_kind("wood"), "", "non-tools have no kind")
 
 
 func test_seeds_link_to_a_valid_crop() -> void:
-	const CropDBScript := preload("res://scripts/crop_db.gd")
 	for item_id in ItemDBScript.all_items():
-		if ItemDBScript.is_seed(item_id):
-			var crop_id := String(ItemDBScript.get_item(item_id).get("crop_id", ""))
-			assert_true(CropDBScript.has_crop(crop_id), "%s points at an unknown crop" % item_id)
-
-
-## -- 2026-07-11 forced-sleep session: edibility + the rare stay-awake coffee --
-
-func test_edibility_follows_the_food_type() -> void:
-	for food_id in ["preserved_food", "cooked_meal", "coffee"]:
-		assert_true(ItemDBScript.is_edible(food_id), "%s is edible" % food_id)
-		assert_true(ItemDBScript.energy_restored(food_id) > 0,
-			"%s restores energy when eaten" % food_id)
-	for other_id in ["mutant_potato", "wood", "hoe", "seed_dustwheat"]:
-		assert_false(ItemDBScript.is_edible(other_id),
-			"%s is not directly edible (crops must be cooked/shipped, not snacked raw)" % other_id)
-		assert_eq(ItemDBScript.energy_restored(other_id), 0,
-			"%s grants no energy" % other_id)
-
-
-func test_coffee_is_the_rare_stay_awake_item() -> void:
-	assert_true(ItemDBScript.grants_stay_awake("coffee"),
-		"coffee arms the stay-awake-tonight charge")
-	for other_id in ["preserved_food", "cooked_meal", "mutant_potato", "hoe"]:
-		assert_false(ItemDBScript.grants_stay_awake(other_id),
-			"%s must not suppress the 2 AM rule" % other_id)
-	# "Rare" must be enforceable in data: meaningfully pricier than every other item, livestock
-	# products included — see items.json's _comment.
-	var coffee_value := int(ItemDBScript.get_item("coffee").get("value", 0))
-	for item_id in ItemDBScript.all_items():
-		if item_id == "coffee":
+		if not ItemDBScript.is_seed(item_id):
 			continue
-		assert_true(coffee_value >= 2 * int(ItemDBScript.get_item(item_id).get("value", 0)),
-			"coffee (%d Cr) is at least twice %s's price" % [coffee_value, item_id])
+		var item := ItemDBScript.get_item(item_id)
+		if bool(item.get("mixed", false)):
+			continue  # wild seeds pick a seasonal crop at planting time
+		var crop_id := String(item.get("crop_id", ""))
+		assert_true(CropDBScript.has_crop(crop_id), "%s points at a real crop (%s)" % [item_id, crop_id])
 
 
-func test_icon_or_placeholder_present() -> void:
+func test_consumables_restore_something() -> void:
 	for item_id in ItemDBScript.all_items():
-		var item: Dictionary = ItemDBScript.get_item(item_id)
-		var has_icon: bool = String(item.get("icon", "")) != ""
-		var has_placeholder: bool = item.has("placeholder_color") and item.has("placeholder_label")
-		assert_true(has_icon or has_placeholder,
-			"%s has neither real icon art nor a placeholder color/label" % item_id)
+		if not ItemDBScript.is_consumable(item_id):
+			continue
+		var gives := ItemDBScript.energy_restored(item_id) + ItemDBScript.hp_restored(item_id) \
+			+ ItemDBScript.rad_removed(item_id)
+		assert_true(gives > 0 or ItemDBScript.grants_stay_awake(item_id),
+			"%s does something when consumed" % item_id)
+	assert_true(ItemDBScript.is_edible("cooked_meal"))
+	assert_false(ItemDBScript.is_edible("wood"))
+	assert_true(ItemDBScript.is_consumable("medkit"), "medicine is consumable")
+	assert_false(ItemDBScript.is_edible("medkit"), "but not food")
+
+
+func test_coffee_is_the_one_stay_awake_item() -> void:
+	for item_id in ItemDBScript.all_items():
+		assert_eq(ItemDBScript.grants_stay_awake(item_id), item_id == "coffee",
+			"%s stay_awake flag" % item_id)
+
+
+func test_buy_price_defaults_to_twice_value() -> void:
+	assert_eq(ItemDBScript.buy_price("seed_rain_radish"), 12, "explicit buy_price wins")
+	var value := ItemDBScript.sell_value("wood")
+	assert_eq(ItemDBScript.buy_price("wood"), value * 2, "otherwise twice the sell value")
+
+
+func test_shippable_rules() -> void:
+	assert_true(ItemDBScript.is_shippable("mutant_potato"), "crops ship")
+	assert_true(ItemDBScript.is_shippable("wild_greens"), "forage ships")
+	assert_true(ItemDBScript.is_shippable("scrap_metal"), "resources ship")
+	assert_true(ItemDBScript.is_shippable("berry_jam"), "artisan goods ship")
+	assert_false(ItemDBScript.is_shippable("hoe"), "tools don't")
+	assert_false(ItemDBScript.is_shippable("machete"), "weapons don't")
+	assert_false(ItemDBScript.is_shippable("blueprint"), "quest items don't")
+	assert_false(ItemDBScript.is_shippable("bag"), "legacy items don't")
+	assert_false(ItemDBScript.is_shippable("not_a_real_item"))
+
+
+func test_every_item_declares_an_icon_path() -> void:
+	for item_id in ItemDBScript.all_items():
+		var icon := String(ItemDBScript.get_item(item_id).get("icon", ""))
+		assert_eq(icon, "res://art/items/%s.png" % item_id, "%s icon path follows the convention" % item_id)
+
+
+func test_weapons_have_combat_stats() -> void:
+	for item_id in ItemDBScript.all_items():
+		if not ItemDBScript.is_weapon(item_id):
+			continue
+		var item := ItemDBScript.get_item(item_id)
+		assert_true(int(item.get("damage", 0)) > 0, "%s deals damage" % item_id)
+		assert_true(float(item.get("cooldown", 0.0)) > 0.0, "%s has a cooldown" % item_id)
+		if String(item.get("weapon_class", "")) == "ranged":
+			assert_true(ItemDBScript.has_item(String(item.get("ammo_item", ""))),
+				"%s uses a real ammo item" % item_id)

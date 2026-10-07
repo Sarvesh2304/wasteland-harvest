@@ -1,51 +1,63 @@
 extends Node2D
-## Stateful farming layer (ROADMAP Phase 3): owns planted-plot state, crop sprites, and the two
-## placeholder resource nodes (tree/ore), and is the single entry point player.gd calls into for
-## till/plant/water/harvest/chop/mine. All the actual rules live in scripts/farm_grid.gd as pure
-## functions — this node is just the stateful Dictionary + scene-tree glue around them, same
-## split as scripts/day_manager.gd (pure sky_color()/format_clock() vs. stateful _process()).
+## Stateful farming layer for one zone (v2, 2026-10-07): soil wetness, fertiliser, planted plots
+## and their crop sprites. The rules are pure functions in scripts/farm_grid.gd (growth, seasons,
+## regrowth, yields); this node is the stateful dictionaries + scene glue around them.
+## Trees, rocks and other world objects moved to scripts/world_objects.gd (the sibling "Objects"
+## node) — tilling and planting just check it's not in the way.
 ##
-## Expected in the scene tree as a child of TestMap (see scenes/test_map.tscn) so get_parent()
-## is the TestMap node it repaints tilled soil through and reads terrain from.
+## Expected as a child of a zone map (scenes/test_map.tscn); get_parent() is that map.
 
 const FarmGrid := preload("res://scripts/farm_grid.gd")
 const CropDB := preload("res://scripts/crop_db.gd")
+const ItemDB := preload("res://scripts/item_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
+const Calendar := preload("res://scripts/calendar.gd")
 
 signal plot_changed(cell: Vector2i)
-signal resource_node_removed(cell: Vector2i)
+## A cell's wet (watered-today) state changed; the map repaints its wet-soil overlay.
+signal wet_changed(cell: Vector2i)
 
-## cell -> {crop_id, stage, watered}. Absence = bare ground (tilled or not).
+## plant_check() results.
+const OK := ""
+const NO_SOIL := "no_soil"
+const OCCUPIED := "occupied"
+const WRONG_SEASON := "wrong_season"
+const UNKNOWN_CROP := "unknown_crop"
+
+## cell -> plot (see farm_grid.gd for the shape). Absence = bare ground.
 var _plots: Dictionary = {}
-## cell -> "tree" | "ore".
-var _resource_nodes: Dictionary = {}
+## cell -> true for soil watered today (with or without a crop).
+var _wet: Dictionary = {}
+## cell -> fertiliser level (1 basic, 2 rich) laid on soil, consumed by the next planting.
+var _fertilized: Dictionary = {}
 var _crop_sprites: Dictionary = {}
-var _resource_bodies: Dictionary = {}
+var _rng := RandomNumberGenerator.new()
 
 var _test_map: Node2D
 
 
 func _ready() -> void:
 	_test_map = get_parent()
-	for entry in _test_map.layout.resource_node_cells():
-		var cell: Vector2i = entry["cell"]
-		_resource_nodes[cell] = String(entry["kind"])
-		_spawn_resource_prop(cell, String(entry["kind"]))
+	y_sort_enabled = true
+	_rng.randomize()
 	DayManager.day_started.connect(_on_day_started)
+
+
+func _objects() -> Node:
+	return _test_map.get_node_or_null("Objects") if _test_map != null else null
+
+
+func _season() -> String:
+	return Calendar.season(DayManager.day)
 
 
 ## -- Tilling --
 
 func can_till(cell: Vector2i) -> bool:
-	if _resource_nodes.has(cell) or _plots.has(cell):
+	if _plots.has(cell) or _test_map.is_tilled_at(cell) or _test_map.is_blocked_at(cell):
 		return false
-	if _test_map.is_tilled_at(cell):
-		return false
-	# Phase 4: a building's footprint can include cells that still read as plain grass in the
-	# layout's ASCII data (only the top-left cell carries the building's marker char — see
-	# map_layouts/layout_common.gd's class doc), so the terrain-char check alone isn't enough to
-	# keep a hoe out from under a farmhouse/mayor's house/shack. is_blocked_at() closes that gap.
-	if _test_map.is_blocked_at(cell):
+	var objects := _objects()
+	if objects != null and objects.has_object(cell):
 		return false
 	return FarmGrid.is_tillable_terrain(_test_map.terrain_at(cell))
 
@@ -56,57 +68,139 @@ func till(cell: Vector2i) -> bool:
 	return _test_map.till_cell(cell)
 
 
+func is_soil(cell: Vector2i) -> bool:
+	return _test_map.is_soil_at(cell.x, cell.y)
+
+
 ## -- Planting --
 
-func can_plant(cell: Vector2i) -> bool:
-	return _test_map.is_soil_at(cell.x, cell.y) and not _plots.has(cell)
+## Why planting `crop_id` at `cell` would fail ("" = it wouldn't).
+func plant_check(cell: Vector2i, crop_id: String) -> String:
+	if not CropDB.has_crop(crop_id):
+		return UNKNOWN_CROP
+	if not is_soil(cell):
+		return NO_SOIL
+	var objects := _objects()
+	if _plots.has(cell) or (objects != null and objects.has_object(cell)):
+		return OCCUPIED
+	if not CropDB.grows_in_season(crop_id, _season()):
+		return WRONG_SEASON
+	return OK
+
+
+func can_plant(cell: Vector2i, crop_id: String = "") -> bool:
+	if crop_id == "":
+		var objects := _objects()
+		return is_soil(cell) and not _plots.has(cell) and (objects == null or not objects.has_object(cell))
+	return plant_check(cell, crop_id) == OK
 
 
 func plant(cell: Vector2i, crop_id: String) -> bool:
-	if not can_plant(cell) or not CropDB.has_crop(crop_id):
+	if plant_check(cell, crop_id) != OK:
 		return false
-	_plots[cell] = {"crop_id": crop_id, "stage": 0, "watered": false}
-	_refresh_crop_sprite(cell)
+	var plot := FarmGrid.new_plot(crop_id, int(_fertilized.get(cell, 0)))
+	plot["watered"] = _wet.has(cell)
+	_plots[cell] = plot
+	_refresh_crop_sprite(cell, true)
 	plot_changed.emit(cell)
 	return true
 
 
+## A random crop that grows this season (wild/mixed seeds).
+func random_seasonal_crop() -> String:
+	var options := CropDB.crops_for_season(_season())
+	if options.is_empty():
+		return ""
+	return options[_rng.randi_range(0, options.size() - 1)]
+
+
+## -- Fertiliser --
+
+func can_fertilize(cell: Vector2i, level: int) -> bool:
+	if level <= 0 or not is_soil(cell):
+		return false
+	if int(_fertilized.get(cell, 0)) >= level:
+		return false
+	var plot: Dictionary = _plots.get(cell, {})
+	# Like Stardew: before planting, or on a seedling that hasn't grown yet.
+	return plot.is_empty() or int(plot.get("growth", 0)) == 0
+
+
+func fertilize(cell: Vector2i, level: int) -> bool:
+	if not can_fertilize(cell, level):
+		return false
+	_fertilized[cell] = level
+	if _plots.has(cell):
+		var plot: Dictionary = _plots[cell]
+		plot["fertilizer"] = level
+		_plots[cell] = plot
+	plot_changed.emit(cell)
+	return true
+
+
+func fertilizer_at(cell: Vector2i) -> int:
+	return int(_fertilized.get(cell, 0))
+
+
 ## -- Watering --
 
+## Any tilled soil can be watered once a day (it darkens); a crop on it counts as watered.
 func can_water(cell: Vector2i) -> bool:
-	var plot: Dictionary = _plots.get(cell, {})
-	if plot.is_empty() or bool(plot.get("watered", false)):
-		return false
-	return not FarmGrid.is_mature(plot, CropDB.growth_stages(String(plot.get("crop_id", ""))))
+	return is_soil(cell) and not _wet.has(cell)
 
 
 func water(cell: Vector2i) -> bool:
 	if not can_water(cell):
 		return false
-	var plot: Dictionary = _plots[cell]
-	plot["watered"] = true
-	_plots[cell] = plot
-	_refresh_crop_sprite(cell)
-	plot_changed.emit(cell)
+	_set_wet(cell, true)
+	if _plots.has(cell):
+		var plot: Dictionary = _plots[cell]
+		plot["watered"] = true
+		_plots[cell] = plot
+		plot_changed.emit(cell)
 	return true
 
 
 func is_watered(cell: Vector2i) -> bool:
-	return bool(_plots.get(cell, {}).get("watered", false))
+	return _wet.has(cell)
 
 
-## Phase 8 Stage 1: every planted-but-not-yet-watered cell in THIS zone's farmland (can_water()'s
-## own rule — a mature crop no longer needs watering, so it's excluded too), in Dictionary
-## iteration order. Consumed by scripts/building_effects.gd's Rain Collector tick, which is the
-## only reason a caller outside this node needs to enumerate plots rather than check one cell at
-## a time — kept here (not exposed as raw _plots access) so farm.gd stays the single owner of
-## what "waterable" means.
+func is_wet(cell: Vector2i) -> bool:
+	return _wet.has(cell)
+
+
+func wet_cells() -> Array:
+	return _wet.keys()
+
+
+## Planted cells that still need water today (rain collectors, hired labour, hints).
 func waterable_cells() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for cell in _plots.keys():
-		if can_water(cell):
+		var plot: Dictionary = _plots[cell]
+		if FarmGrid.needs_water(plot, CropDB.get_crop(String(plot.get("crop_id", "")))) \
+				and not _wet.has(cell):
 			out.append(cell)
 	return out
+
+
+## Rain: every soil cell in this zone is watered.
+func water_all() -> void:
+	var size: Vector2i = _test_map.layout.size()
+	for y in size.y:
+		for x in size.x:
+			if is_soil(Vector2i(x, y)):
+				water(Vector2i(x, y))
+
+
+func _set_wet(cell: Vector2i, wet: bool) -> void:
+	if wet == _wet.has(cell):
+		return
+	if wet:
+		_wet[cell] = true
+	else:
+		_wet.erase(cell)
+	wet_changed.emit(cell)
 
 
 ## -- Harvesting --
@@ -115,32 +209,63 @@ func can_harvest(cell: Vector2i) -> bool:
 	var plot: Dictionary = _plots.get(cell, {})
 	if plot.is_empty():
 		return false
-	return FarmGrid.is_mature(plot, CropDB.growth_stages(String(plot.get("crop_id", ""))))
+	return FarmGrid.is_mature(plot, CropDB.get_crop(String(plot.get("crop_id", ""))))
 
 
-## {} if nothing harvestable, else {item_id, count}. Plot returns to bare tilled soil.
+## Harvests a mature crop: returns {"item_id", "count", "crop_id"} or {}. Regrowing crops stay
+## planted (dropping back regrow_days of growth); everything else leaves bare soil and uses up
+## the cell's fertiliser.
 func harvest(cell: Vector2i) -> Dictionary:
 	var plot: Dictionary = _plots.get(cell, {})
 	if plot.is_empty():
 		return {}
-	var crop_def := CropDB.get_crop(String(plot.get("crop_id", "")))
-	var result := FarmGrid.harvest_yield(plot, crop_def)
+	var crop_id := String(plot.get("crop_id", ""))
+	var crop_def := CropDB.get_crop(crop_id)
+	var result := FarmGrid.harvest_yield(plot, crop_def, _rng.randf(), _rng.randf())
 	if result.is_empty():
 		return {}
-	_plots.erase(cell)
-	_clear_crop_sprite(cell)
+	var next := FarmGrid.after_harvest(plot, crop_def)
+	if next.is_empty():
+		_plots.erase(cell)
+		_fertilized.erase(cell)
+		_clear_crop_sprite(cell, true)
+	else:
+		next["watered"] = _wet.has(cell)
+		_plots[cell] = next
+		_refresh_crop_sprite(cell, true)
 	plot_changed.emit(cell)
+	result["crop_id"] = crop_id
 	return result
+
+
+## Farming XP for harvesting one unit of an item worth `price` (Stardew's curve).
+static func harvest_xp(price: int) -> int:
+	return maxi(1, int(round(16.0 * log(0.018 * float(maxi(price, 0)) + 1.0))))
+
+
+func is_dead(cell: Vector2i) -> bool:
+	return bool(_plots.get(cell, {}).get("dead", false))
+
+
+## Removes a withered crop (any tool or the interact button); soil stays tilled.
+func clear_dead(cell: Vector2i) -> bool:
+	if not is_dead(cell):
+		return false
+	_plots.erase(cell)
+	_clear_crop_sprite(cell, false)
+	plot_changed.emit(cell)
+	return true
 
 
 func get_plot(cell: Vector2i) -> Dictionary:
 	return _plots.get(cell, {})
 
 
-## Stable work boundary for an assigned farm laborer: authored farmland plus the one-cell
-## walkable grass border around it. This keeps delegation on the Farm instead of silently
-## hoeing the whole map, while still giving the worker a real till -> plant path after the
-## authored plots are occupied. Returned in row-major order for deterministic simulation.
+func all_plots() -> Dictionary:
+	return _plots
+
+
+## Hired-labour work area: the layout's farmland plus every tillable cell bordering it.
 func labor_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	var seen := {}
@@ -165,140 +290,68 @@ func labor_cells() -> Array[Vector2i]:
 	return cells
 
 
-## -- Resource nodes (Phase 3 minimal scope: single-hit, no respawn — see map_layouts/layout_common.gd) --
+## -- Daily tick --
 
-func can_chop(cell: Vector2i) -> bool:
-	return _resource_nodes.get(cell, "") == "tree"
-
-
-func can_mine(cell: Vector2i) -> bool:
-	return _resource_nodes.get(cell, "") == "ore"
-
-
-## Array of {item_id, count} yields (a resource node can grant more than one item type).
-func chop(cell: Vector2i) -> Array[Dictionary]:
-	if not can_chop(cell):
-		return []
-	_remove_resource_node(cell)
-	return [{"item_id": "wood", "count": 3}]
-
-
-func mine(cell: Vector2i) -> Array[Dictionary]:
-	if not can_mine(cell):
-		return []
-	_remove_resource_node(cell)
-	return [{"item_id": "stone", "count": 2}, {"item_id": "scrap_metal", "count": 1}]
-
-
-func _remove_resource_node(cell: Vector2i) -> void:
-	_resource_nodes.erase(cell)
-	var body: Node = _resource_bodies.get(cell)
-	if body != null:
-		body.queue_free()
-	_resource_bodies.erase(cell)
-	resource_node_removed.emit(cell)
-
-
-func _spawn_resource_prop(cell: Vector2i, kind: String) -> void:
-	var body := StaticBody2D.new()
-	body.collision_layer = 1  # "world" — see project.godot [layer_names]
-	body.collision_mask = 0
-	body.position = _test_map.cell_to_world_center(cell)
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = Vector2(14, 14)
-	shape.shape = rect
-	body.add_child(shape)
-	var visual := ColorRect.new()
-	visual.size = Vector2(12, 12)
-	visual.position = Vector2(-6, -6)
-	# Flat-color placeholder (Phase 3 scope call, see map_layouts/layout_common.gd's legend comment):
-	# ash-brown stump for trees, concrete-grey for ore, both from the locked GDD §9 palette.
-	visual.color = Color("#7b5025") if kind == "tree" else Color("#9d9180")
-	body.add_child(visual)
-	add_child(body)
-	_resource_bodies[cell] = body
-
-
-## -- Save/load (Phase 4 Stage 3; see scripts/save_data.gd's class doc for the shape) --
-
-func save_state() -> Dictionary:
-	return {
-		"plots": SaveData.encode_plots(_plots),
-		# Nodes still STANDING; a chopped tree / mined ore is simply absent, so it stays gone
-		# after a reload (Phase 3's documented single-hit/no-respawn rule).
-		"resource_nodes": SaveData.encode_resource_nodes(_resource_nodes),
-	}
-
-
-## Applies a loaded save on top of the layout-authored state _ready() already built: prunes the
-## resource nodes the saved playthrough had cleared (removing their collision bodies through the
-## same _remove_resource_node path chopping/mining uses), then installs the saved plots and
-## spawns their crop sprites at the correct stage/watered tint.
-func load_state(data: Dictionary) -> void:
-	var remaining := SaveData.decode_resource_nodes(data.get("resource_nodes", {}))
-	for cell in _resource_nodes.keys():
-		if not remaining.has(cell):
-			_remove_resource_node(cell)
-	_plots = SaveData.decode_plots(data.get("plots", {}))
-	for cell in _plots.keys():
-		_refresh_crop_sprite(cell)
-		plot_changed.emit(cell)
-
-
-## -- Daily growth tick --
-
-func _on_day_started(_day: int) -> void:
-	var wilted: Array[Vector2i] = []
+## Morning: every plot grows if it was watered (season permitting), wet soil dries, then today's
+## rain (if any) waters everything again.
+func _on_day_started(day: int) -> void:
+	var season := Calendar.season(day)
 	for cell in _plots.keys():
 		var plot: Dictionary = _plots[cell]
-		var growth_stages := CropDB.growth_stages(String(plot.get("crop_id", "")))
-		var next_plot := FarmGrid.advance_plot(plot, growth_stages)
-		if next_plot.is_empty():
-			wilted.append(cell)
-		else:
-			_plots[cell] = next_plot
-	for cell in wilted:
-		_plots.erase(cell)
-		_clear_crop_sprite(cell)
-		plot_changed.emit(cell)
+		plot["watered"] = _wet.has(cell)
+		var crop_def := CropDB.get_crop(String(plot.get("crop_id", "")))
+		_plots[cell] = FarmGrid.advance_plot(plot, crop_def, season)
+	for cell in _wet.keys():
+		_set_wet(cell, false)
+	if DayManager.is_raining():
+		water_all()
 	for cell in _plots.keys():
-		_refresh_crop_sprite(cell)
+		_refresh_crop_sprite(cell, false)
+		plot_changed.emit(cell)
 
 
-## -- Crop sprite presentation --
+## -- Crop sprites --
 
-func _refresh_crop_sprite(cell: Vector2i) -> void:
+func _refresh_crop_sprite(cell: Vector2i, pop: bool) -> void:
 	var plot: Dictionary = _plots.get(cell, {})
 	if plot.is_empty():
-		_clear_crop_sprite(cell)
+		_clear_crop_sprite(cell, false)
 		return
 	var crop_id := String(plot.get("crop_id", ""))
-	var stage := int(plot.get("stage", 0))
 	var sprite: Sprite2D = _crop_sprites.get(cell)
 	if sprite == null:
 		sprite = Sprite2D.new()
+		sprite.centered = false
 		add_child(sprite)
-		sprite.position = _test_map.cell_to_world_center(cell)
+		# Origin on the cell's bottom edge so crops y-sort with people and objects.
+		sprite.position = _test_map.cell_to_world_center(cell) + Vector2(0, 8)
 		_crop_sprites[cell] = sprite
-	sprite.texture = _crop_texture(crop_id, stage)
-	# Watered visual indicator (checklist requirement): a faint cool-blue tint on the crop
-	# sprite while its watered flag is set for the day; back to neutral once consumed at the
-	# next morning tick. Simple, cheap, and reads clearly at the 16px tile scale.
-	sprite.modulate = Color(0.78, 0.87, 1.0) if bool(plot.get("watered", false)) else Color.WHITE
+	if bool(plot.get("dead", false)):
+		sprite.texture = _dead_texture(crop_id)
+	else:
+		sprite.texture = _crop_texture(crop_id, int(plot.get("stage", 0)))
+	var tex_size := sprite.texture.get_size()
+	sprite.offset = Vector2(-tex_size.x * 0.5, -tex_size.y)
+	if pop:
+		sprite.scale = Vector2(0.7, 1.25)
+		var tw := sprite.create_tween()
+		tw.tween_property(sprite, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-func _clear_crop_sprite(cell: Vector2i) -> void:
+func _clear_crop_sprite(cell: Vector2i, pop: bool) -> void:
 	var sprite: Sprite2D = _crop_sprites.get(cell)
-	if sprite != null:
-		sprite.queue_free()
 	_crop_sprites.erase(cell)
+	if sprite == null:
+		return
+	if pop and sprite.is_inside_tree():
+		var tw := sprite.create_tween()
+		tw.tween_property(sprite, "scale", Vector2(1.3, 0.6), 0.08)
+		tw.tween_property(sprite, "modulate:a", 0.0, 0.08)
+		tw.tween_callback(sprite.queue_free)
+	else:
+		sprite.queue_free()
 
 
-## Real PixelLab art if the stage file exists (art/crops/<crop>/stage_N.png — see
-## art/crops/README.md for provenance); otherwise a flat-color placeholder that darkens-to-
-## amber across stages, so the game still runs (and headless tests still pass) even before/
-## without the generated art present.
 func _crop_texture(crop_id: String, stage: int) -> Texture2D:
 	var path := CropDB.stage_texture_path(crop_id, stage)
 	if ResourceLoader.exists(path):
@@ -306,6 +359,57 @@ func _crop_texture(crop_id: String, stage: int) -> Texture2D:
 	var growth_stages: int = maxi(CropDB.growth_stages(crop_id) - 1, 1)
 	var t := float(stage) / float(growth_stages)
 	var color: Color = Color("#95ac49").lerp(Color("#e1982a"), t)
-	var image := Image.create(12, 12, false, Image.FORMAT_RGBA8)
-	image.fill(color)
+	var h := 4 + int(10.0 * t)
+	var image := Image.create(10, 16, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in range(16 - h, 16):
+		for x in range(2, 8):
+			image.set_pixel(x, y, color)
 	return ImageTexture.create_from_image(image)
+
+
+func _dead_texture(crop_id: String) -> Texture2D:
+	var path := CropDB.dead_texture_path(crop_id)
+	if ResourceLoader.exists(path):
+		return load(path)
+	var image := Image.create(10, 12, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in range(4, 12):
+		for x in range(3, 7):
+			image.set_pixel(x, y, Color("#78634c"))
+	return ImageTexture.create_from_image(image)
+
+
+## -- Save / load --
+
+func save_state() -> Dictionary:
+	return {
+		"plots": SaveData.encode_plots(_plots),
+		"wet": SaveData.encode_cells(_wet.keys()),
+		"fertilized": SaveData.encode_cell_ints(_fertilized),
+	}
+
+
+## `data` is this zone's saved farm section. Pre-v2 saves carried "resource_nodes" here (now
+## world objects — main.gd hands that part to the Objects node) and stage-only plots, which
+## normalize_plot upgrades. A plot sitting on cells that aren't soil any more (the farm layouts
+## lost their big pre-tilled fields on 2026-10-07) gets its cell re-tilled so nothing floats.
+func load_state(data: Dictionary) -> void:
+	for cell in _crop_sprites.keys():
+		_clear_crop_sprite(cell, false)
+	_plots.clear()
+	var decoded := SaveData.decode_plots(data.get("plots", {}))
+	for cell in decoded:
+		var plot: Dictionary = decoded[cell]
+		var crop_def := CropDB.get_crop(String(plot.get("crop_id", "")))
+		_plots[cell] = FarmGrid.normalize_plot(plot, crop_def)
+		if not is_soil(cell):
+			_test_map.force_till(cell)
+	for cell in _wet.keys():
+		_set_wet(cell, false)
+	for cell in SaveData.decode_cells(data.get("wet", [])):
+		_set_wet(cell, true)
+	_fertilized = SaveData.decode_cell_ints(data.get("fertilized", {}))
+	for cell in _plots.keys():
+		_refresh_crop_sprite(cell, false)
+		plot_changed.emit(cell)

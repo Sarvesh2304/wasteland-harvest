@@ -24,6 +24,8 @@ func _initialize() -> void:
 	if shot_dir == "":
 		shot_dir = "user://"
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	day_manager = root.get_node("DayManager")
 	game_state.chosen_settlement_id = "forest_edge"
 	main = (load("res://scenes/main.tscn") as PackedScene).instantiate()

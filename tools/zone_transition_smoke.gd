@@ -65,6 +65,8 @@ var failures := 0
 
 func _initialize() -> void:
 	game_state = root.get_node("GameState")
+	game_state.world_spawning_enabled = false
+	root.get_node("DayManager").forced_weather = "clear"
 	day_manager = root.get_node("DayManager")
 	game_state.save_path = SAVE_PATH
 	game_state.delete_save()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/test_map.gd" id="1_script"]
 [ext_resource type="TileSet" path="res://tilemaps/wasteland_tileset.tres" id="2_tileset"]
@@ -6,34 +6,49 @@
 [ext_resource type="Script" path="res://scripts/structures.gd" id="4_structures"]
 [ext_resource type="Script" path="res://scripts/npcs.gd" id="5_npcs"]
 [ext_resource type="Script" path="res://scripts/props.gd" id="6_props"]
+[ext_resource type="Script" path="res://scripts/world_objects.gd" id="7_objects"]
 
 [node name="TestMap" type="Node2D"]
+y_sort_enabled = true
 script = ExtResource("1_script")
 
 [node name="Ground" type="TileMapLayer" parent="."]
+z_index = -10
 position = Vector2(-8, -8)
 tile_set = ExtResource("2_tileset")
 
 [node name="Decor" type="TileMapLayer" parent="."]
+z_index = -9
 tile_set = ExtResource("2_tileset")
 
 [node name="Obstacles" type="TileMapLayer" parent="."]
+z_index = -8
 tile_set = ExtResource("2_tileset")
 
 [node name="Fence" type="TileMapLayer" parent="."]
+z_index = -8
 tile_set = ExtResource("2_tileset")
 
 [node name="Water" type="TileMapLayer" parent="."]
+z_index = -9
 tile_set = ExtResource("2_tileset")
 
 [node name="Farm" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("3_farm")
 
+[node name="Objects" type="Node2D" parent="."]
+y_sort_enabled = true
+script = ExtResource("7_objects")
+
 [node name="Structures" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("4_structures")
 
 [node name="Npcs" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("5_npcs")
 
 [node name="Props" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("6_props")
