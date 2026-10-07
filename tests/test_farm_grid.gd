@@ -18,6 +18,9 @@ func test_tillable_terrain() -> void:
 	assert_false(FarmGridScript.is_tillable_terrain("f"), "already-tilled farmland is not")
 	assert_false(FarmGridScript.is_tillable_terrain("p"), "plank floor is not")
 	assert_false(FarmGridScript.is_tillable_terrain("#"), "rubble is not")
+	assert_true(FarmGridScript.is_tillable_terrain(","), "overgrown old field is tillable")
+	assert_true(FarmGridScript.is_old_field_terrain(","))
+	assert_false(FarmGridScript.is_old_field_terrain("."), "plain grass isn't an old field")
 
 
 func test_new_plot_shape() -> void:

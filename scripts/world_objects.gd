@@ -40,6 +40,9 @@ const ZONE_SPAWNS := {
 ## Weighted debris mix for scatter and regrowth.
 const DEBRIS_WEIGHTS := {"weeds": 46, "twig": 18, "pebble": 18, "junk": 7, "scrap_small": 5,
 	"rock_small": 6}
+## The old fields (',') start smothered: weeds and tall grass mostly, a few stones and sticks.
+const OLD_FIELD_WEIGHTS := {"weeds": 50, "tallgrass": 22, "twig": 10, "pebble": 12, "rock_small": 6}
+const OLD_FIELD_DENSITY := 0.62
 ## Rarer big objects for the initial scatter only (need tool upgrades; a reason to come back).
 const BIG_SCATTER := {"rock_large": 4, "stump_large": 3, "log_large": 3, "scrap_large": 3}
 ## Cells around which nothing may spawn (radius in cells): the spawn point, gates, buildings.
@@ -347,8 +350,10 @@ func scatter_initial() -> void:
 			var c2: Vector2i = cells[rng.randi_range(0, cells.size() - 1)]
 			place("tree_ashwood" if rng.randf() < 0.7 else "tree_pine", c2)
 	for c3 in cells:
-		if rng.randf() < density and not _occupancy.has(c3):
-			place(_weighted_pick(DEBRIS_WEIGHTS, rng), c3)
+		var old_field := String(_test_map.layout.cell(c3.x, c3.y)) == ","
+		var chance := maxf(density, OLD_FIELD_DENSITY) if old_field else density
+		if rng.randf() < chance and not _occupancy.has(c3):
+			place(_weighted_pick(OLD_FIELD_WEIGHTS if old_field else DEBRIS_WEIGHTS, rng), c3)
 
 
 func _on_day_started(day: int) -> void:
@@ -424,7 +429,7 @@ func _free_spawn_cells() -> Array[Vector2i]:
 		for x in range(1, size.x - 1):
 			var c := Vector2i(x, y)
 			var t := String(layout.cell(x, y))
-			if t != "." :
+			if t != "." and t != ",":
 				continue
 			if _occupancy.has(c) or _test_map.is_blocked_at(c) or _test_map.is_soil_at(x, y):
 				continue

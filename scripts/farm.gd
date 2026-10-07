@@ -65,7 +65,12 @@ func can_till(cell: Vector2i) -> bool:
 func till(cell: Vector2i) -> bool:
 	if not can_till(cell):
 		return false
-	return _test_map.till_cell(cell)
+	var old_field := FarmGrid.is_old_field_terrain(_test_map.terrain_at(cell))
+	if not _test_map.till_cell(cell):
+		return false
+	if old_field and int(_fertilized.get(cell, 0)) < FarmGrid.OLD_FIELD_FERTILITY:
+		_fertilized[cell] = FarmGrid.OLD_FIELD_FERTILITY
+	return true
 
 
 func is_soil(cell: Vector2i) -> bool:
@@ -265,7 +270,8 @@ func all_plots() -> Dictionary:
 	return _plots
 
 
-## Hired-labour work area: the layout's farmland plus every tillable cell bordering it.
+## Hired-labour work area: the layout's farmland and old fields, plus every tillable cell
+## bordering them.
 func labor_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	var seen := {}
@@ -273,7 +279,8 @@ func labor_cells() -> Array[Vector2i]:
 	for y in map_size.y:
 		for x in map_size.x:
 			var cell := Vector2i(x, y)
-			if _test_map.layout.is_soil(x, y):
+			if _test_map.layout.is_soil(x, y) \
+					or FarmGrid.is_old_field_terrain(String(_test_map.terrain_at(cell))):
 				cells.append(cell)
 				seen[cell] = true
 	for source in cells.duplicate():

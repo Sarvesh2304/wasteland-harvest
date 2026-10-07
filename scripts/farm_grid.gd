@@ -31,8 +31,19 @@ extends RefCounted
 const CropDB := preload("res://scripts/crop_db.gd")
 
 
+## Old fields (',' in the farm layouts, 2026-10-07): the settlement's pre-war farmland gone
+## back to weeds. Tillable like grass, and soil hoed out of one starts fertile (basic fertiliser
+## level) — the ground remembers being farmed.
+const OLD_FIELD := ","
+const OLD_FIELD_FERTILITY := 1
+
+
 static func is_tillable_terrain(cell_char: String) -> bool:
-	return cell_char == "." or cell_char == "@"
+	return cell_char == "." or cell_char == "@" or cell_char == OLD_FIELD
+
+
+static func is_old_field_terrain(cell_char: String) -> bool:
+	return cell_char == OLD_FIELD
 
 
 ## A freshly planted plot.

@@ -10,6 +10,10 @@ extends RefCounted
 ## just parameterized over which map's data to read.
 ##
 ## ## Legend (extends Phase 2/3's '.'/'f'/'p'/'#'/'@'/'T'/'O' with Phase 4 additions)
+##   ','  old field (2026-10-07 reclaim-the-farm): the pre-war farmland, overgrown. Walkable,
+##        tillable like grass, scattered thick with weeds on a new game, and fertile once hoed
+##        (see farm_grid.gd's OLD_FIELD). Each farm layout keeps only a small 'f' starter patch
+##        beside the homestead; the rest of its farmland is ',' waiting to be reclaimed.
 ##   'F'  perimeter fence (solid) — painted as a worn-wood-tinted rubble tile, see test_map.gd
 ##   'W'  water (solid) — painted as a blue-tinted rubble tile; river, pond, or creek per start
 ##   'G'  a gate (walkable; a break in a fence line). Since the zone split (Phase 8's

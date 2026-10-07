@@ -24,10 +24,10 @@ drivers green) — not when code merely exists.
 - [ ] Farming rules: a dry day pauses growth (never kills), wet-soil visuals, regrowing crops,
       fertiliser, seasons per crop *(2026-10-07: all the rules are in and tested — 15 crops,
       regrowth, fertiliser, out-of-season withering; only the wet-soil visuals are left)*
-- [ ] Reclaim-the-farm arc: farm starts overgrown (weeds, stones, branches, scrap, stumps);
-      multi-hit trees/rocks with drops; daily debris/forage respawn *(2026-10-07: the world-object
-      system — multi-hit objects, tool tiers, drop tables, stumps, daily respawn — is in; the farm
-      layouts still start mostly pre-tilled)*
+- [x] Reclaim-the-farm arc: farm starts overgrown (weeds, stones, branches, scrap, stumps);
+      multi-hit trees/rocks with drops; daily debris/forage respawn *(2026-10-07: each farm keeps a
+      4x3 tilled starter patch; the rest of its farmland is overgrown "old field" that starts
+      smothered in weeds and is fertile once hoed)*
 - [ ] Readable world art: layered terrain (grass variation, paths, tilled dry/wet soil, animated
       water, real fences), trees/rocks/debris sprites, icons for every item
 

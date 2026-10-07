@@ -44,6 +44,11 @@ extends RefCounted
 ##     described the Sanctuary as sitting "south of the farm ... reached by its own short path off
 ##     the farm-to-plaza route" — the old Town↔Ranch seam was an artifact of how the pre-split
 ##     combined map stacked its rows, not a design call, and this restores the documented intent.
+##
+## ## Reclaim-the-farm (2026-10-07)
+## The farmland described above is now OLD FIELD (',') — overgrown, tillable, fertile once hoed —
+## except one 4x3 'f' starter patch beside the homestead (x15-18, y10-12), so a new game opens on a farm
+## that has to be won back from the weeds (see layout_common.gd's legend).
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
@@ -63,22 +68,22 @@ const ROWS: Array[String] = [
 	# The field proper: one contiguous block, x8-57 / y10-25, corners chamfered and one
 	# cart track notched in from the homestead — 768 pre-tilled cells, by a wide margin
 	# the largest plantable area of the three starts (MAPS.md §1).
-	"F...........ffffffffffffffffff....ffffffffffffffffffff.................F",
-	"F...........ffffffffffffffffffffffffffffffffffffffffff.................F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.....T.......F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
-	"F...O...ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............G",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............G",
-	"F.T.....ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.......O.....F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
-	"F....T..ffffffffffffffffffffffffffffffffffffffffffffffffff.............F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.O...........F",
-	"F.......ffffffffffffffffffffffffffffffffffffffffffffffffff.........T...F",
-	"F..........ffffffffffffffffffffffffffffffffffffffffffff................F",
-	"F..........ffffffffffffffffffffffffffffffffffffffffffff................F",
+	"F...........,,,ffff,,,,,,,,,,,....,,,,,,,,,,,,,,,,,,,,.................F",
+	"F...........,,,ffff,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.................F",
+	"F.......,,,,,,,ffff,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.....T.......F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............F",
+	"F...O...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............G",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............G",
+	"F.T.....,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.......O.....F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............F",
+	"F....T..,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.............F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.O...........F",
+	"F.......,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,.........T...F",
+	"F..........,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,................F",
+	"F..........,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,................F",
 	# South of the field: open working ground running to the new south perimeter wall and
 	# its gate-break at x35-36 (see zone_exits() — the Ranch/Sanctuary lies behind it).
 	"F......................................................................F",

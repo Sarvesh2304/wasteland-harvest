@@ -24,8 +24,8 @@ const TownRiversideLayout := preload("res://scripts/map_layouts/town_layout_rive
 const RanchStandardLayout := preload("res://scripts/map_layouts/ranch_layout_standard.gd")
 const RanchRiversideLayout := preload("res://scripts/map_layouts/ranch_layout_riverside.gd")
 
-const LEGAL_CHARS := [".", "f", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G", "g",
-	"N", "Y", "P"]  # Ranch/Sanctuary markers (MAPS.md §3): raNch house, barn (Y), cooP
+const LEGAL_CHARS := [".", "f", ",", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G",
+	"g", "N", "Y", "P"]  # Ranch/Sanctuary markers (MAPS.md §3): raNch house, barn (Y), cooP
 const FARM_BUILDING_KINDS := ["farmhouse", "chest", "bed", "shipping_box"]
 const TOWN_BUILDING_KINDS := ["mayor_house", "store", "shack", "bulletin_board"]
 
@@ -632,3 +632,27 @@ func test_layout_common_building_at() -> void:
 	]
 	assert_eq(LayoutCommon.building_at(buildings, 2, 3).get("id", ""), "a")
 	assert_true(LayoutCommon.building_at(buildings, 10, 10).is_empty())
+
+
+## 2026-10-07 reclaim-the-farm: a new game starts on a small tilled patch beside the homestead,
+## with the rest of the old farmland overgrown (',') and waiting to be won back.
+func test_farm_layouts_start_with_a_starter_patch_and_old_fields() -> void:
+	for i in FARM_LAYOUTS.size():
+		var layout = FARM_LAYOUTS[i]
+		var rows: Array[String] = layout.ROWS
+		var spawn: Vector2i = layout.spawn_cell()
+		var soil := 0
+		var old_field := 0
+		for y in rows.size():
+			for x in rows[y].length():
+				match rows[y][x]:
+					"f":
+						soil += 1
+						assert_true(absi(x - spawn.x) <= 8 and absi(y - spawn.y) <= 8,
+							"%s starter soil (%d,%d) sits near the homestead" % [FARM_NAMES[i], x, y])
+					",":
+						old_field += 1
+						assert_true(layout.is_tillable(x, y), "%s old field is tillable" % FARM_NAMES[i])
+						assert_false(layout.is_soil(x, y), "%s old field starts untilled" % FARM_NAMES[i])
+		assert_eq(soil, 12, "%s keeps a 4x3 starter patch" % FARM_NAMES[i])
+		assert_true(old_field >= 150, "%s has old fields to reclaim (%d)" % [FARM_NAMES[i], old_field])
