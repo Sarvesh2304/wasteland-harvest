@@ -10,6 +10,8 @@ extends RefCounted
 ## just parameterized over which map's data to read.
 ##
 ## ## Legend (extends Phase 2/3's '.'/'f'/'p'/'#'/'@'/'T'/'O' with Phase 4 additions)
+##   ':'  dirt path, ';' cobbled plaza (2026-10-07 town dressing): walkable, not tillable, painted
+##        with the dirt / cobble ground overlays.
 ##   ','  old field (2026-10-07 reclaim-the-farm): the pre-war farmland, overgrown. Walkable,
 ##        tillable like grass, scattered thick with weeds on a new game, and fertile once hoed
 ##        (see farm_grid.gd's OLD_FIELD). Each farm layout keeps only a small 'f' starter patch
@@ -82,6 +84,39 @@ const TOWN_NPCS: Array[Dictionary] = [
 	{"id": "mayor_harlan", "home": Vector2i(10, 4), "wander_radius": 1},
 	{"id": "marta", "home": Vector2i(17, 9), "wander_radius": 1},
 	{"id": "scout_kael", "home": Vector2i(18, 13), "wander_radius": 1},
+]
+
+## 2026-10-07 town dressing, shared by both town variants (identical town-core coordinates). Each
+## entry: {kind, art (under res://art/env/, no extension), cell (footprint top-left), size
+## (footprint in cells), solid, frames (animation strip length), fps (0 = still), night_frame (the
+## frame shown from dusk to dawn, e.g. a lit lamp)}. The sprite stands on its
+## footprint's bottom edge, centred; solid props block their footprint (collision + the cells the
+## NPCs and tools treat as blocked). Every solid footprint is kept off the town NPCs' homes,
+## wander areas, schedule routes and the settler home cells (tests/test_map_layouts.gd,
+## tools/npc_schedule_smoke.gd and tools/settler_smoke.gd).
+const TOWN_DECOR: Array[Dictionary] = [
+	{"kind": "well", "art": "props/well", "cell": Vector2i(16, 7), "size": Vector2i(2, 1), "solid": true},
+	{"kind": "bench", "art": "props/bench", "cell": Vector2i(14, 5), "size": Vector2i(2, 1), "solid": true},
+	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(12, 3), "size": Vector2i(1, 1), "solid": true,
+		"frames": 2, "night_frame": 1},
+	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(22, 3), "size": Vector2i(1, 1), "solid": true,
+		"frames": 2, "night_frame": 1},
+	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(22, 10), "size": Vector2i(1, 1), "solid": true,
+		"frames": 2, "night_frame": 1},
+	{"kind": "market_stall", "art": "props/market_stall", "cell": Vector2i(5, 10), "size": Vector2i(3, 1), "solid": true},
+	{"kind": "water_tower", "art": "props/water_tower", "cell": Vector2i(31, 6), "size": Vector2i(3, 2), "solid": true},
+	{"kind": "wind_turbine", "art": "props/wind_turbine", "cell": Vector2i(33, 13), "size": Vector2i(1, 1), "solid": true,
+		"frames": 4, "fps": 5},
+	{"kind": "fire_pit", "art": "props/fire_pit", "cell": Vector2i(30, 4), "size": Vector2i(1, 1), "solid": true,
+		"frames": 4, "fps": 8},
+	{"kind": "laundry_line", "art": "props/laundry_line", "cell": Vector2i(29, 10), "size": Vector2i(3, 1), "solid": true},
+	{"kind": "crate_stack", "art": "props/crate_stack", "cell": Vector2i(19, 11), "size": Vector2i(1, 1), "solid": true},
+	{"kind": "barrel", "art": "props/barrel", "cell": Vector2i(20, 11), "size": Vector2i(1, 1), "solid": true},
+	{"kind": "water_barrel", "art": "props/water_barrel", "cell": Vector2i(25, 3), "size": Vector2i(1, 1), "solid": true},
+	{"kind": "crate", "art": "props/crate", "cell": Vector2i(29, 8), "size": Vector2i(1, 1), "solid": true},
+	{"kind": "planter", "art": "props/planter", "cell": Vector2i(7, 1), "size": Vector2i(1, 1), "solid": true},
+	{"kind": "planter", "art": "props/planter", "cell": Vector2i(12, 1), "size": Vector2i(1, 1), "solid": true},
+	{"kind": "sign_post", "art": "props/sign_post", "cell": Vector2i(2, 6), "size": Vector2i(1, 1), "solid": true},
 ]
 
 ## Phase 8 groundwork (MAPS.md §3): the Ranch/Sanctuary keeper. Home (17, 9) is RANCH-ZONE-LOCAL

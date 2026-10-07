@@ -8,7 +8,8 @@ extends Node2D
 ## scripts/ground_rules.gd. Bottom to top:
 ##  - Base: the season's grass, one of 8 seamless variants per cell (logical grid).
 ##  - Dual-grid overlays, one TileMapLayer each, offset (-8, -8) so visual tiles straddle cell
-##    corners: old road ('p' away from water), rubble ground ('#'), tilled soil, wet soil
+##    corners: old road ('p' away from water), dirt paths (':'), cobbled plaza (';'), rubble
+##    ground ('#'), tilled soil, wet soil
 ##    (follows Farm.wet_changed) and animated water ('W', plus footbridge cells spanning it).
 ##  - Planks: dock boards and footbridges ('p' touching water), boards across the walkway.
 ##  - Decor: flowers, tufts and specks scattered on grass, thick on old fields (',').
@@ -35,7 +36,8 @@ const Calendar := preload("res://scripts/calendar.gd")
 const CELL_SIZE := 16
 
 ## Dual-grid overlays, bottom to top.
-const OVERLAY_ORDER: Array[String] = ["road", "rubble_ground", "soil", "soil_wet", "water"]
+const OVERLAY_ORDER: Array[String] = ["road", "dirt", "cobble", "rubble_ground", "soil", "soil_wet",
+	"water"]
 ## Which sheet the old road ('p' away from water) uses per zone: broken concrete paving in the
 ## settlement, cracked asphalt on the old highway.
 const ROAD_SHEET := {"path": "asphalt"}
@@ -181,6 +183,10 @@ func _in_terrain(terrain: String, cell: Vector2i) -> bool:
 			return String(layout.cell(cell.x, cell.y)) == "W" or (_plank_info["bridge"] as Dictionary).has(cell)
 		"rubble_ground":
 			return String(layout.cell(cell.x, cell.y)) == "#"
+		"dirt":
+			return String(layout.cell(cell.x, cell.y)) == ":"
+		"cobble":
+			return String(layout.cell(cell.x, cell.y)) == ";"
 		"road":
 			return (_plank_info["road"] as Dictionary).has(cell)
 	return false

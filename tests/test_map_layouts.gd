@@ -13,6 +13,7 @@ extends "res://tests/test_case.gd"
 ## silently create a one-way or dangling connection.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
+const NpcSchedule := preload("res://scripts/npc_schedule.gd")
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const OpenPlainsLayout := preload("res://scripts/map_layouts/open_plains_layout.gd")
 const ForestEdgeLayout := preload("res://scripts/map_layouts/forest_edge_layout.gd")
@@ -24,7 +25,7 @@ const TownRiversideLayout := preload("res://scripts/map_layouts/town_layout_rive
 const RanchStandardLayout := preload("res://scripts/map_layouts/ranch_layout_standard.gd")
 const RanchRiversideLayout := preload("res://scripts/map_layouts/ranch_layout_riverside.gd")
 
-const LEGAL_CHARS := [".", "f", ",", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G",
+const LEGAL_CHARS := [".", "f", ",", ":", ";", "p", "#", "@", "T", "O", "H", "C", "D", "M", "R", "K", "B", "S", "W", "F", "G",
 	"g", "N", "Y", "P"]  # Ranch/Sanctuary markers (MAPS.md §3): raNch house, barn (Y), cooP
 const FARM_BUILDING_KINDS := ["farmhouse", "chest", "bed", "shipping_box"]
 const TOWN_BUILDING_KINDS := ["mayor_house", "store", "shack", "bulletin_board"]
@@ -656,3 +657,39 @@ func test_farm_layouts_start_with_a_starter_patch_and_old_fields() -> void:
 						assert_false(layout.is_soil(x, y), "%s old field starts untilled" % FARM_NAMES[i])
 		assert_eq(soil, 12, "%s keeps a 4x3 starter patch" % FARM_NAMES[i])
 		assert_true(old_field >= 150, "%s has old fields to reclaim (%d)" % [FARM_NAMES[i], old_field])
+
+
+## 2026-10-07 town dressing: every prop stands on open, walkable ground, its art exists, and no
+## solid footprint touches a town NPC's home, wander area or schedule waypoint, or a settler's.
+func test_town_decor_is_placed_on_open_ground_clear_of_npcs() -> void:
+	var avoid := {}
+	for entry in LayoutCommon.TOWN_NPCS:
+		var home: Vector2i = entry["home"]
+		var r := int(entry["wander_radius"])
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				avoid[home + Vector2i(dx, dy)] = true
+	for npc_id in NpcSchedule.SCHEDULES:
+		for waypoint in NpcSchedule.SCHEDULES[npc_id]:
+			avoid[Vector2i(waypoint["cell"])] = true
+	for home in LayoutCommon.SETTLER_HOME_CELLS:
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				avoid[home + Vector2i(dx, dy)] = true
+	for i in TOWN_LAYOUTS.size():
+		var layout = TOWN_LAYOUTS[i]
+		for prop in layout.decor_props():
+			assert_true(ResourceLoader.exists("res://art/env/%s.png" % prop["art"]),
+				"%s prop art %s exists" % [TOWN_NAMES[i], prop["art"]])
+			var cell: Vector2i = prop["cell"]
+			var size: Vector2i = prop["size"]
+			for dy in size.y:
+				for dx in size.x:
+					var c := cell + Vector2i(dx, dy)
+					assert_false(layout.is_solid(c.x, c.y),
+						"%s %s footprint %s is on open ground" % [TOWN_NAMES[i], prop["kind"], c])
+					assert_true(String(layout.cell(c.x, c.y)) in [".", ":", ";"],
+						"%s %s footprint %s is plain ground" % [TOWN_NAMES[i], prop["kind"], c])
+					if bool(prop.get("solid", false)):
+						assert_false(avoid.has(c),
+							"%s solid %s at %s blocks an NPC home/waypoint" % [TOWN_NAMES[i], prop["kind"], c])
