@@ -89,7 +89,8 @@ const TOWN_NPCS: Array[Dictionary] = [
 ## 2026-10-07 town dressing, shared by both town variants (identical town-core coordinates). Each
 ## entry: {kind, art (under res://art/env/, no extension), cell (footprint top-left), size
 ## (footprint in cells), solid, frames (animation strip length), fps (0 = still), night_frame (the
-## frame shown from dusk to dawn, e.g. a lit lamp)}. The sprite stands on its
+## frame shown from dusk to dawn, e.g. a lit lamp), light ([colour, strength, radius scale, height
+## px, flicker] — a scripts/night_light.gd glow after dark)}. The sprite stands on its
 ## footprint's bottom edge, centred; solid props block their footprint (collision + the cells the
 ## NPCs and tools treat as blocked). Every solid footprint is kept off the town NPCs' homes,
 ## wander areas, schedule routes and the settler home cells (tests/test_map_layouts.gd,
@@ -98,17 +99,17 @@ const TOWN_DECOR: Array[Dictionary] = [
 	{"kind": "well", "art": "props/well", "cell": Vector2i(16, 7), "size": Vector2i(2, 1), "solid": true},
 	{"kind": "bench", "art": "props/bench", "cell": Vector2i(14, 5), "size": Vector2i(2, 1), "solid": true},
 	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(12, 3), "size": Vector2i(1, 1), "solid": true,
-		"frames": 2, "night_frame": 1},
+		"frames": 2, "night_frame": 1, "light": ["#ffd27f", 0.9, 1.0, 38]},
 	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(22, 3), "size": Vector2i(1, 1), "solid": true,
-		"frames": 2, "night_frame": 1},
+		"frames": 2, "night_frame": 1, "light": ["#ffd27f", 0.9, 1.0, 38]},
 	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(22, 10), "size": Vector2i(1, 1), "solid": true,
-		"frames": 2, "night_frame": 1},
+		"frames": 2, "night_frame": 1, "light": ["#ffd27f", 0.9, 1.0, 38]},
 	{"kind": "market_stall", "art": "props/market_stall", "cell": Vector2i(5, 10), "size": Vector2i(3, 1), "solid": true},
 	{"kind": "water_tower", "art": "props/water_tower", "cell": Vector2i(31, 6), "size": Vector2i(3, 2), "solid": true},
 	{"kind": "wind_turbine", "art": "props/wind_turbine", "cell": Vector2i(33, 13), "size": Vector2i(1, 1), "solid": true,
 		"frames": 4, "fps": 5},
 	{"kind": "fire_pit", "art": "props/fire_pit", "cell": Vector2i(30, 4), "size": Vector2i(1, 1), "solid": true,
-		"frames": 4, "fps": 8},
+		"frames": 4, "fps": 8, "light": ["#ff9a4a", 1.1, 1.1, 6, 0.18]},
 	{"kind": "laundry_line", "art": "props/laundry_line", "cell": Vector2i(29, 10), "size": Vector2i(3, 1), "solid": true},
 	{"kind": "crate_stack", "art": "props/crate_stack", "cell": Vector2i(19, 11), "size": Vector2i(1, 1), "solid": true},
 	{"kind": "barrel", "art": "props/barrel", "cell": Vector2i(20, 11), "size": Vector2i(1, 1), "solid": true},

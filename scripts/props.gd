@@ -42,6 +42,7 @@ const PROP_COLORS := {
 }
 
 const ENV_ART_DIR := "res://art/env/"
+const NightLight := preload("res://scripts/night_light.gd")
 
 var _test_map: Node2D
 var _props: Array[Sprite2D] = []
@@ -108,6 +109,13 @@ func _spawn_env_prop(prop: Dictionary) -> void:
 		_animated.append([sprite, frames, float(prop["fps"])])
 	if prop.has("night_frame"):
 		_night_props.append([sprite, int(prop["night_frame"])])
+	if prop.has("light"):
+		# [colour, strength, radius scale, height above the base in px, flicker]
+		var spec: Array = prop["light"]
+		var light := NightLight.make(Color(spec[0]), float(spec[1]), float(spec[2]),
+			float(spec[4]) if spec.size() > 4 else 0.0)
+		light.position = sprite.position + Vector2(0, -float(spec[3]))
+		add_child(light)
 	if bool(prop.get("solid", false)):
 		_block_footprint(cell, size)
 

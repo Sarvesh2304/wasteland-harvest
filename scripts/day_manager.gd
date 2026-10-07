@@ -34,18 +34,24 @@ const Calendar := preload("res://scripts/calendar.gd")
 const Weather := preload("res://scripts/weather.gd")
 
 ## Sky gradient keyframes: [hour (0-24), CanvasModulate color]. Piecewise-linearly
-## interpolated, wrapping across midnight. Night is a cool moonlit blue; dawn and dusk pass
-## through the game's dusty-amber identity (GDD.md §9); noon is pure white (art shows its
-## true palette mid-day).
+## interpolated, wrapping across midnight. Night is a cool moonlit blue (lifted enough that the
+## settlement's lamplight — scripts/night_light.gd — reads against it); dawn passes through a cool
+## lavender into rose-amber, dusk through golden hour, amber-rose and a violet twilight
+## (2026-10-07: the old straight amber-to-navy blend turned green grass a muddy olive); noon is
+## pure white (art shows its true palette mid-day).
 const SKY_KEYFRAMES: Array = [
-	[0.0, Color(0.16, 0.17, 0.30)],   # deep night
-	[5.0, Color(0.16, 0.17, 0.30)],   # last hour of night
-	[6.5, Color(0.99, 0.76, 0.61)],   # dawn — warm amber wash
-	[9.0, Color(1.0, 0.97, 0.92)],    # morning
+	[0.0, Color(0.20, 0.22, 0.40)],   # deep night
+	[5.0, Color(0.20, 0.22, 0.40)],   # last hour of night
+	[5.75, Color(0.58, 0.58, 0.80)],  # pre-dawn — cool lavender
+	[6.5, Color(1.0, 0.87, 0.78)],    # dawn — soft rose-amber
+	[9.0, Color(1.0, 0.98, 0.94)],    # morning
 	[12.0, Color(1.0, 1.0, 1.0)],     # noon — unmodulated
 	[16.0, Color(1.0, 0.96, 0.88)],   # late afternoon
-	[18.5, Color(0.95, 0.62, 0.45)],  # dusk — deep amber
-	[20.5, Color(0.16, 0.17, 0.30)],  # nightfall complete
+	[18.0, Color(1.0, 0.84, 0.64)],   # golden hour
+	[18.5, Color(0.98, 0.74, 0.62)],  # dusk — amber-rose
+	[19.5, Color(0.72, 0.52, 0.66)],  # sunset — rose-violet
+	[20.5, Color(0.36, 0.34, 0.58)],  # twilight
+	[21.0, Color(0.20, 0.22, 0.40)],  # nightfall complete
 ]
 
 var day := 1

@@ -73,6 +73,24 @@ def clear() -> Image.Image:
     return im
 
 
+def clear_night() -> Image.Image:
+    """A crescent moon with two stars (clear weather after dark)."""
+    im = _canvas()
+    px = im.load()
+    moon = [_hex("#8f8a6e"), _hex("#c9c29a"), _hex("#ece4bd"), _hex("#fff8dc")]
+    for y in range(16):
+        for x in range(16):
+            outer = ((x - 7) ** 2 + (y - 8) ** 2) ** 0.5 <= 5.2
+            inner = ((x - 9.6) ** 2 + (y - 6.4) ** 2) ** 0.5 <= 4.6
+            if outer and not inner:
+                d = x - 7 + y - 8
+                px[x, y] = moon[3] if d < -3 else (moon[2] if d < 1 else moon[1])
+    _outline(im)
+    px[13, 3] = moon[3]
+    px[12, 12] = moon[2]
+    return im
+
+
 def rain() -> Image.Image:
     im = _canvas()
     px = im.load()
@@ -126,7 +144,7 @@ def radstorm() -> Image.Image:
 
 def build() -> None:
     os.makedirs(OUT, exist_ok=True)
-    for name, fn in (("clear", clear), ("rain", rain), ("storm", storm), ("snow", snow),
+    for name, fn in (("clear", clear), ("clear_night", clear_night), ("rain", rain), ("storm", storm), ("snow", snow),
                      ("radstorm", radstorm)):
         path = os.path.join(OUT, "weather_%s.png" % name)
         fn().save(path)

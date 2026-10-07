@@ -95,6 +95,9 @@ const TEXT_COLOR := Color("#ffedb1")
 const TEXT_OUTLINE := Color("#281a0b")
 const WARN_COLOR := Color("#ffb72d")
 const WATER_GAUGE_COLOR := Color("#6aa6b8")
+## Clear skies show the moon from dusk until dawn.
+const NIGHT_ICON_FROM := 19.0 * 60.0
+const NIGHT_ICON_UNTIL := 6.0 * 60.0
 
 const HOTBAR_SIZE := Inventory.HOTBAR_SIZE
 ## 18px slots (2026-10-07 HUD v2): a 16px icon at native size inside a 1px selection frame. The
@@ -691,10 +694,14 @@ func _refresh_weather_icon() -> void:
 	if _weather_icon == null:
 		return
 	var kind := String(DayManager.weather_today)
-	if kind == _weather_shown:
+	var m := float(DayManager.minutes_into_day)
+	var icon := kind
+	if kind == Weather.CLEAR and (m >= NIGHT_ICON_FROM or m < NIGHT_ICON_UNTIL):
+		icon = "clear_night"
+	if icon == _weather_shown:
 		return
-	_weather_shown = kind
-	var path := "res://art/ui/weather_%s.png" % kind
+	_weather_shown = icon
+	var path := "res://art/ui/weather_%s.png" % icon
 	_weather_icon.texture = load(path) if ResourceLoader.exists(path) else null
 	_weather_icon.tooltip_text = Weather.display_name(kind)
 

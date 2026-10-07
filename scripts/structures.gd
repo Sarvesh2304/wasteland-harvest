@@ -162,6 +162,22 @@ func _ready() -> void:
 	DayManager.day_started.connect(_on_day_started)
 
 
+## Lit windows after dark (2026-10-07, scripts/night_light.gd): kind -> [colour, strength,
+## radius scale]. Homes glow warm, the clinic and kitchen a little brighter.
+const NightLight := preload("res://scripts/night_light.gd")
+const WINDOW_LIGHTS := {
+	"farmhouse": ["#ffc27a", 0.85, 1.25],
+	"mayor_house": ["#ffc27a", 0.85, 1.4],
+	"store": ["#ffd08a", 0.9, 1.25],
+	"shack": ["#ffb86b", 0.65, 0.95],
+	"ranch_house": ["#ffc27a", 0.8, 1.2],
+	"workshop": ["#ffb86b", 0.7, 1.1],
+	"clinic": ["#fff0c8", 0.9, 1.2],
+	"community_kitchen": ["#ffc27a", 0.9, 1.3],
+	"trading_post": ["#ffd08a", 0.8, 1.2],
+}
+
+
 func _spawn_building(building: Dictionary) -> void:
 	var top_left: Vector2i = building["top_left"]
 	var footprint_size: Vector2i = building["size"]
@@ -231,6 +247,11 @@ func _make_visual(kind: String, px_size: Vector2, blueprint: bool) -> CanvasItem
 		return rect
 	var sprite := Sprite2D.new()
 	sprite.texture = _building_texture(kind, px_size)
+	if WINDOW_LIGHTS.has(kind):
+		var spec: Array = WINDOW_LIGHTS[kind]
+		var light := NightLight.make(Color(spec[0]), float(spec[1]), float(spec[2]))
+		light.position = Vector2(0, px_size.y * 0.15)
+		sprite.add_child(light)
 	return sprite
 
 

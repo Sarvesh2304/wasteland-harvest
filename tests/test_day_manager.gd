@@ -190,3 +190,15 @@ func test_is_late_night_window() -> void:
 	assert_false(DayManagerScript.is_late_night(1439.9), "11:59 PM is not yet late night")
 	assert_true(DayManagerScript.is_late_night(1440.0 + 60.0),
 		"whole-day wraps resolve into the window (1 AM plus a full day)")
+
+
+func test_night_lights_follow_the_sky() -> void:
+	const NightLight := preload("res://scripts/night_light.gd")
+	assert_eq(NightLight.night_factor(12 * 60.0), 0.0, "off at noon")
+	assert_eq(NightLight.night_factor(23 * 60.0), 1.0, "full at night")
+	assert_eq(NightLight.night_factor(3 * 60.0), 1.0, "still on before dawn")
+	var dusk := NightLight.night_factor(18.75 * 60.0)
+	assert_true(dusk > 0.0 and dusk < 1.0, "fading in at dusk (%.2f)" % dusk)
+	var dawn := NightLight.night_factor(6.0 * 60.0)
+	assert_true(dawn > 0.0 and dawn < 1.0, "fading out at dawn (%.2f)" % dawn)
+	assert_eq(NightLight.night_factor(7 * 60.0), 0.0, "off after dawn")
