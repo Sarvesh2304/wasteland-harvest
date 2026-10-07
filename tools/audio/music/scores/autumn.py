@@ -43,6 +43,7 @@ INTRO_CEL = "D6:2. | C6:2 A5:4 | Bb5:2. | C6:2. | D6:2. | C6:2 A5:4 | Bb5:4 A5:4
 
 def build():
     s = Song("autumn", bpm=100, bpb=3, key="Bb", seed=41, target_lufs=-15.0)
+    s.meta["mood"] = "golden, nostalgic waltz"
     s.meta.update(title="Amber Autumn", key="B-flat major", use="Farm / town daytime, autumn")
     s.section("intro", 8, "Bbmaj7 | Gm7 | Ebmaj7 | F7sus4 | Bbmaj7 | Gm7 | Cm7 | F7sus4 . F7")
     s.section("A", 16, A_CH)

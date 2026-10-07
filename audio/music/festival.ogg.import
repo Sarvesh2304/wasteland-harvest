@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/festival.ogg-11c857a0626d331f3d0e0c9e710b4675
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

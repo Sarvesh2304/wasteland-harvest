@@ -22,6 +22,7 @@ MEL_B = "Bb5:2. Ab5:4 | Ab5:2 F5:2 | Gb5:2. Eb5:4 | F5:1 | Bb5:2 Db6:2 | A5:2. G
 
 def build():
     s = Song("night", bpm=63, key="Db", seed=61, target_lufs=-16.0)
+    s.meta["mood"] = "calm, sleepy lullaby"
     s.meta.update(title="Lamplight", key="D-flat major", use="Evening / night at the settlement")
     s.section("A", 8, "Dbmaj9 | Gbmaj7#11 | Bbm9 | Absus4 Ab | Dbmaj9 | Gbmaj7 | Ebm9 | Ab7sus4")
     s.section("B", 8, "Gbmaj7 | Fm7 | Ebm7 | Dbmaj7/F | Gbmaj7 | Gbm6 | Dbmaj7/Ab | Ab7sus4 Ab7")

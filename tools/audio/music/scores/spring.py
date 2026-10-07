@@ -60,6 +60,7 @@ TAG = "E6:2 D6:2 | D6:2 B5:2 | C6:2 A5:2 | A5:1 |"
 
 def build():
     s = Song("spring", bpm=112, key="G", seed=21, target_lufs=-15.0)
+    s.meta["mood"] = "fresh, bouncy"
     s.meta.update(title="Spring Rains", key="G major", use="Farm / town daytime, spring")
     s.section("intro", 4, "G | C/G | G | D/F#")
     s.section("A", 8, "G | C | G/B | D | Em | C | Am7 D7 | G")

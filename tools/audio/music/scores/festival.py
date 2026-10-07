@@ -38,6 +38,7 @@ B4:8 D5 F#5 B5 A5 F#5 D5 F#5 | G5:8 A5 B5 D6 E6 D6 B5 G5 | E5:8 G5 B5 G5 C#5 E5 
 
 def build():
     s = Song("festival", bpm=120, key="D", seed=111, target_lufs=-14.0)
+    s.meta["mood"] = "celebratory reel / hoedown"
     s.meta.update(title="Harvest Day Reel", key="D major", use="Festivals (Harvest Day, Winter Gathering) / celebrations")
     s.section("intro", 4, "D | D | G | A")
     s.section("A", 8, "D | G | D | A | D | G | A7 | D")

@@ -9,6 +9,7 @@ from engine import Kit, Pad, Piano, Song, Struck
 
 def build():
     s = Song("stinger_death", bpm=60, key="D", seed=151, loop=False, length_s=3.2, target_lufs=-16.0)
+    s.meta["mood"] = "sombre, falling"
     s.meta.update(title="Lost", key="D minor", use="Stinger: player death on an expedition")
     s.section("fall", 1, "Dm . Bbm/D .")
     s.bus("cave", ir="cave", ret=-2.0, eq=[("hp", 180), ("lp", 6000)])

@@ -26,6 +26,7 @@ BROKEN = "r:1 | A4:8 D5 F5:4. Eb5:8 D5:4 | r:1 | r:2 A4:8 D5 F5:4 | Eb5:2. r:4 |
 
 def build():
     s = Song("ruins_explore", bpm=60, key="D", seed=81, target_lufs=-16.0)
+    s.meta["mood"] = "tense, desolate"
     s.meta.update(title="Dead City", key="D phrygian", use="Ruined city exploration")
     s.section("A", 8, "Dm | Dm | Eb/D | Dm | Dm | Bb/D | Eb/D | Dm")
     s.section("B", 8, "Gm/D | Eb/D | Dm | C#dim7/D | Dm | Bbmaj7/D | Eb/D | A7sus4/D")

@@ -30,6 +30,7 @@ F5:2 E5:4 D5:4 | D5:2. Bb4:4 | D5:4 C5:4 A4:2 | G4:2 E4:2 |
 
 def build():
     s = Song("winter", bpm=72, key="A", seed=51, target_lufs=-16.0)
+    s.meta["mood"] = "sparse, cold but warm-hearted"
     s.meta.update(title="Grey Winter", key="A minor / F major", use="Farm / town daytime, winter")
     s.section("intro", 4, "Am9 | Fmaj7#11 | Am9 | Fmaj7#11")
     s.section("A", 8, "Am9 | Fmaj7 | C/G | G | Am9 | Fmaj7 | Dm7 | Esus4 E")

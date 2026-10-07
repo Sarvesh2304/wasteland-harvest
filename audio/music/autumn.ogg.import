@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/autumn.ogg-98b992f2883a9739ee2aa121709b7cd1.o
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

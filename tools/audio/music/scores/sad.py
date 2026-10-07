@@ -29,6 +29,7 @@ ECHO_B = "r:1 | r:2 B4:4 A4:4 | r:1 | r:2 A#4:2 | r:1 | r:2 E5:4 D5:4 | r:1 | F#
 
 def build():
     s = Song("sad", bpm=60, key="B", seed=121, target_lufs=-16.0)
+    s.meta["mood"] = "tender, bittersweet"
     s.meta.update(title="What They Left Us", key="B minor", use="Emotional story scenes (the parents, memories)")
     s.section("intro", 2, "Bmadd9 | Gmaj7")
     s.section("A", 8, "Bm | G | D/F# | Em7 | Bm/D | Cmaj7 | Em7 | F#sus4 F#")

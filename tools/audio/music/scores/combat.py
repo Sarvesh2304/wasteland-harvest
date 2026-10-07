@@ -29,6 +29,7 @@ D5:8*> r:8 r:8 F5:8*> r:8 r:8 A5:8*> r:8 | G5:4* r:4 Bb5:4* r:4 | Eb6:8*> r:8 r:
 
 def build():
     s = Song("combat", bpm=140, key="D", seed=101, target_lufs=-14.0)
+    s.meta["mood"] = "driving, urgent"
     s.meta.update(title="Teeth in the Dark", key="D minor", use="Combat encounters in the ruins")
     s.section("A", 8, "Dm | Dm | Bb | C | Dm | Dm | Bb | A")
     s.section("B", 8, "Dm | Dm | Bb | C | Dm | Gm | Eb | A7")

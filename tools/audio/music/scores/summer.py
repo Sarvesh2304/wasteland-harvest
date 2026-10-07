@@ -41,6 +41,7 @@ r:1 | F#5:2/ A5:2 | r:1 | B4:2 G#4:2 |
 
 def build():
     s = Song("summer", bpm=90, key="A", seed=31, target_lufs=-15.0)
+    s.meta["mood"] = "lazy, sunny, hazy"
     s.meta.update(title="Scorched Summer", key="A major", use="Farm / town daytime, summer")
     s.section("intro", 4, "A | D/A | A | E7sus4")
     s.section("A", 8, "A | D/A | A | E7 | F#m | D | A/E E7 | A")

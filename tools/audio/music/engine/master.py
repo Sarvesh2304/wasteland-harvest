@@ -162,7 +162,8 @@ def master(x: np.ndarray, target_lufs: float = -15.0, ceiling_dbtp: float = -1.5
 def encode_ogg(x: np.ndarray, path: str, sr: int = SR, quality: int = 6, meta: dict | None = None):
     inter = np.ascontiguousarray(x.T.astype("<f4"))
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "f32le", "-ar", str(sr),
-           "-ac", "2", "-i", "-", "-c:a", "libvorbis", "-q:a", str(quality)]
+           "-ac", "2", "-i", "-", "-c:a", "libvorbis", "-q:a", str(quality),
+           "-fflags", "+bitexact", "-flags:a", "+bitexact"]   # fixed Ogg serial -> reproducible bytes
     for k, v in (meta or {}).items():
         cmd += ["-metadata", f"{k}={v}"]
     cmd.append(path)

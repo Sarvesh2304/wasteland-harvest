@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/ruins_deep.ogg-441716f7da1c8e035553f35a6d0da3
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

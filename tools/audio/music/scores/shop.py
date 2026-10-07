@@ -35,6 +35,7 @@ Bb5:4 G5:4 E5:4 G5:4 | Ab5:4 F5:4 D5:4 Bb4:4 | Eb5:2. r:4 | r:2 F5:4 Ab5:4 |
 
 def build():
     s = Song("shop", bpm=96, key="Eb", seed=131, target_lufs=-16.0)
+    s.meta["mood"] = "cozy, intimate, jazzy"
     s.meta.update(title="Marta's Counter", key="E-flat major", use="Shops / store interiors")
     s.section("A", 8, "Ebmaj7 | Cm7 | Fm7 | Bb7 | Gm7 | C7 | Fm7 | Bb7")
     s.section("B", 8, "Abmaj7 | Db7 | Ebmaj7/G | C7 | Fm7 | Bb7 | Ebmaj7 | Fm7 Bb7")

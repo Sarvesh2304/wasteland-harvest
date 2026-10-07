@@ -45,6 +45,7 @@ SPARKLE = "r:1 | r:2 E6:8 F6 A6:4 | r:1 | r:2 G6:8 E6 C6:4 | r:1 | r:2 F6:8 A6 C
 
 def build():
     s = Song("town", bpm=105, key="F", seed=71, target_lufs=-15.0)
+    s.meta["mood"] = "friendly, gently busy"
     s.meta.update(title="The Plaza", key="F major", use="Settlement plaza / town map")
     s.section("intro", 4, "F | Bb/F | F | C7")
     s.section("A", 8, A_CH)

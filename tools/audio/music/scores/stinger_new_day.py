@@ -10,6 +10,7 @@ from .common import std_buses
 
 def build():
     s = Song("stinger_new_day", bpm=120, key="D", seed=161, loop=False, length_s=2.5, target_lufs=-16.0)
+    s.meta["mood"] = "bright morning flourish"
     s.meta.update(title="Morning", key="D major", use="Stinger: waking up / new day")
     s.section("morning", 2, "Dmaj9 | Dmaj9")
     std_buses(s, echo_beats=0.5, echo_fb=0.25)

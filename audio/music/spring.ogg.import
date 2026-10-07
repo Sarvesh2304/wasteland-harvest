@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/spring.ogg-b0bcdb6919d3e05e0064b61c18efa164.o
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

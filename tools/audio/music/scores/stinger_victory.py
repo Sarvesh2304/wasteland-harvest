@@ -11,6 +11,7 @@ from .common import std_buses
 
 def build():
     s = Song("stinger_victory", bpm=120, key="D", seed=141, loop=False, length_s=3.0, target_lufs=-15.0)
+    s.meta["mood"] = "triumphant relief"
     s.meta.update(title="Extraction!", key="D major", use="Stinger: successful extraction / expedition success")
     s.section("hit", 2, "Dadd9 | Dadd9")
     std_buses(s, echo_beats=0.5, echo_fb=0.3)

@@ -19,6 +19,7 @@ CORRUPT = "r:1 | G#4:8 C#5 F5:4. D#5:8 C#5:4 | r:1 | r:1 | r:2 G#4:8 C#5 F5:4 | 
 
 def build():
     s = Song("ruins_deep", bpm=54, key="C#", seed=91, target_lufs=-16.0)
+    s.meta["mood"] = "dark, oppressive"
     s.meta.update(title="Below", key="C-sharp locrian / phrygian", use="Deep ruins / bunkers / late zones")
     s.section("A", 9, "C#5 | C#5 | D/C# | C#5 | C#5 | G/C# | D/C# | C#5 | C#5")
     s.section("B", 9, "D/C# | C#5 | G/C# | C#5 | D/C# | C#dim | G/C# | D/C# | C#5")

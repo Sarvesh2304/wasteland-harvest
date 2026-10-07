@@ -43,6 +43,7 @@ OUTRO_TAG = "B5:2 A5:4 F#5:4 | G5:2. E5:4 | F#5:1 | E5:2 r:2 |"
 
 def build():
     s = Song("title", bpm=84, key="D", seed=11, target_lufs=-15.0)
+    s.meta["mood"] = "wistful, hopeful"
     s.meta.update(title="Wasteland Harvest (Main Theme)", key="D major",
                   use="Title screen / main menu")
     s.section("intro", 4, "D | Gmaj7/D | D | A7sus4/D")

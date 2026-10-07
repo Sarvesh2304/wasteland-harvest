@@ -63,7 +63,7 @@ def build_one(name: str, png_dir: str | None = None, out_dir: str = OUT_DIR) -> 
         "seconds": round(y.shape[-1] / song.sr, 3), "lufs": round(info["lufs"], 2),
         "true_peak": round(info["true_peak"], 2), "ffmpeg_I": fl["I"], "ffmpeg_TP": fl["TP"],
         "ffmpeg_LRA": fl["LRA"], "seam": seam, "balance": bal, "lint": lint,
-        "use": song.meta.get("use", ""), "sections": [(s.name, s.start_bar, s.bars) for s in song.sections],
+        "use": song.meta.get("use", ""), "mood": song.meta.get("mood", ""), "sections": [(s.name, s.start_bar, s.bars) for s in song.sections],
         "parts": stats, "render_s": round(time.time() - t0, 1), "title": song.meta.get("title", name),
         "clip_samples": int(np.sum(np.abs(dec) >= 0.999)),
     }
@@ -79,6 +79,23 @@ def build_one(name: str, png_dir: str | None = None, out_dir: str = OUT_DIR) -> 
             f.write(json.dumps({k: v for k, v in res.items() if k != "parts"}, indent=1, default=str) + "\n")
             f.write(json.dumps(stats, indent=1) + "\n")
     return res
+
+
+def sync_import(name: str, loop: bool) -> bool:
+    """If Godot has already generated audio/music/<name>.ogg.import, make its loop flag match
+    the track (loop tracks: loop=true, loop_offset=0; stingers: loop=false).  Only those
+    [params] keys are touched; .import files are never created here (Godot owns uids)."""
+    import re
+    p = os.path.join(OUT_DIR, f"{name}.ogg.import")
+    if not os.path.exists(p):
+        return False
+    txt = open(p).read()
+    new = re.sub(r"(?m)^loop=.*$", f"loop={'true' if loop else 'false'}", txt)
+    new = re.sub(r"(?m)^loop_offset=.*$", "loop_offset=0", new)
+    if new != txt:
+        with open(p, "w") as f:
+            f.write(new)
+    return True
 
 
 def _worker(args):
@@ -106,7 +123,9 @@ def write_manifest(results: list[dict]):
         if "error" in r:
             continue
         old[r["name"]] = {k: r[k] for k in ("name", "file", "title", "loop", "key", "bpm", "beats_per_bar",
-                                            "bars", "samples", "seconds", "use")}
+                                            "bars", "samples", "seconds", "mood", "use")}
+        old[r["name"]]["loop_start_sample"] = 0
+        old[r["name"]]["loop_end_sample"] = r["samples"] if r["loop"] else None
         old[r["name"]]["lufs"] = r["ffmpeg_I"]
         old[r["name"]]["true_peak_dbtp"] = r["ffmpeg_TP"]
     order = [n for n in TRACKS if n in old]
@@ -125,7 +144,7 @@ def write_readme(tracks: list[dict]):
         meter = f"{int(t['beats_per_bar'])}/4"
         loop = f"loop ({t['bars']} bars)" if t["loop"] else "one-shot"
         rows.append(f"| `{t['name']}.ogg` | {t['key']} | {t['bpm']:g} BPM, {meter} | {fmt_time(t['seconds'])} | "
-                    f"{loop} | {t['lufs']} | {t['use']} |")
+                    f"{loop} | {t.get('mood', '')} | {t['use']} | {t['lufs']} |")
     body = "\n".join([
         BEGIN,
         "## Music",
@@ -144,15 +163,19 @@ def write_readme(tracks: list[dict]):
         "* **Loops:** every track marked *loop* is exactly an integer number of bars long and loops",
         "  sample-seamlessly from the last sample back to sample 0 (reverb tails are pre-wrapped onto the",
         "  start). Enable looping on the stream (`AudioStreamOggVorbis.loop = true`, `loop_offset = 0`) or",
-        "  tick *Loop* in the import dock. Files also carry `LOOPSTART=0` / `LOOPLENGTH` tags.",
+        "  tick *Loop* in the import dock (the build keeps `loop=` in any existing `.ogg.import` in sync:",
+        "  true for loops, false for stingers). Files also carry `LOOPSTART=0` / `LOOPLENGTH` tags.",
         "  `audio/music/music_manifest.json` lists key / BPM / bars / sample length for beat-synced",
         "  transitions (e.g. switch tracks on a bar line).",
-        "* **Leitmotif:** the 8-bar main theme from `title.ogg` recurs throughout: quoted in spring, night,",
-        "  festival (as a reel), sad (in B minor), the victory/new-day stingers, and in a broken, phrygian",
-        "  form in the ruins tracks.",
+        "* **Leitmotif:** the 8-bar main theme from `title.ogg` recurs throughout: spring (glockenspiel",
+        "  quote), winter (e-piano, the warm B section), night (music-box lullaby), festival (the whole",
+        "  town plays it), sad (re-harmonised in B minor); its opening gesture launches the victory",
+        "  stinger, and a broken, flat phrygian version haunts ruins_explore, ruins_deep and the death stinger.",
+        "* **Byte-reproducible:** fixed seeds + bitexact Ogg muxing, so regenerating unchanged scores",
+        "  produces identical files (no spurious binary diffs).",
         "",
-        "| File | Key | Tempo | Length | Loop | LUFS | Intended use |",
-        "|---|---|---|---|---|---|---|",
+        "| File | Key | Tempo | Length | Loop | Mood | Intended use | LUFS |",
+        "|---|---|---|---|---|---|---|---|",
         *rows,
         "",
         END,
@@ -198,6 +221,9 @@ def main():
             r = _worker((n, a.png))
             results.append(r)
             _print_result(r)
+    for r in results:
+        if "error" not in r:
+            sync_import(r["name"], r["loop"])
     errs = [r for r in results if "error" in r]
     tracks = write_manifest(results)
     if not a.no_readme:

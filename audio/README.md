@@ -19,30 +19,34 @@ reverb with generated impulse responses. Frontier folk + warm chiptune + ambient
 * **Loops:** every track marked *loop* is exactly an integer number of bars long and loops
   sample-seamlessly from the last sample back to sample 0 (reverb tails are pre-wrapped onto the
   start). Enable looping on the stream (`AudioStreamOggVorbis.loop = true`, `loop_offset = 0`) or
-  tick *Loop* in the import dock. Files also carry `LOOPSTART=0` / `LOOPLENGTH` tags.
+  tick *Loop* in the import dock (the build keeps `loop=` in any existing `.ogg.import` in sync:
+  true for loops, false for stingers). Files also carry `LOOPSTART=0` / `LOOPLENGTH` tags.
   `audio/music/music_manifest.json` lists key / BPM / bars / sample length for beat-synced
   transitions (e.g. switch tracks on a bar line).
-* **Leitmotif:** the 8-bar main theme from `title.ogg` recurs throughout: quoted in spring, night,
-  festival (as a reel), sad (in B minor), the victory/new-day stingers, and in a broken, phrygian
-  form in the ruins tracks.
+* **Leitmotif:** the 8-bar main theme from `title.ogg` recurs throughout: spring (glockenspiel
+  quote), winter (e-piano, the warm B section), night (music-box lullaby), festival (the whole
+  town plays it), sad (re-harmonised in B minor); its opening gesture launches the victory
+  stinger, and a broken, flat phrygian version haunts ruins_explore, ruins_deep and the death stinger.
+* **Byte-reproducible:** fixed seeds + bitexact Ogg muxing, so regenerating unchanged scores
+  produces identical files (no spurious binary diffs).
 
-| File | Key | Tempo | Length | Loop | LUFS | Intended use |
-|---|---|---|---|---|---|---|
-| `title.ogg` | D major | 84 BPM, 4/4 | 1:54.29 | loop (40 bars) | -15.0 | Title screen / main menu |
-| `spring.ogg` | G major | 112 BPM, 4/4 | 2:00.00 | loop (56 bars) | -15.0 | Farm / town daytime, spring |
-| `summer.ogg` | A major | 90 BPM, 4/4 | 1:57.33 | loop (44 bars) | -15.0 | Farm / town daytime, summer |
-| `autumn.ogg` | B-flat major | 100 BPM, 3/4 | 1:55.20 | loop (64 bars) | -15.0 | Farm / town daytime, autumn |
-| `winter.ogg` | A minor / F major | 72 BPM, 4/4 | 2:00.00 | loop (36 bars) | -16.0 | Farm / town daytime, winter |
-| `night.ogg` | D-flat major | 63 BPM, 4/4 | 1:31.43 | loop (24 bars) | -16.0 | Evening / night at the settlement |
-| `town.ogg` | F major | 105 BPM, 4/4 | 1:40.57 | loop (44 bars) | -15.0 | Settlement plaza / town map |
-| `shop.ogg` | E-flat major | 96 BPM, 4/4 | 1:00.00 | loop (24 bars) | -16.0 | Shops / store interiors |
-| `ruins_explore.ogg` | D phrygian | 60 BPM, 4/4 | 2:00.00 | loop (30 bars) | -16.0 | Ruined city exploration |
-| `ruins_deep.ogg` | C-sharp locrian / phrygian | 54 BPM, 4/4 | 2:00.00 | loop (27 bars) | -16.0 | Deep ruins / bunkers / late zones |
-| `combat.ogg` | D minor | 140 BPM, 4/4 | 1:08.57 | loop (40 bars) | -14.1 | Combat encounters in the ruins |
-| `festival.ogg` | D major | 120 BPM, 4/4 | 1:28.00 | loop (44 bars) | -14.0 | Festivals (Harvest Day, Winter Gathering) / celebrations |
-| `sad.ogg` | B minor | 60 BPM, 4/4 | 1:20.00 | loop (20 bars) | -16.0 | Emotional story scenes (the parents, memories) |
-| `stinger_victory.ogg` | D major | 120 BPM, 4/4 | 0:03.00 | one-shot | -15.0 | Stinger: successful extraction / expedition success |
-| `stinger_death.ogg` | D minor | 60 BPM, 4/4 | 0:03.20 | one-shot | -16.0 | Stinger: player death on an expedition |
-| `stinger_new_day.ogg` | D major | 120 BPM, 4/4 | 0:02.50 | one-shot | -16.0 | Stinger: waking up / new day |
+| File | Key | Tempo | Length | Loop | Mood | Intended use | LUFS |
+|---|---|---|---|---|---|---|---|
+| `title.ogg` | D major | 84 BPM, 4/4 | 1:54.29 | loop (40 bars) | wistful, hopeful | Title screen / main menu | -15.0 |
+| `spring.ogg` | G major | 112 BPM, 4/4 | 2:00.00 | loop (56 bars) | fresh, bouncy | Farm / town daytime, spring | -15.0 |
+| `summer.ogg` | A major | 90 BPM, 4/4 | 1:57.33 | loop (44 bars) | lazy, sunny, hazy | Farm / town daytime, summer | -15.0 |
+| `autumn.ogg` | B-flat major | 100 BPM, 3/4 | 1:55.20 | loop (64 bars) | golden, nostalgic waltz | Farm / town daytime, autumn | -15.0 |
+| `winter.ogg` | A minor / F major | 72 BPM, 4/4 | 2:00.00 | loop (36 bars) | sparse, cold but warm-hearted | Farm / town daytime, winter | -16.0 |
+| `night.ogg` | D-flat major | 63 BPM, 4/4 | 1:31.43 | loop (24 bars) | calm, sleepy lullaby | Evening / night at the settlement | -16.0 |
+| `town.ogg` | F major | 105 BPM, 4/4 | 1:40.57 | loop (44 bars) | friendly, gently busy | Settlement plaza / town map | -15.0 |
+| `shop.ogg` | E-flat major | 96 BPM, 4/4 | 1:00.00 | loop (24 bars) | cozy, intimate, jazzy | Shops / store interiors | -16.0 |
+| `ruins_explore.ogg` | D phrygian | 60 BPM, 4/4 | 2:00.00 | loop (30 bars) | tense, desolate | Ruined city exploration | -16.0 |
+| `ruins_deep.ogg` | C-sharp locrian / phrygian | 54 BPM, 4/4 | 2:00.00 | loop (27 bars) | dark, oppressive | Deep ruins / bunkers / late zones | -16.0 |
+| `combat.ogg` | D minor | 140 BPM, 4/4 | 1:08.57 | loop (40 bars) | driving, urgent | Combat encounters in the ruins | -14.1 |
+| `festival.ogg` | D major | 120 BPM, 4/4 | 1:28.00 | loop (44 bars) | celebratory reel / hoedown | Festivals (Harvest Day, Winter Gathering) / celebrations | -14.0 |
+| `sad.ogg` | B minor | 60 BPM, 4/4 | 1:20.00 | loop (20 bars) | tender, bittersweet | Emotional story scenes (the parents, memories) | -16.0 |
+| `stinger_victory.ogg` | D major | 120 BPM, 4/4 | 0:03.00 | one-shot | triumphant relief | Stinger: successful extraction / expedition success | -15.0 |
+| `stinger_death.ogg` | D minor | 60 BPM, 4/4 | 0:03.20 | one-shot | sombre, falling | Stinger: player death on an expedition | -16.0 |
+| `stinger_new_day.ogg` | D major | 120 BPM, 4/4 | 0:02.50 | one-shot | bright morning flourish | Stinger: waking up / new day | -16.0 |
 
 <!-- MUSIC:END -->
