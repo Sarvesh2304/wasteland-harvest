@@ -94,6 +94,8 @@ var zones: Dictionary = {}
 var settlers: Node = null
 var animals: Node = null
 var affinity: Node = null
+## Milestone B: skills (scripts/skills.gd) — tool energy costs shrink as the governing skill levels.
+var skills: Node = null
 var _zone_transitioning := false
 var farm: Node = null
 var test_map: Node = null
@@ -512,7 +514,7 @@ func _resolve_use(cell: Vector2i) -> void:
 			if r == "hit" or r == "destroyed":
 				var cost := ENERGY_SCYTHE if kind == "scythe" or WorldObjectDB.tool_of(String(result.get("kind", ""))) == "any" \
 					else (ENERGY_CHOP if kind == "axe" else ENERGY_MINE)
-				set_energy(energy - cost)
+				set_energy(energy - cost * _skill_multiplier(kind))
 			elif r == WorldObjectDB.WRONG_TOOL:
 				Audio.play_sfx("tool_whiff", -6.0)
 		return
@@ -520,7 +522,7 @@ func _resolve_use(cell: Vector2i) -> void:
 		"hoe":
 			_swing()
 			if farm.till(cell):
-				set_energy(energy - ENERGY_TILL)
+				set_energy(energy - ENERGY_TILL * _skill_multiplier("hoe"))
 				var at: Vector2 = test_map.get_global_cell_center(cell)
 				Audio.play_sfx_at("hoe", at)
 				Fx.burst(at, "dirt", Vector2.UP, 1.0)
@@ -548,6 +550,10 @@ func _resolve_use(cell: Vector2i) -> void:
 			Fx.burst(test_map.get_global_cell_center(cell), "dirt", Vector2.UP, 0.5)
 	elif ItemDB.is_consumable(item_id):
 		_consume_food(item_id)
+
+
+func _skill_multiplier(tool_kind: String) -> float:
+	return skills.energy_multiplier(tool_kind) if skills != null else 1.0
 
 
 func _crop_for_seed(item_id: String) -> String:
@@ -616,7 +622,7 @@ func _water(cell: Vector2i) -> void:
 		return
 	if farm.water(cell):
 		_set_can_water(slot_index, _can_water_left() - 1)
-		set_energy(energy - ENERGY_WATER)
+		set_energy(energy - ENERGY_WATER * _skill_multiplier("watering_can"))
 		Audio.play_sfx_at("water", at)
 		Fx.burst(at + Vector2(0, -2), "water", Vector2.DOWN, 1.0)
 	else:

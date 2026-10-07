@@ -92,12 +92,15 @@ const TOWN_NPCS: Array[Dictionary] = [
 ## frame shown from dusk to dawn, e.g. a lit lamp), light ([colour, strength, radius scale, height
 ## px, flicker] — a scripts/night_light.gd glow after dark)}. The sprite stands on its
 ## footprint's bottom edge, centred; solid props block their footprint (collision + the cells the
-## NPCs and tools treat as blocked). Every solid footprint is kept off the town NPCs' homes,
+## NPCs and tools treat as blocked). Solid props also stay out of the cells directly beside the
+## schedule routes (a bench just south of Harlan's row-4 walk made runtime_smoke flaky: the
+## smoke stands the player one cell south of wherever he is). Every solid footprint is kept off
+## the town NPCs' homes,
 ## wander areas, schedule routes and the settler home cells (tests/test_map_layouts.gd,
 ## tools/npc_schedule_smoke.gd and tools/settler_smoke.gd).
 const TOWN_DECOR: Array[Dictionary] = [
 	{"kind": "well", "art": "props/well", "cell": Vector2i(16, 7), "size": Vector2i(2, 1), "solid": true},
-	{"kind": "bench", "art": "props/bench", "cell": Vector2i(14, 5), "size": Vector2i(2, 1), "solid": true},
+	{"kind": "bench", "art": "props/bench", "cell": Vector2i(2, 8), "size": Vector2i(2, 1), "solid": true},
 	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(12, 3), "size": Vector2i(1, 1), "solid": true,
 		"frames": 2, "night_frame": 1, "light": ["#ffd27f", 0.9, 1.0, 38]},
 	{"kind": "lamp_post", "art": "props/lamp_post", "cell": Vector2i(22, 3), "size": Vector2i(1, 1), "solid": true,

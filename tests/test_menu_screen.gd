@@ -11,10 +11,14 @@ const BuildingDB := preload("res://scripts/building_db.gd")
 ## -- Tab cycling (forward-only ring over the four live tabs) --
 
 func test_next_tab_cycles_forward_and_wraps() -> void:
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_BUILD,
-		"Inventory -> Build")
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_CRAFT,
+		"Inventory -> Craft")
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CRAFT), MenuScreen.TAB_SKILLS,
+		"Craft -> Skills")
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_SKILLS), MenuScreen.TAB_BUILD,
+		"Skills -> Build")
 	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_BUILD), MenuScreen.TAB_ASSIGNMENTS,
-		"Build -> Assignments")
+		"Build -> Settlers")
 	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_ASSIGNMENTS), MenuScreen.TAB_CONTROLS,
 		"Assignments -> Controls")
 	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CONTROLS), MenuScreen.TAB_INVENTORY,
@@ -22,9 +26,16 @@ func test_next_tab_cycles_forward_and_wraps() -> void:
 
 
 func test_tab_names_cover_exactly_the_real_tabs() -> void:
-	# Assignment is now a real Phase 8 slice, not a placeholder; future systems stay out.
-	assert_eq(MenuScreen.TAB_NAMES.size(), 4, "exactly the four real tabs, no stubs")
-	assert_eq(MenuScreen.TAB_NAMES, ["INVENTORY", "BUILD", "ASSIGNMENTS", "CONTROLS"])
+	# Every tab is a working system (Milestone B added CRAFT and SKILLS); no placeholder stubs.
+	assert_eq(MenuScreen.TAB_NAMES, ["INVENTORY", "CRAFT", "SKILLS", "BUILD", "SETTLERS", "CONTROLS"])
+	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_CRAFT], "CRAFT")
+	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_ASSIGNMENTS], "SETTLERS")
+
+
+func test_tabs_cycle_both_ways() -> void:
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CONTROLS), MenuScreen.TAB_INVENTORY, "wraps forward")
+	assert_eq(MenuScreen.prev_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_CONTROLS, "wraps back")
+	assert_eq(MenuScreen.prev_tab(MenuScreen.TAB_SKILLS), MenuScreen.TAB_CRAFT)
 
 
 ## -- Build-tab catalog rows (affordability must be BuildGrid.can_afford's verdict) --
@@ -93,7 +104,7 @@ func test_controls_reference_actions_all_exist_in_the_input_map() -> void:
 func test_controls_lines_render_one_line_per_entry() -> void:
 	var lines := MenuScreen.controls_lines()
 	assert_eq(lines.size(), MenuScreen.CONTROLS_REFERENCE.size())
-	assert_eq(lines[0], "W/A/S/D or Arrows — Move")
+	assert_eq(lines[0], "W/A/S/D, Arrows, L-stick — Move")
 	for line in lines:
 		assert_true(line.find(" — ") != -1, "every line pairs keys with a description: %s" % line)
 
@@ -101,7 +112,7 @@ func test_controls_lines_render_one_line_per_entry() -> void:
 func test_controls_list_documents_the_menus_own_keys() -> void:
 	# The menu must explain itself: its open/close key, tab cycling, and Esc all appear.
 	var joined := " | ".join(MenuScreen.controls_lines())
-	assert_true(joined.find("Tab — Open/close this menu") != -1, "menu key documented")
+	assert_true(joined.find("Tab, I, Y — Open/close this menu") != -1, "menu key documented")
 	assert_true(joined.find("menu tab") != -1, "Q's tab-cycling role documented")
 	assert_true(joined.find("Esc — Close menu") != -1, "Esc close documented")
 

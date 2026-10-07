@@ -36,14 +36,23 @@ extends CanvasLayer
 ## input actions — no new project.godot entries.
 
 const BuildGrid := preload("res://scripts/build_grid.gd")
+const RecipeDB := preload("res://scripts/recipe_db.gd")
+const Crafting := preload("res://scripts/crafting.gd")
+const ItemDB := preload("res://scripts/item_db.gd")
+const SkillsScript := preload("res://scripts/skills.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
 const Builder := preload("res://scripts/builder.gd")
 
-const TAB_NAMES: Array[String] = ["INVENTORY", "BUILD", "ASSIGNMENTS", "CONTROLS"]
+## 2026-10-07 Milestone B: CRAFT (the recipe book, scripts/crafting.gd) and SKILLS tabs join the
+## ring, right after the inventory. Tabs cycle forward with Q, and either way with Left/Right
+## or the pad's shoulder buttons.
+const TAB_NAMES: Array[String] = ["INVENTORY", "CRAFT", "SKILLS", "BUILD", "SETTLERS", "CONTROLS"]
 const TAB_INVENTORY := 0
-const TAB_BUILD := 1
-const TAB_ASSIGNMENTS := 2
-const TAB_CONTROLS := 3
+const TAB_CRAFT := 1
+const TAB_SKILLS := 2
+const TAB_BUILD := 3
+const TAB_ASSIGNMENTS := 4
+const TAB_CONTROLS := 5
 
 ## Same modal palette as store_ui.gd/title_screen.gd's lists.
 const TAB_ACTIVE_COLOR := Color("#c5520f")     # rust red — the established highlight
@@ -62,20 +71,23 @@ const QUIT_HINT_ARMED := "Space AGAIN — Save & Return to Title"
 ## MUST be updated by hand, or this screen becomes worse than no controls screen at all.
 ## tests/test_menu_screen.gd only guards the weaker half (every action named here still exists
 ## in the InputMap), which catches renamed/removed actions but NOT rebound keys.
-## Current per project.godot: move WASD+arrows; use_tool Space/E; hotbar 1-9;
-## toggle_inventory Tab; build_toggle B; build_cycle Q; ui_cancel is Godot's built-in Esc.
+## Current per project.godot (2026-10-07 input map): move WASD/arrows/stick; use_tool Space/C/
+## LMB/pad X; interact E/X/F/RMB/pad A; hotbar 1-9 and LB/RB; toggle_inventory Tab/I/pad Y;
+## build_toggle B; build_cycle Q; ui_cancel is Godot's built-in Esc.
 const CONTROLS_REFERENCE := [
-	{"keys": "W/A/S/D or Arrows", "does": "Move",
+	{"keys": "W/A/S/D, Arrows, L-stick", "does": "Move",
 		"actions": ["move_up", "move_down", "move_left", "move_right"]},
-	{"keys": "Space or E", "does": "Use tool / interact / confirm",
+	{"keys": "Space, C, Left click, X", "does": "Use the held tool or item",
 		"actions": ["use_tool"]},
-	{"keys": "1-9", "does": "Select hotbar slot",
-		"actions": ["hotbar_slot_1", "hotbar_slot_9"]},
+	{"keys": "E, F, Right click, A", "does": "Interact, harvest, talk, pick up",
+		"actions": ["interact"]},
+	{"keys": "1-9, LB/RB", "does": "Select hotbar slot",
+		"actions": ["hotbar_slot_1", "hotbar_slot_9", "hotbar_prev", "hotbar_next"]},
 	{"keys": "B", "does": "Enter/leave build mode",
 		"actions": ["build_toggle"]},
 	{"keys": "Q", "does": "Cycle blueprint / menu tab",
 		"actions": ["build_cycle"]},
-	{"keys": "Tab", "does": "Open/close this menu",
+	{"keys": "Tab, I, Y", "does": "Open/close this menu",
 		"actions": ["toggle_inventory"]},
 	{"keys": "Esc", "does": "Close menu / back out",
 		"actions": ["ui_cancel"]},
@@ -107,6 +119,20 @@ var _tab_labels: Array[Label] = []
 var _build_row_labels: Array[Label] = []
 ## Press-again-to-confirm state for Save & Return to Title (see class doc).
 var _quit_armed := false
+## Skills node (scripts/skills.gd), assigned by main.gd — recipe unlocks and the SKILLS tab.
+var skills: Node = null
+
+var _craft_tab: Control = null
+var _craft_rows: VBoxContainer = null
+var _craft_index := 0
+var _craft_detail: Dictionary = {}
+var _craft_status: Label = null
+var _skills_tab: Control = null
+var _skills_rows: VBoxContainer = null
+const CRAFT_ROWS_VISIBLE := 7
+const DIM_COLOR := Color("#8a7a63")
+const LOCKED_COLOR := Color("#a8988a")
+const GOOD_COLOR := Color("#3f6b2a")
 
 
 func _ready() -> void:
@@ -120,6 +146,11 @@ func _ready() -> void:
 		var label := Label.new()
 		build_rows.add_child(label)
 		_build_row_labels.append(label)
+	_build_craft_tab()
+	_build_skills_tab()
+	var hint := get_node_or_null("Root/Box/HintLabel") as Label
+	if hint != null:
+		hint.text = "Q / Left / Right: tabs    Tab / Esc: close"
 	# Controls rows are static text — built once here, never refreshed.
 	for line in controls_lines():
 		var label := Label.new()
@@ -152,10 +183,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	elif event.is_action_pressed("ui_cancel"):
 		close()
-	elif event.is_action_pressed("build_cycle"):
+	elif event.is_action_pressed("build_cycle") or event.is_action_pressed("move_right") \
+			or event.is_action_pressed("hotbar_next"):
 		tab_index = next_tab(tab_index)
 		_quit_armed = false  # navigating away disarms, like the title screen's delete guard
 		_refresh()
+	elif event.is_action_pressed("move_left") or event.is_action_pressed("hotbar_prev"):
+		tab_index = prev_tab(tab_index)
+		_quit_armed = false
+		_refresh()
+	elif tab_index == TAB_CRAFT and event.is_action_pressed("move_down"):
+		_select_recipe(_craft_index + 1)
+	elif tab_index == TAB_CRAFT and event.is_action_pressed("move_up"):
+		_select_recipe(_craft_index - 1)
+	elif tab_index == TAB_CRAFT and (event.is_action_pressed("use_tool") \
+			or event.is_action_pressed("interact")):
+		_craft_selected()
 	elif event.is_action_pressed("use_tool"):
 		if tab_index == TAB_ASSIGNMENTS:
 			_refresh_assignments()
@@ -211,6 +254,8 @@ func _refresh() -> void:
 		_tab_labels[i].add_theme_color_override("font_color",
 			TAB_ACTIVE_COLOR if i == tab_index else TAB_INACTIVE_COLOR)
 	inventory_tab.visible = tab_index == TAB_INVENTORY
+	_craft_tab.visible = tab_index == TAB_CRAFT
+	_skills_tab.visible = tab_index == TAB_SKILLS
 	build_tab.visible = tab_index == TAB_BUILD
 	assignments_tab.visible = tab_index == TAB_ASSIGNMENTS
 	controls_tab.visible = tab_index == TAB_CONTROLS
@@ -218,7 +263,11 @@ func _refresh() -> void:
 		_refresh_build_rows()
 	elif tab_index == TAB_ASSIGNMENTS:
 		_refresh_assignments()
-	quit_label.text = quit_hint(_quit_armed)
+	elif tab_index == TAB_CRAFT:
+		_refresh_craft()
+	elif tab_index == TAB_SKILLS:
+		_refresh_skills()
+	quit_label.text = "Space / E — Craft" if tab_index == TAB_CRAFT else quit_hint(_quit_armed)
 	quit_label.add_theme_color_override("font_color",
 		QUIT_ARMED_COLOR if _quit_armed else QUIT_IDLE_COLOR)
 
@@ -313,6 +362,10 @@ static func next_tab(current: int) -> int:
 	return BuildGrid.wrap_index(current, 1, TAB_NAMES.size())
 
 
+static func prev_tab(current: int) -> int:
+	return BuildGrid.wrap_index(current, -1, TAB_NAMES.size())
+
+
 ## One row per catalog id: display name, builder.gd's own cost string, and affordability via
 ## BuildGrid.can_afford — the exact math the placement preview's green/red already runs, never
 ## a reimplementation. `have` maps item_id -> owned count (missing keys read as 0).
@@ -344,3 +397,283 @@ static func controls_lines() -> Array[String]:
 
 static func quit_hint(armed: bool) -> String:
 	return QUIT_HINT_ARMED if armed else QUIT_HINT
+
+
+
+## -- CRAFT tab (Milestone B, 2026-10-07) --
+
+func _levels() -> Dictionary:
+	var out := {}
+	if skills != null:
+		for skill in SkillsScript.SKILLS:
+			out[skill] = skills.level(skill)
+	return out
+
+
+func _new_tab_root(tab_name: String) -> Control:
+	var tab := Control.new()
+	tab.name = tab_name
+	tab.anchor_right = 1.0
+	tab.anchor_bottom = 1.0
+	tab.offset_left = 8.0
+	tab.offset_top = 16.0
+	tab.offset_right = -8.0
+	tab.offset_bottom = -30.0
+	tab.visible = false
+	box.add_child(tab)
+	return tab
+
+
+func _label(text: String, color: Color = ROW_COLOR) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_color_override("font_color", color)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+
+func _build_craft_tab() -> void:
+	_craft_tab = _new_tab_root("CraftTab")
+	_craft_rows = VBoxContainer.new()
+	_craft_rows.position = Vector2(0, 2)
+	_craft_rows.size = Vector2(150, CRAFT_ROWS_VISIBLE * 16)
+	_craft_rows.add_theme_constant_override("separation", 0)
+	_craft_tab.add_child(_craft_rows)
+	for i in CRAFT_ROWS_VISIBLE:
+		# Each row is a panel (its stylebox is the selection highlight) around icon + name.
+		var row := PanelContainer.new()
+		row.custom_minimum_size = Vector2(150, 16)
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0, 0, 0, 0)
+		row.add_theme_stylebox_override("panel", style)
+		var inner := HBoxContainer.new()
+		inner.add_theme_constant_override("separation", 3)
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(inner)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(16, 16)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(icon)
+		var name_label := _label("")
+		name_label.custom_minimum_size = Vector2(128, 16)
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_label.clip_text = true
+		inner.add_child(name_label)
+		row.gui_input.connect(_on_craft_row_input.bind(i))
+		_craft_rows.add_child(row)
+	# Detail panel.
+	var detail := VBoxContainer.new()
+	detail.position = Vector2(156, 2)
+	detail.size = Vector2(138, 118)
+	detail.add_theme_constant_override("separation", 1)
+	_craft_tab.add_child(detail)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 3)
+	var big_icon := TextureRect.new()
+	big_icon.custom_minimum_size = Vector2(16, 16)
+	head.add_child(big_icon)
+	var title := _label("")
+	title.clip_text = true
+	title.custom_minimum_size = Vector2(118, 16)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(title)
+	detail.add_child(head)
+	var desc := _label("", DIM_COLOR)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size = Vector2(138, 26)
+	detail.add_child(desc)
+	var needs := VBoxContainer.new()
+	needs.add_theme_constant_override("separation", 0)
+	detail.add_child(needs)
+	var extra := _label("")
+	detail.add_child(extra)
+	var button := Button.new()
+	button.text = "Craft"
+	button.focus_mode = Control.FOCUS_NONE
+	for pair in [["normal", "#7b5025"], ["hover", "#9a6631"], ["pressed", "#5c3a1b"],
+			["disabled", "#c8b896"]]:
+		var bstyle := StyleBoxFlat.new()
+		bstyle.bg_color = Color(pair[1])
+		bstyle.set_corner_radius_all(2)
+		bstyle.content_margin_top = 2
+		bstyle.content_margin_bottom = 2
+		button.add_theme_stylebox_override(String(pair[0]), bstyle)
+	button.add_theme_color_override("font_color", Color("#ffedb1"))
+	button.add_theme_color_override("font_hover_color", Color("#fff6d6"))
+	button.add_theme_color_override("font_disabled_color", Color("#8a7a63"))
+	button.pressed.connect(_craft_selected)
+	detail.add_child(button)
+	_craft_status = _label("", GOOD_COLOR)
+	_craft_status.position = Vector2(0, CRAFT_ROWS_VISIBLE * 16 + 3)
+	_craft_status.size = Vector2(150, 10)
+	_craft_tab.add_child(_craft_status)
+	_craft_detail = {"icon": big_icon, "title": title, "desc": desc, "needs": needs,
+		"extra": extra, "button": button}
+
+
+func _on_craft_row_input(event: InputEvent, row: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var start := _craft_window_start()
+		_select_recipe(start + row)
+		if event.double_click:
+			_craft_selected()
+
+
+func _craft_window_start() -> int:
+	var count := RecipeDB.ids().size()
+	return clampi(_craft_index - CRAFT_ROWS_VISIBLE / 2, 0, maxi(count - CRAFT_ROWS_VISIBLE, 0))
+
+
+func _select_recipe(index: int) -> void:
+	var count := RecipeDB.ids().size()
+	if count == 0:
+		return
+	_craft_index = wrapi(index, 0, count)
+	_craft_status.text = ""
+	_refresh_craft()
+
+
+func _craft_selected() -> void:
+	if _player == null:
+		return
+	var ids := RecipeDB.ids()
+	if ids.is_empty():
+		return
+	var id := ids[_craft_index]
+	var reason := Crafting.craft(id, _player, _levels())
+	if reason == Crafting.OK:
+		var made := RecipeDB.result_item(id)
+		_craft_status.text = "Upgraded!" if made == "" else "Made %d x %s" % [
+			RecipeDB.result_count(id), ItemDB.display_name(made)]
+		_craft_status.add_theme_color_override("font_color", GOOD_COLOR)
+		Audio.play_sfx("ui_purchase", -4.0)
+	else:
+		_craft_status.text = Crafting.reason_text(reason, id)
+		_craft_status.add_theme_color_override("font_color", UNAFFORDABLE_COLOR)
+		Audio.play_sfx("ui_error", -6.0)
+	_refresh_craft()
+
+
+func _refresh_craft() -> void:
+	var ids := RecipeDB.ids()
+	var levels := _levels()
+	var start := _craft_window_start()
+	for i in CRAFT_ROWS_VISIBLE:
+		var row: PanelContainer = _craft_rows.get_child(i)
+		var index := start + i
+		var style := row.get_theme_stylebox("panel") as StyleBoxFlat
+		var icon: TextureRect = row.get_child(0).get_child(0)
+		var name_label: Label = row.get_child(0).get_child(1)
+		if index >= ids.size():
+			row.visible = false
+			continue
+		row.visible = true
+		var id := ids[index]
+		var unlocked := RecipeDB.is_unlocked(id, levels)
+		var ready := Crafting.check(id, _player.inventory, int(_player.credits), levels) == Crafting.OK
+		icon.texture = _recipe_icon(id) if unlocked else null
+		name_label.text = _recipe_name(id) if unlocked else "???  (%s)" % RecipeDB.unlock_text(id)
+		name_label.add_theme_color_override("font_color",
+			ROW_COLOR if ready else (DIM_COLOR if unlocked else LOCKED_COLOR))
+		style.bg_color = Color("#c5520f", 0.25) if index == _craft_index else Color(0, 0, 0, 0)
+	_refresh_craft_detail(ids[_craft_index] if not ids.is_empty() else "", levels)
+
+
+func _recipe_name(id: String) -> String:
+	if RecipeDB.is_upgrade(id):
+		var recipe := RecipeDB.get_recipe(id)
+		return "%s Tier %d" % [ItemDB.display_name(String(recipe["upgrade"])), int(recipe["to_tier"])]
+	var count := RecipeDB.result_count(id)
+	var name_text := ItemDB.display_name(RecipeDB.result_item(id))
+	return name_text if count == 1 else "%s x%d" % [name_text, count]
+
+
+func _recipe_icon(id: String) -> Texture2D:
+	var path := ""
+	if RecipeDB.is_upgrade(id):
+		var recipe := RecipeDB.get_recipe(id)
+		path = "res://art/items/%s_t%d.png" % [String(recipe["upgrade"]), int(recipe["to_tier"])]
+	else:
+		path = ItemDB.icon_path(RecipeDB.result_item(id))
+	return load(path) if path != "" and ResourceLoader.exists(path) else null
+
+
+func _refresh_craft_detail(id: String, levels: Dictionary) -> void:
+	var d := _craft_detail
+	var needs: VBoxContainer = d["needs"]
+	for child in needs.get_children():
+		child.queue_free()
+	if id == "":
+		return
+	var unlocked := RecipeDB.is_unlocked(id, levels)
+	(d["icon"] as TextureRect).texture = _recipe_icon(id) if unlocked else null
+	(d["title"] as Label).text = _recipe_name(id) if unlocked else "Locked recipe"
+	var desc := ""
+	if not unlocked:
+		desc = "Reach %s to learn this." % RecipeDB.unlock_text(id)
+	elif RecipeDB.is_upgrade(id):
+		desc = "Bring your tier %d tool. Upgraded tools hit harder and reach further." \
+			% (int(RecipeDB.get_recipe(id)["to_tier"]) - 1)
+	else:
+		desc = String(ItemDB.get_item(RecipeDB.result_item(id)).get("description", ""))
+	(d["desc"] as Label).text = desc
+	var need := RecipeDB.ingredients(id)
+	for item in need:
+		var have: int = _player.inventory.count_of(item)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 3)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(16, 16)
+		var path := ItemDB.icon_path(item)
+		icon.texture = load(path) if path != "" and ResourceLoader.exists(path) else null
+		row.add_child(icon)
+		var enough: bool = have >= int(need[item])
+		var label := _label("%s  %d/%d" % [ItemDB.display_name(item), have, int(need[item])],
+			GOOD_COLOR if enough else UNAFFORDABLE_COLOR)
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(label)
+		needs.add_child(row)
+	var cost := RecipeDB.credits_cost(id)
+	(d["extra"] as Label).text = "" if cost == 0 else "%d Credits" % cost
+	(d["extra"] as Label).add_theme_color_override("font_color",
+		GOOD_COLOR if int(_player.credits) >= cost else UNAFFORDABLE_COLOR)
+	(d["button"] as Button).disabled = Crafting.check(id, _player.inventory, int(_player.credits),
+		levels) != Crafting.OK
+
+
+## -- SKILLS tab --
+
+func _build_skills_tab() -> void:
+	_skills_tab = _new_tab_root("SkillsTab")
+	_skills_rows = VBoxContainer.new()
+	_skills_rows.position = Vector2(4, 4)
+	_skills_rows.size = Vector2(288, 110)
+	_skills_rows.add_theme_constant_override("separation", 4)
+	_skills_tab.add_child(_skills_rows)
+
+
+func _refresh_skills() -> void:
+	for child in _skills_rows.get_children():
+		child.queue_free()
+	for skill in SkillsScript.SKILLS:
+		var total := int(skills.xp.get(skill, 0)) if skills != null else 0
+		var lvl := SkillsScript.level_for_xp(total)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var name_label := _label("%s  Lv %d" % [SkillsScript.NAMES[skill], lvl])
+		name_label.custom_minimum_size = Vector2(92, 12)
+		row.add_child(name_label)
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(56, 8)
+		bar.show_percentage = false
+		bar.max_value = 1.0
+		bar.step = 0.0
+		bar.value = SkillsScript.progress_to_next(total)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(bar)
+		var perk := _label(String(SkillsScript.PERK_TEXT[skill]), DIM_COLOR)
+		perk.clip_text = true
+		perk.custom_minimum_size = Vector2(130, 12)
+		row.add_child(perk)
+		_skills_rows.add_child(row)

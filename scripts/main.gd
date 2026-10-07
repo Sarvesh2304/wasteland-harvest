@@ -37,6 +37,8 @@ var zones: Dictionary = {}
 ## direct child of Main for the same reason Settlers/Animals are: relationships belong to the
 ## settlement, not to whichever zone an NPC happens to stand in.
 @onready var affinity: Node = $Affinity
+## Milestone B (2026-10-07): the player's five skills (scripts/skills.gd), saved as "skills".
+@onready var skills: Node = $Skills
 @onready var sound_director: Node = $SoundDirector
 @onready var target_cursor: Node2D = $TargetCursor
 
@@ -67,6 +69,7 @@ func _ready() -> void:
 	target_cursor.bind(player)
 	hud.bind_target_cursor(target_cursor)
 	GameState.clear_save_sections()
+	GameState.register_save_section("skills", func() -> Dictionary: return skills.save_state())
 	GameState.register_save_section("weather", func() -> Dictionary:
 		return {"today": DayManager.weather_today, "tomorrow": DayManager.weather_tomorrow,
 			"seed": DayManager.weather_seed})
@@ -101,6 +104,7 @@ func _ready() -> void:
 	player.settlers = settlers
 	player.animals = animals
 	player.affinity = affinity
+	player.skills = skills
 	# Phase 5 Stage 1: dialogue box (scripts/dialogue_ui.gd) — bound both ways like Builder above,
 	# since player.gd needs to know a conversation is open (to freeze) and DialogueUI needs the
 	# signal that says one should start.
@@ -146,6 +150,7 @@ func _ready() -> void:
 	# while "toggle_inventory" now opens the full menu instead of a bare overlay.
 	var menu_screen: Node = $MenuScreen
 	menu_screen.bind(player, hud.inventory_grid)
+	menu_screen.skills = skills
 	player.menu_screen = menu_screen
 	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
 	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
@@ -247,6 +252,7 @@ func _on_zone_exit_requested(target_zone: String, entry_cell: Vector2i) -> void:
 func _apply_save(data: Dictionary) -> void:
 	DayManager.day = int(data.get("day", 1))
 	DayManager.minutes_into_day = float(data.get("minutes_into_day", DayManager.DAY_START_MINUTES))
+	skills.load_state(data.get("skills", {}))
 	var weather: Dictionary = data.get("weather", {})
 	if weather.is_empty():
 		DayManager.reset_weather(hash([data.get("settlement_id", ""), data.get("saved_unix", 0)]))

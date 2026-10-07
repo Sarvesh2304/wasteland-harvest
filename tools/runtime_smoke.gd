@@ -1335,10 +1335,21 @@ func _physics_process(_delta: float) -> bool:
 				_drive_builder_action("build_toggle")
 				_check(not builder.active,
 					"build_toggle is REFUSED while the menu is open (modal gate)")
-				# -- Tab cycling (build_cycle/Q): Inventory -> Build, with live catalog rows --
+				# -- Tab cycling (build_cycle/Q): Inventory -> Craft -> Skills -> Build (2026-10-07
+				#    Milestone B inserted the recipe book and skills after the inventory) --
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_CRAFT,
+					"Q cycles Inventory -> Craft")
+				_check(menu_screen._craft_tab.visible and not menu_screen.inventory_tab.visible,
+					"only the Craft tab's content is showing")
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_SKILLS,
+					"Q cycles Craft -> Skills")
+				_check(menu_screen._skills_tab.visible, "the Skills tab is showing")
+				_check(menu_screen._skills_rows.get_child_count() == 5, "one row per skill")
 				_drive_menu_action("build_cycle")
 				_check(menu_screen.tab_index == menu_screen.TAB_BUILD,
-					"Q cycles Inventory -> Build")
+					"Q cycles Skills -> Build")
 				_check(menu_screen.build_tab.visible and not menu_screen.inventory_tab.visible,
 					"only the Build tab's content is showing")
 				# Phase 8 Stage 1 grew the catalog to the full 12-building library; Stage 2's 4

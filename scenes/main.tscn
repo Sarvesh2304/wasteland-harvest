@@ -18,6 +18,7 @@
 [ext_resource type="Script" path="res://scripts/affinity.gd" id="16_affinity"]
 [ext_resource type="Script" path="res://scripts/sound_director.gd" id="17_sound"]
 [ext_resource type="Script" path="res://scripts/target_cursor.gd" id="18_cursor"]
+[ext_resource type="Script" path="res://scripts/skills.gd" id="19_skills"]
 
 [node name="Main" type="Node2D"]
 y_sort_enabled = true
@@ -76,6 +77,9 @@ script = ExtResource("14_animals")
 
 [node name="Affinity" type="Node" parent="."]
 script = ExtResource("16_affinity")
+
+[node name="Skills" type="Node" parent="."]
+script = ExtResource("19_skills")
 
 [node name="SoundDirector" type="Node" parent="."]
 script = ExtResource("17_sound")
