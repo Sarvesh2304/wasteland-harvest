@@ -123,6 +123,10 @@ static func tool_effect(kind: String, tool_kind: String, tier: int) -> String:
 	var needed := tool_of(kind)
 	if needed == "" or needed == "hand" or tool_kind == "":
 		return WRONG_TOOL
+	if needed == "pickup":
+		# Player-placed objects come back up with an axe or pickaxe swing (Stardew's rule), so a
+		# hoe or scythe swung nearby never knocks a machine loose by accident.
+		return HIT if tool_kind == "axe" or tool_kind == "pickaxe" else WRONG_TOOL
 	if needed == "any":
 		return HIT if CLEARING_TOOLS.has(tool_kind) else WRONG_TOOL
 	if needed != tool_kind:
@@ -160,3 +164,71 @@ static func roll_drops(kind: String, rng: RandomNumberGenerator) -> Array[Dictio
 static func reload_from_disk() -> void:
 	_loaded = false
 	_ensure_loaded()
+
+
+
+## -- Player-placed objects (Milestone B, 2026-10-07) --
+
+## Whether `kind` is something the player placed (it picks back up as its item).
+static func is_placed(kind: String) -> bool:
+	return bool(get_kind(kind).get("placed", false))
+
+
+## The item a placed kind was made from (and drops when picked up).
+static func item_of(kind: String) -> String:
+	return String(get_kind(kind).get("item", ""))
+
+
+## The placed kind an item turns into when set down ("" = not placeable as an object).
+static func kind_for_item(item_id: String) -> String:
+	var kind := "placed_" + item_id
+	return kind if has_kind(kind) else ""
+
+
+static func storage_size(kind: String) -> int:
+	return int(get_kind(kind).get("storage", 0))
+
+
+## Sprinkler reach: 1 = the 4 cells beside it, 2 = the 8 around it, 3 = the 24 within two.
+static func sprinkler_level(kind: String) -> int:
+	return int(get_kind(kind).get("sprinkler", 0))
+
+
+static func machine_of(kind: String) -> String:
+	return String(get_kind(kind).get("machine", ""))
+
+
+static func frames_of(kind: String) -> int:
+	return maxi(int(get_kind(kind).get("frames", 1)), 1)
+
+
+## [colour, strength, radius scale, height px(, flicker)] for kinds that glow after dark.
+static func light_of(kind: String) -> Array:
+	var l = get_kind(kind).get("light", [])
+	return l if l is Array else []
+
+
+## Same shape as light_of: a machine's fire, lit after dark only while it's working.
+static func work_light_of(kind: String) -> Array:
+	var l = get_kind(kind).get("work_light", [])
+	return l if l is Array else []
+
+
+static func night_frame(kind: String) -> int:
+	return int(get_kind(kind).get("night_frame", -1))
+
+
+## Pure: the cells a sprinkler of `level` at `origin` waters.
+static func sprinkler_cells(origin: Vector2i, level: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if level <= 0:
+		return out
+	var reach := 1 if level <= 2 else 2
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			if dx == 0 and dy == 0:
+				continue
+			if level == 1 and dx != 0 and dy != 0:
+				continue
+			out.append(origin + Vector2i(dx, dy))
+	return out

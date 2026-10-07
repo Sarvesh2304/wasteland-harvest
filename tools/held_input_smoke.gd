@@ -56,6 +56,7 @@ const BED_STAND := Vector2i(18, 5)     # facing north -> bed at (18,4)
 var game_state: Node
 var day_manager: Node
 var main: Node
+var _walk_start_x := 0.0
 var player: CharacterBody2D
 var test_map: Node
 var structures: Node
@@ -296,30 +297,33 @@ func _physics_process(_delta: float) -> bool:
 				_warp_to("farm")  # the chest is farm-zone content
 				_stand(CHEST_STAND, "north")
 				player.use_tool()
-				_check(hud.get_node("%ChestGrid").visible, "chest grid open for the Esc check")
-				_drive(hud, "ui_cancel")
-				_check(not hud.get_node("%ChestGrid").visible, "Esc closes the chest grid")
+				_check(main.storage_ui.active, "chest storage screen open for the Esc check")
+				_drive(main.storage_ui, "ui_cancel")
+				_check(not main.storage_ui.active, "Esc closes the storage screen")
 				_enter_stage(7)
 		7:
-			# -- Chest walk-away auto-close: shuffling nearby holds, walking away closes --
+			# -- 2026-10-07: the storage screen is a true modal (it replaced the passive chest
+			#    grid that closed on walk-away): held movement can't walk the player off while
+			#    it's open, and closing it gives movement straight back --
 			if ticks < 5:
 				_stand(CHEST_STAND, "north")
 				return false
 			if ticks == 5:
 				player.use_tool()
-				_check(hud.get_node("%ChestGrid").visible, "chest grid opened")
-				# Diagonal-adjacent shuffle (~22.6px of the 48px threshold): must stay open.
-				_stand(Vector2i(15, 5), "north")
+				_check(main.storage_ui.active, "storage screen opened")
+				_walk_start_x = player.global_position.x
+				Input.action_press("move_right")
 				return false
-			if ticks == 10:
-				_check(hud.get_node("%ChestGrid").visible,
-					"shuffling beside the chest does NOT close the grid")
-				# Walk well past the threshold: (16,9) is 80px from the chest's (16,4) center.
-				_stand(Vector2i(16, 9), "north")
+			if ticks == 20:
+				_check(absf(player.global_position.x - _walk_start_x) < 0.5,
+					"held movement doesn't move the player while the storage screen is open")
+				_drive(main.storage_ui, "ui_cancel")
+				_check(not main.storage_ui.active, "Esc closed it")
 				return false
-			if ticks == 15:
-				_check(not hud.get_node("%ChestGrid").visible,
-					"walking beyond CHEST_CLOSE_DISTANCE auto-closed the chest grid")
+			if ticks == 40:
+				Input.action_release("move_right")
+				_check(player.global_position.x > _walk_start_x + 4.0,
+					"the player walks again once it's closed")
 				_enter_stage(8)
 		8:
 			# -- Time pauses for modal UIs, resumes on close; build mode and the passive HUD

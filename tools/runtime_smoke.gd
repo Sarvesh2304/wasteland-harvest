@@ -523,11 +523,12 @@ func _physics_process(_delta: float) -> bool:
 				player.use_tool()
 				_check(not player.using_tool, "chest interaction doesn't lock movement like a tool swing")
 				_check(player.energy == energy_before, "chest interaction costs no energy")
-				_check(hud.get_node("%ChestGrid").visible, "chest UI opened")
-				_check(hud._chest_inventory == structures.chest_inventory,
-					"HUD chest UI is bound to Structures' real chest Inventory instance")
+				# 2026-10-07 Milestone B: chests open the two-pane storage screen (storage_ui.gd).
+				_check(main.storage_ui.active, "chest storage screen opened")
+				_check(main.storage_ui.storage() == structures.chest_inventory,
+					"the storage screen is bound to Structures' real chest Inventory instance")
 				player.use_tool()  # interact again: should close it
-				_check(not hud.get_node("%ChestGrid").visible, "chest UI closes on a second interaction")
+				_check(not main.storage_ui.active, "the storage screen closes on a second interaction")
 				_enter_stage(5)
 		5:
 			if ticks >= 30:  # ~0.5s: guarantees idle frames ran so the CanvasModulate re-applied
@@ -1136,13 +1137,13 @@ func _physics_process(_delta: float) -> bool:
 			if ticks == 5:
 				player.use_tool()
 				_check(not player.using_tool, "shed interaction is instant, no tool swing")
-				_check(hud.get_node("%ChestGrid").visible, "shed storage UI opened")
-				_check(hud._chest_inventory != structures.chest_inventory,
+				_check(main.storage_ui.active, "shed storage screen opened")
+				_check(main.storage_ui.storage() != structures.chest_inventory,
 					"shed storage is its own Inventory, not the layout chest's")
-				_check(hud._chest_inventory == structures.storage_inventory_at(SHED_CELL_SE),
-					"HUD is bound to the shed's real Inventory instance")
+				_check(main.storage_ui.storage() == structures.storage_inventory_at(SHED_CELL_SE),
+					"the storage screen is bound to the shed's real Inventory instance")
 				player.use_tool()
-				_check(not hud.get_node("%ChestGrid").visible, "shed UI closes on re-interaction")
+				_check(not main.storage_ui.active, "the shed screen closes on re-interaction")
 				# Tent costs 6 wood; only 3 remain — chop the treeline tree at (33,2) for 3 more.
 				_check(player.inventory.count_of("wood") == 3, "3 wood left, tent unaffordable")
 				player.global_position = test_map.get_global_cell_center(Vector2i(32, 2))

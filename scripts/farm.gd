@@ -56,6 +56,8 @@ func _season() -> String:
 func can_till(cell: Vector2i) -> bool:
 	if _plots.has(cell) or _test_map.is_tilled_at(cell) or _test_map.is_blocked_at(cell):
 		return false
+	if _test_map.has_method("has_floor") and _test_map.has_floor(cell):
+		return false
 	var objects := _objects()
 	if objects != null and objects.has_object(cell):
 		return false

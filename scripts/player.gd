@@ -108,6 +108,8 @@ var store_ui: Node = null
 var ranch_store_ui: Node = null
 var shipping_ui: Node = null
 var menu_screen: Node = null
+## Milestone B: the chest/storage screen (scripts/storage_ui.gd).
+var storage_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -123,7 +125,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var modal_open := _in_dialogue() or _in_store() or _in_shipping() or _in_build_mode() \
-		or _in_menu()
+		or _in_menu() or _in_storage()
 	var use_pressed := _use_pressed()
 	_instant_armed = instant_armed_next(_instant_armed, use_pressed, modal_open, _modal_open_last_frame)
 	_interact_armed = instant_armed_next(_interact_armed, Input.is_action_pressed("interact"),
@@ -133,7 +135,8 @@ func _physics_process(delta: float) -> void:
 	if using_tool:
 		velocity = Vector2.ZERO
 		return
-	if _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _zone_transitioning:
+	if _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage() \
+			or _zone_transitioning:
 		velocity = Vector2.ZERO
 		return
 	if test_map != null:
@@ -152,7 +155,7 @@ func _physics_process(delta: float) -> void:
 		if _interact_armed:
 			_interact_armed = false
 			interact()
-			if using_tool or _in_dialogue() or _in_store() or _in_shipping():
+			if using_tool or _in_dialogue() or _in_store() or _in_shipping() or _in_storage():
 				velocity = Vector2.ZERO
 				return
 	if use_pressed and not _in_build_mode():
@@ -261,7 +264,7 @@ func _now() -> float:
 
 
 func _in_any_modal() -> bool:
-	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu()
+	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage()
 
 
 func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
@@ -343,9 +346,12 @@ func describe_action() -> Dictionary:
 		return out
 	var cell := _target_cell()
 	var instant := _instant_target(cell)
-	if instant != "":
-		out["interact"] = instant
+	var instant_interact := _instant_target(cell, false)
+	if instant != "" or instant_interact != "":
+		out["interact"] = instant_interact
 		out["use"] = instant
+		if instant == "" and objects != null and objects.has_object(cell):
+			out["use"] = "Pick up"
 		return out
 	if farm.can_harvest(cell):
 		out["interact"] = "Harvest"
@@ -378,6 +384,10 @@ func describe_action() -> Dictionary:
 				out["use"] = "Refill"
 			elif farm.can_water(cell):
 				out["use"] = "Water" if _can_water_left() > 0 else "Empty"
+	if String(ItemDB.get_item(item_id).get("type", "")) == "placeable":
+		if _can_place_at(cell, item_id):
+			out["use"] = "Place"
+		return out
 	if ItemDB.is_seed(item_id):
 		var crop := _crop_for_seed(item_id)
 		if crop != "" and farm.plant_check(cell, crop) == farm.OK:
@@ -396,6 +406,8 @@ func describe_action() -> Dictionary:
 
 func _verb_for(object_kind: String) -> String:
 	match WorldObjectDB.tool_of(object_kind):
+		"pickup":
+			return "Pick up"
 		"axe":
 			return "Chop"
 		"pickaxe":
@@ -406,7 +418,7 @@ func _verb_for(object_kind: String) -> String:
 
 
 ## The instant interaction available at `cell`, as a verb ("" = none).
-func _instant_target(cell: Vector2i) -> String:
+func _instant_target(cell: Vector2i, for_use: bool = true) -> String:
 	if structures != null:
 		if structures.is_chest_at(cell):
 			return "Open"
@@ -416,6 +428,15 @@ func _instant_target(cell: Vector2i) -> String:
 			return "Ship"
 	if npcs != null and npcs.npc_at(cell) != null:
 		return "Talk"
+	# Milestone B: crafted chests and machines. The Use button with an axe or pickaxe in hand
+	# picks a placed object back up instead (Stardew's left-click), so it skips these verbs.
+	if objects != null:
+		var held := String(inventory.get_selected_slot().get("item_id", ""))
+		var pickup_tool := ItemDB.tool_kind(held) == "axe" or ItemDB.tool_kind(held) == "pickaxe"
+		if not (for_use and pickup_tool):
+			var verb: String = objects.instant_verb(cell, held)
+			if verb != "":
+				return verb
 	return ""
 
 
@@ -445,8 +466,13 @@ func interact() -> void:
 	var cell := _target_cell()
 	if mouse_aiming():
 		_face_target(cell)
-	if _instant_target(cell) != "":
+	if _instant_target(cell, false) != "":
 		_do_instant(cell)
+		return
+	# A placed machine that's busy (or idle with nothing loadable in hand) still answers: it
+	# reports what it's doing.
+	if objects != null and WorldObjectDB.is_placed(String(objects.kind_at(cell))):
+		objects.interact_placed(cell, self)
 		return
 	if farm.can_harvest(cell):
 		_harvest(cell)
@@ -482,6 +508,9 @@ func _do_instant(cell: Vector2i) -> void:
 		var npc: Node = npcs.npc_at(cell)
 		if npc != null:
 			npc_dialogue_requested.emit(npc)
+			return
+	if objects != null:
+		objects.interact_placed(cell, self)
 
 
 func _resolve_use(cell: Vector2i) -> void:
@@ -518,6 +547,9 @@ func _resolve_use(cell: Vector2i) -> void:
 			elif r == WorldObjectDB.WRONG_TOOL:
 				Audio.play_sfx("tool_whiff", -6.0)
 		return
+	if String(ItemDB.get_item(item_id).get("type", "")) == "placeable":
+		_place(cell, item_id)
+		return
 	match kind:
 		"hoe":
 			_swing()
@@ -534,6 +566,12 @@ func _resolve_use(cell: Vector2i) -> void:
 			return
 		"axe", "pickaxe", "scythe":
 			_swing()
+			if kind == "pickaxe" and test_map.has_method("has_floor") and test_map.has_floor(cell):
+				var item := String(test_map.remove_floor(cell))
+				if item != "" and objects != null:
+					objects.spawn_pickup(item, 1, test_map.get_global_cell_center(cell), Vector2.UP)
+				Audio.play_sfx_at("mine", test_map.get_global_cell_center(cell))
+				return
 			Audio.play_sfx("tool_whiff", -6.0)
 			return
 	if is_weapon:
@@ -554,6 +592,29 @@ func _resolve_use(cell: Vector2i) -> void:
 
 func _skill_multiplier(tool_kind: String) -> float:
 	return skills.energy_multiplier(tool_kind) if skills != null else 1.0
+
+
+## Sets a crafted placeable down at `cell` (Milestone B): paths become floor, everything else
+## a placed world object.
+func _place(cell: Vector2i, item_id: String) -> void:
+	var placed := false
+	if test_map.has_method("floor_kind_for_item") and test_map.floor_kind_for_item(item_id) != "":
+		placed = test_map.place_floor(cell, item_id, farm)
+	elif objects != null:
+		placed = objects.place_item(item_id, cell)
+	if placed:
+		inventory.remove_item(item_id, 1)
+		_lock_for(0.15)
+	else:
+		Audio.play_sfx("tool_whiff", -8.0)
+
+
+func _can_place_at(cell: Vector2i, item_id: String) -> bool:
+	if test_map.has_method("floor_kind_for_item") and test_map.floor_kind_for_item(item_id) != "":
+		return test_map.can_place_floor(cell, farm)
+	var kind := WorldObjectDB.kind_for_item(item_id)
+	return kind != "" and objects != null and objects.can_place(kind, cell, true) \
+		and (farm == null or farm.get_plot(cell).is_empty())
 
 
 func _crop_for_seed(item_id: String) -> String:
@@ -749,6 +810,10 @@ func _in_shipping() -> bool:
 
 func _in_menu() -> bool:
 	return menu_screen != null and bool(menu_screen.active)
+
+
+func _in_storage() -> bool:
+	return storage_ui != null and bool(storage_ui.active)
 
 
 func end_zone_transition() -> void:

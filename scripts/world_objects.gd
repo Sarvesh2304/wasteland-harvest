@@ -20,8 +20,15 @@ const WorldObjectDB := preload("res://scripts/world_object_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const Pickup := preload("res://scripts/pickup.gd")
 const Calendar := preload("res://scripts/calendar.gd")
+const MachineDB := preload("res://scripts/machine_db.gd")
+const NightLight := preload("res://scripts/night_light.gd")
+const READY_BUBBLE := preload("res://art/ui/ready_bubble.png")
+const ItemDB := preload("res://scripts/item_db.gd")
+const InventoryScript := preload("res://scripts/inventory.gd")
 
 signal object_removed(anchor: Vector2i, kind: String)
+## A placed chest was opened (Milestone B): main.gd routes this to the storage UI.
+signal storage_opened(inventory, cell: Vector2i)
 signal object_added(anchor: Vector2i, kind: String)
 
 const CELL := 16
@@ -58,6 +65,10 @@ var _season := "spring"
 var _texture_cache: Dictionary = {}
 ## Trees currently drawn translucent because the player stands behind their canopy.
 var _faded: Dictionary = {}
+## Per-object state for player-placed kinds (Milestone B): anchor -> {"storage": Inventory,
+## "machine": {output, count, ready_at, input, input_count} or {}, "days": passive counter}.
+var _extra: Dictionary = {}
+var _machine_clock := 0.0
 
 
 func _ready() -> void:
@@ -121,7 +132,7 @@ func all_objects() -> Dictionary:
 
 ## Whether `kind` could be placed with its top-left at `anchor` (in bounds, free terrain, no
 ## other object/plot/structure, not tilled soil).
-func can_place(kind: String, anchor: Vector2i) -> bool:
+func can_place(kind: String, anchor: Vector2i, for_player: bool = false) -> bool:
 	var size := WorldObjectDB.size_of(kind)
 	var map_size: Vector2i = _test_map.layout.size()
 	for dy in size.y:
@@ -132,9 +143,14 @@ func can_place(kind: String, anchor: Vector2i) -> bool:
 			if _occupancy.has(c) or _test_map.is_blocked_at(c):
 				return false
 			var t := String(_test_map.terrain_at(c))
-			if t != "." and t != "," and t != "@" and t != "T" and t != "O":
+			var ground_ok := t == "." or t == "," or t == "@" or t == "T" or t == "O"
+			if for_player:
+				# The player may set things down on paths and on bare tilled soil (a sprinkler in
+				# the middle of a field), never on a growing crop.
+				ground_ok = ground_ok or t == ":" or t == ";" or t == "p" or t == "f"
+			if not ground_ok:
 				return false
-			if _test_map.is_soil_at(c.x, c.y):
+			if _test_map.is_soil_at(c.x, c.y) and not for_player:
 				return false
 			var farm: Node = _test_map.get_node_or_null("Farm")
 			if farm != null and not farm.get_plot(c).is_empty():
@@ -151,9 +167,27 @@ func place(kind: String, anchor: Vector2i, variant: int = 0, hp: int = -1) -> bo
 	return true
 
 
+## The player sets `item_id` down at `cell` (Milestone B). True on success; the caller takes
+## the item from the backpack.
+func place_item(item_id: String, cell: Vector2i) -> bool:
+	var kind := WorldObjectDB.kind_for_item(item_id)
+	if kind == "" or not can_place(kind, cell, true):
+		return false
+	_add(kind, cell, 1)
+	var center := _center_world(kind, cell)
+	Audio.play_sfx_at("place_object", center)
+	Fx.burst(center, "dust", Vector2.UP, 0.5)
+	return true
+
+
 func _add(kind: String, anchor: Vector2i, variant: int = 0, hp: int = -1) -> void:
 	var v := variant if variant > 0 else _rng.randi_range(1, WorldObjectDB.variant_count(kind))
 	_objects[anchor] = {"kind": kind, "hp": hp if hp > 0 else WorldObjectDB.hp_of(kind), "variant": v}
+	if WorldObjectDB.is_placed(kind):
+		var extra := {"machine": {}, "days": 0}
+		if WorldObjectDB.storage_size(kind) > 0:
+			extra["storage"] = InventoryScript.new()
+		_extra[anchor] = extra
 	var size := WorldObjectDB.size_of(kind)
 	for dy in size.y:
 		for dx in size.x:
@@ -171,6 +205,7 @@ func remove(anchor: Vector2i) -> void:
 		for dx in size.x:
 			_occupancy.erase(anchor + Vector2i(dx, dy))
 	_objects.erase(anchor)
+	_extra.erase(anchor)
 	var node: Node = _nodes.get(anchor)
 	if node != null:
 		node.queue_free()
@@ -200,6 +235,10 @@ func hit(cell: Vector2i, tool_kind: String, tier: int, hitter_pos: Vector2 = Vec
 	var center := _center_world(kind, anchor)
 	if effect == WorldObjectDB.WRONG_TOOL:
 		return {"result": effect, "kind": kind}
+	if WorldObjectDB.is_placed(kind) and not _storage_empty(anchor):
+		Fx.wobble(node, 0.8)
+		Fx.float_text(center + Vector2(0, -12), "Empty it first", Color("#ffc948"))
+		return {"result": WorldObjectDB.WRONG_TOOL, "kind": kind}
 	if effect == WorldObjectDB.TOO_WEAK:
 		Audio.play_sfx_at("hit_metal" if kind.begins_with("scrap") else "mine", center, -4.0)
 		Fx.wobble(node, 0.8)
@@ -221,6 +260,8 @@ func hit(cell: Vector2i, tool_kind: String, tier: int, hitter_pos: Vector2 = Vec
 
 func _destroy(anchor: Vector2i, kind: String, hitter_pos: Vector2, center: Vector2,
 		away: Vector2) -> Dictionary:
+	if WorldObjectDB.is_placed(kind):
+		return _pick_up_placed(anchor, kind, center, away)
 	var drops := WorldObjectDB.roll_drops(kind, _rng)
 	var node: Node2D = _nodes.get(anchor)
 	var fall := WorldObjectDB.falls(kind) and node != null
@@ -363,6 +404,10 @@ func _on_day_started(day: int) -> void:
 		_refresh_all_textures()
 		_clear_out_of_season_forage()
 	spawn_daily(day)
+	_tick_passive_producers()
+	# Deferred: the farm's own morning pass (growth, then drying) runs on this same signal, and
+	# sprinklers must water the NEW day's soil after it, not before.
+	call_deferred("_run_sprinklers")
 
 
 ## Morning regrowth: some debris and this season's forage on free cells.
@@ -431,7 +476,8 @@ func _free_spawn_cells() -> Array[Vector2i]:
 			var t := String(layout.cell(x, y))
 			if t != "." and t != ",":
 				continue
-			if _occupancy.has(c) or _test_map.is_blocked_at(c) or _test_map.is_soil_at(x, y):
+			if _occupancy.has(c) or _test_map.is_blocked_at(c) or _test_map.is_soil_at(x, y) \
+					or _test_map.has_floor(c):
 				continue
 			if absi(c.x - player_cell.x) <= 1 and absi(c.y - player_cell.y) <= 1:
 				continue
@@ -491,9 +537,26 @@ func _build_node(kind: String, anchor: Vector2i, variant: int) -> Node2D:
 	sprite.name = "Sprite"
 	sprite.centered = false
 	sprite.texture = _texture_for(kind, variant)
+	var frames := WorldObjectDB.frames_of(kind)
+	sprite.hframes = frames
 	var tex_size := sprite.texture.get_size()
-	sprite.offset = Vector2(-tex_size.x * 0.5, -tex_size.y)
+	sprite.offset = Vector2(-tex_size.x / frames * 0.5, -tex_size.y)
 	root.add_child(sprite)
+	var light_spec := WorldObjectDB.light_of(kind)
+	if not light_spec.is_empty():
+		var light := NightLight.make(Color(light_spec[0]), float(light_spec[1]), float(light_spec[2]),
+			float(light_spec[4]) if light_spec.size() > 4 else 0.0)
+		light.position = Vector2(0, -float(light_spec[3]))
+		root.add_child(light)
+	var work_spec := WorldObjectDB.work_light_of(kind)
+	if not work_spec.is_empty():
+		# A machine's fire: glows after dark only while a batch is cooking (_refresh_placed_visuals).
+		var glow := NightLight.make(Color(work_spec[0]), float(work_spec[1]), float(work_spec[2]),
+			float(work_spec[4]) if work_spec.size() > 4 else 0.0)
+		glow.name = "WorkLight"
+		glow.position = Vector2(0, -float(work_spec[3]))
+		glow.visible = false
+		root.add_child(glow)
 	if WorldObjectDB.is_solid(kind):
 		var body := StaticBody2D.new()
 		body.collision_layer = 1
@@ -534,7 +597,7 @@ func _refresh_all_textures() -> void:
 			continue
 		sprite.texture = _texture_for(String(obj["kind"]), int(obj["variant"]))
 		var tex_size := sprite.texture.get_size()
-		sprite.offset = Vector2(-tex_size.x * 0.5, -tex_size.y)
+		sprite.offset = Vector2(-tex_size.x / sprite.hframes * 0.5, -tex_size.y)
 
 
 ## Placeholder art (used only until the art/env sprites exist): simple palette shapes so the
@@ -604,7 +667,11 @@ func _topple(sprite: Node2D, direction: float) -> void:
 
 
 ## Trees go see-through while the player is behind their canopy (Stardew's readability trick).
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_machine_clock -= delta
+	if _machine_clock <= 0.0:
+		_machine_clock = 0.5
+		_refresh_placed_visuals()
 	var players := get_tree().get_nodes_in_group("player")
 	if players.is_empty():
 		return
@@ -633,7 +700,16 @@ func save_state() -> Dictionary:
 	var out := {}
 	for anchor in _objects:
 		var obj: Dictionary = _objects[anchor]
-		out[SaveData.cell_key(anchor)] = {"kind": obj["kind"], "hp": obj["hp"], "variant": obj["variant"]}
+		var entry := {"kind": obj["kind"], "hp": obj["hp"], "variant": obj["variant"]}
+		var extra: Dictionary = _extra.get(anchor, {})
+		if extra.has("storage"):
+			var inv = extra["storage"]
+			entry["storage"] = SaveData.encode_inventory(inv.slots, 0)
+		if not (extra.get("machine", {}) as Dictionary).is_empty():
+			entry["machine"] = (extra["machine"] as Dictionary).duplicate()
+		if int(extra.get("days", 0)) > 0:
+			entry["days"] = int(extra["days"])
+		out[SaveData.cell_key(anchor)] = entry
 	return {"objects": out}
 
 
@@ -649,7 +725,10 @@ func load_state(data: Dictionary, legacy_resource_nodes = null) -> void:
 			var kind := String(o.get("kind", ""))
 			if not WorldObjectDB.has_kind(kind):
 				continue
-			_add(kind, SaveData.parse_cell_key(String(key)), int(o.get("variant", 1)), int(o.get("hp", -1)))
+			var anchor := SaveData.parse_cell_key(String(key))
+			_add(kind, anchor, int(o.get("variant", 1)), int(o.get("hp", -1)))
+			_restore_extra(anchor, o)
+		_refresh_placed_visuals()
 		return
 	if legacy_resource_nodes is Dictionary:
 		for anchor in _objects.keys():
@@ -657,3 +736,245 @@ func load_state(data: Dictionary, legacy_resource_nodes = null) -> void:
 			if (kind.begins_with("tree") or kind == "scrap_small" or kind == "rock_small") \
 					and not (legacy_resource_nodes as Dictionary).has(anchor):
 				remove(anchor)
+
+
+
+## -- Player-placed objects: chests, sprinklers, machines (Milestone B, 2026-10-07) --
+
+func storage_at(cell: Vector2i):
+	var extra: Dictionary = _extra.get(anchor_of(cell), {})
+	return extra.get("storage")
+
+
+func machine_state_at(cell: Vector2i) -> Dictionary:
+	var extra: Dictionary = _extra.get(anchor_of(cell), {})
+	return extra.get("machine", {})
+
+
+func _storage_empty(anchor: Vector2i) -> bool:
+	var extra: Dictionary = _extra.get(anchor, {})
+	var inv = extra.get("storage")
+	if inv != null:
+		for slot in inv.slots:
+			if not (slot as Dictionary).is_empty():
+				return false
+	return true
+
+
+## What Interact would do at `cell` with `held_item` selected: "Open", "Collect", "Load" or "".
+func instant_verb(cell: Vector2i, held_item: String) -> String:
+	if not _occupancy.has(cell):
+		return ""
+	var anchor: Vector2i = _occupancy[cell]
+	var kind := String(_objects[anchor]["kind"])
+	if not WorldObjectDB.is_placed(kind):
+		return ""
+	if WorldObjectDB.storage_size(kind) > 0:
+		return "Open"
+	var machine := WorldObjectDB.machine_of(kind)
+	if machine == "":
+		return ""
+	var state: Dictionary = _extra.get(anchor, {}).get("machine", {})
+	if not state.is_empty():
+		return "Collect" if _is_ready(state) else ""
+	if held_item != "" and MachineDB.accepts(machine, held_item):
+		return "Load"
+	return ""
+
+
+## Interact with a placed object: open a chest, collect a finished batch, load the held item, or
+## report what the machine is doing. True when there was something to interact with.
+func interact_placed(cell: Vector2i, player) -> bool:
+	if not _occupancy.has(cell):
+		return false
+	var anchor: Vector2i = _occupancy[cell]
+	var kind := String(_objects[anchor]["kind"])
+	if not WorldObjectDB.is_placed(kind):
+		return false
+	var center := _center_world(kind, anchor)
+	var extra: Dictionary = _extra.get(anchor, {})
+	if extra.has("storage"):
+		Audio.play_sfx("chest_open", -4.0)
+		storage_opened.emit(extra["storage"], cell)
+		return true
+	var machine := WorldObjectDB.machine_of(kind)
+	if machine == "":
+		return false
+	var state: Dictionary = extra.get("machine", {})
+	if not state.is_empty():
+		if not _is_ready(state):
+			var left := int(state["ready_at"]) - _now()
+			Fx.float_text(center + Vector2(0, -20), "Ready in %s" % _duration_text(left), Color("#ffedb1"))
+			return true
+		var item := String(state["output"])
+		var count := int(state["count"])
+		if not player.inventory.can_add(item, count):
+			Events.message.emit("Your pack is full.")
+			return true
+		player.inventory.add_item(item, count)
+		Events.item_gained.emit(item, count)
+		Events.xp_gained.emit("crafting", 2)
+		extra["machine"] = {}
+		Audio.play_sfx_at("pickup", center, -2.0)
+		Fx.burst(center + Vector2(0, -8), "sparkle", Vector2.UP, 0.8)
+		_refresh_placed_visuals()
+		return true
+	var held := String(player.inventory.get_selected_slot().get("item_id", ""))
+	var recipe := MachineDB.recipe_for(machine, held)
+	if recipe.is_empty():
+		Fx.float_text(center + Vector2(0, -20), MachineDB.display_name(machine), Color("#ffedb1"))
+		return true
+	var fuel := String(recipe.get("fuel", ""))
+	if not MachineDB.can_load(recipe, player.inventory.count_of(held),
+			player.inventory.count_of(fuel) if fuel != "" else 0):
+		var need := "%d %s" % [int(recipe["count"]), ItemDB.display_name(held)]
+		if fuel != "" and player.inventory.count_of(fuel) < int(recipe.get("fuel_count", 1)):
+			need += " + %d %s" % [int(recipe.get("fuel_count", 1)), ItemDB.display_name(fuel)]
+		Fx.float_text(center + Vector2(0, -20), "Needs " + need, Color("#ffb72d"))
+		return true
+	player.inventory.remove_item(held, int(recipe["count"]))
+	if fuel != "":
+		player.inventory.remove_item(fuel, int(recipe.get("fuel_count", 1)))
+	extra["machine"] = {"output": String(recipe["output"]), "count": int(recipe.get("out_count", 1)),
+		"ready_at": _now() + int(recipe.get("minutes", 60)), "input": held,
+		"input_count": int(recipe["count"])}
+	Audio.play_sfx_at("machine_load" if ResourceLoader.exists("res://audio/sfx/machine_load.wav") else "place_object", center)
+	Fx.burst(center, "dust", Vector2.UP, 0.5)
+	_refresh_placed_visuals()
+	return true
+
+
+func _now() -> int:
+	return MachineDB.absolute_minutes(DayManager.day, DayManager.minutes_into_day)
+
+
+func _is_ready(state: Dictionary) -> bool:
+	return not state.is_empty() and _now() >= int(state.get("ready_at", 0))
+
+
+static func _duration_text(minutes: int) -> String:
+	if minutes >= 1440:
+		return "%d days" % ceili(minutes / 1440.0)
+	if minutes >= 60:
+		return "%dh" % ceili(minutes / 60.0)
+	return "%dm" % maxi(minutes, 1)
+
+
+## Working machines show their lit frame; finished ones float their product above them.
+func _refresh_placed_visuals() -> void:
+	for anchor in _extra:
+		var obj: Dictionary = _objects.get(anchor, {})
+		var node: Node2D = _nodes.get(anchor)
+		if obj.is_empty() or node == null:
+			continue
+		var kind := String(obj["kind"])
+		var sprite: Sprite2D = node.get_node_or_null("Sprite")
+		var state: Dictionary = (_extra[anchor] as Dictionary).get("machine", {})
+		var working := not state.is_empty() and not _is_ready(state)
+		var has_fire := not WorldObjectDB.work_light_of(kind).is_empty()
+		if sprite != null and sprite.hframes > 1:
+			var nf := WorldObjectDB.night_frame(kind)
+			if nf >= 0:
+				var m := DayManager.minutes_into_day
+				sprite.frame = nf if (m >= 18.5 * 60.0 or m < 6.0 * 60.0) else 0
+			else:
+				# Fires go out when the batch is done; jars and the like stay full until collected.
+				sprite.frame = 1 if (working if has_fire else not state.is_empty()) else 0
+		var work_light: Node2D = node.get_node_or_null("WorkLight")
+		if work_light != null:
+			work_light.visible = working
+		var bubble: Sprite2D = node.get_node_or_null("Ready")
+		var ready := _is_ready(state)
+		if ready and bubble == null:
+			# A cream thought bubble holding the product's icon, bobbing just above the machine;
+			# drawn over neighbouring objects so it reads from anywhere on screen.
+			bubble = Sprite2D.new()
+			bubble.name = "Ready"
+			bubble.texture = READY_BUBBLE
+			bubble.centered = false
+			bubble.z_index = 4
+			var tex_h := sprite.texture.get_size().y if sprite != null else 16.0
+			bubble.position = Vector2(-READY_BUBBLE.get_width() / 2.0, -tex_h - READY_BUBBLE.get_height() + 1.0)
+			var icon := Sprite2D.new()
+			icon.centered = false
+			icon.position = Vector2(2, 2)
+			var icon_path := ItemDB.icon_path(String(state["output"]))
+			if ResourceLoader.exists(icon_path):
+				icon.texture = load(icon_path)
+			bubble.add_child(icon)
+			node.add_child(bubble)
+			var tw := bubble.create_tween().set_loops()
+			tw.tween_property(bubble, "position:y", bubble.position.y - 2.0, 0.5).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(bubble, "position:y", bubble.position.y, 0.5).set_trans(Tween.TRANS_SINE)
+		elif not ready and bubble != null:
+			node.remove_child(bubble)
+			bubble.queue_free()
+
+
+## Picking a placed object back up: the object's own item, plus a machine's batch (finished
+## output, or the input handed back if it was still working).
+func _pick_up_placed(anchor: Vector2i, kind: String, center: Vector2, away: Vector2) -> Dictionary:
+	var drops: Array[Dictionary] = [{"item_id": WorldObjectDB.item_of(kind), "count": 1}]
+	var state: Dictionary = (_extra.get(anchor, {}) as Dictionary).get("machine", {})
+	if not state.is_empty():
+		if _is_ready(state):
+			drops.append({"item_id": String(state["output"]), "count": int(state["count"])})
+		elif String(state.get("input", "")) != "":
+			drops.append({"item_id": String(state["input"]), "count": int(state.get("input_count", 1))})
+	Audio.play_sfx_at(WorldObjectDB.sound_break(kind), center)
+	Fx.burst(center, "dust", Vector2.UP, 0.8)
+	remove(anchor)
+	for d in drops:
+		spawn_pickup(String(d["item_id"]), int(d["count"]), center, away)
+	return {"result": "destroyed", "kind": kind, "drops": drops}
+
+
+## Morning watering: every sprinkler waters the soil cells in its pattern (after the farm's own
+## morning pass — see _on_day_started).
+func _run_sprinklers() -> void:
+	var farm: Node = _test_map.get_node_or_null("Farm")
+	if farm == null:
+		return
+	for anchor in _objects:
+		var level := WorldObjectDB.sprinkler_level(String(_objects[anchor]["kind"]))
+		if level <= 0:
+			continue
+		for cell in WorldObjectDB.sprinkler_cells(anchor, level):
+			if farm.is_soil(cell):
+				farm.water(cell)
+
+
+## Bee boxes and rad rods: produce on their own each morning when due.
+func _tick_passive_producers() -> void:
+	for anchor in _extra:
+		var obj: Dictionary = _objects.get(anchor, {})
+		if obj.is_empty():
+			continue
+		var machine := WorldObjectDB.machine_of(String(obj["kind"]))
+		var rule := MachineDB.produces(machine)
+		if rule.is_empty():
+			continue
+		var extra: Dictionary = _extra[anchor]
+		if not (extra.get("machine", {}) as Dictionary).is_empty():
+			continue  # the last batch is still waiting to be collected
+		extra["days"] = int(extra.get("days", 0)) + 1
+		if MachineDB.passive_due(rule, int(extra["days"]), String(DayManager.weather_today)):
+			extra["machine"] = {"output": String(rule["output"]), "count": int(rule.get("out_count", 1)),
+				"ready_at": _now(), "input": "", "input_count": 0}
+			extra["days"] = 0
+	_refresh_placed_visuals()
+
+
+func _restore_extra(anchor: Vector2i, o: Dictionary) -> void:
+	if not _extra.has(anchor):
+		return
+	var extra: Dictionary = _extra[anchor]
+	if extra.has("storage") and o.get("storage") is Dictionary:
+		var decoded := SaveData.decode_inventory(o["storage"])
+		extra["storage"].restore(decoded.get("slots", []), 0)
+	if o.get("machine") is Dictionary:
+		var m: Dictionary = o["machine"]
+		extra["machine"] = {"output": String(m.get("output", "")), "count": int(m.get("count", 1)),
+			"ready_at": int(m.get("ready_at", 0)), "input": String(m.get("input", "")),
+			"input_count": int(m.get("input_count", 0))}
+	extra["days"] = int(o.get("days", 0))

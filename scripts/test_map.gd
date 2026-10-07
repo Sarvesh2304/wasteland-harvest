@@ -36,8 +36,10 @@ const Calendar := preload("res://scripts/calendar.gd")
 const CELL_SIZE := 16
 
 ## Dual-grid overlays, bottom to top.
-const OVERLAY_ORDER: Array[String] = ["road", "dirt", "cobble", "rubble_ground", "soil", "soil_wet",
-	"water"]
+const OVERLAY_ORDER: Array[String] = ["road", "dirt", "cobble", "gravel", "rubble_ground", "soil",
+	"soil_wet", "water"]
+## Crafted path items -> the floor they lay (Milestone B): painted with the matching overlay.
+const FLOOR_ITEMS := {"gravel_path": "gravel", "cobble_path": "cobble"}
 ## Which sheet the old road ('p' away from water) uses per zone: broken concrete paving in the
 ## settlement, cracked asphalt on the old highway.
 const ROAD_SHEET := {"path": "asphalt"}
@@ -67,6 +69,8 @@ var _plank_info: Dictionary = {"planks": {}, "road": {}, "bridge": {}}
 var _wet: Dictionary = {}
 var _season := "spring"
 var _fence_count := 0
+## Player-laid floors (Milestone B): cell -> "gravel" | "cobble".
+var _floors: Dictionary = {}
 var _wall_cells := 0
 
 ## The active map_layouts/*.gd script for this playthrough (every member is a static func,
@@ -186,7 +190,9 @@ func _in_terrain(terrain: String, cell: Vector2i) -> bool:
 		"dirt":
 			return String(layout.cell(cell.x, cell.y)) == ":"
 		"cobble":
-			return String(layout.cell(cell.x, cell.y)) == ";"
+			return String(layout.cell(cell.x, cell.y)) == ";" or _floors.get(cell, "") == "cobble"
+		"gravel":
+			return _floors.get(cell, "") == "gravel"
 		"road":
 			return (_plank_info["road"] as Dictionary).has(cell)
 	return false
@@ -228,7 +234,8 @@ func _paint_base(cell: Vector2i) -> void:
 func _paint_decor(cell: Vector2i) -> void:
 	var ch := String(layout.cell(cell.x, cell.y))
 	var grassy := ch == "." or ch == "," or ch == "@" or ch == "T" or ch == "O"
-	if not grassy or is_soil_at(cell.x, cell.y) or layout.is_solid(cell.x, cell.y):
+	if not grassy or is_soil_at(cell.x, cell.y) or layout.is_solid(cell.x, cell.y) \
+			or _floors.has(cell):
 		_decor.erase_cell(cell)
 		return
 	var source := TerrainTiles.decor_source(GroundRules.decor_for(cell, _season, ch == ","))
@@ -363,9 +370,67 @@ func _on_day_started(day: int) -> void:
 			_paint_decor(Vector2i(x, y))
 
 
+## -- Player-laid floors (Milestone B, 2026-10-07) --
+
+func floor_kind_for_item(item_id: String) -> String:
+	return String(FLOOR_ITEMS.get(item_id, ""))
+
+
+func has_floor(cell: Vector2i) -> bool:
+	return _floors.has(cell)
+
+
+## Open ground the player can pave: grass, old field or dirt, not soil, not blocked, nothing on it.
+func can_place_floor(cell: Vector2i, farm: Node = null) -> bool:
+	var size: Vector2i = layout.size()
+	if cell.x < 1 or cell.y < 1 or cell.x >= size.x - 1 or cell.y >= size.y - 1:
+		return false
+	if _floors.has(cell) or is_blocked_at(cell) or is_soil_at(cell.x, cell.y):
+		return false
+	var ch := String(layout.cell(cell.x, cell.y))
+	if not (ch == "." or ch == "," or ch == "@" or ch == ":"):
+		return false
+	var objects := get_node_or_null("Objects")
+	if objects != null and objects.has_object(cell):
+		return false
+	return farm == null or farm.get_plot(cell).is_empty()
+
+
+func place_floor(cell: Vector2i, item_id: String, farm: Node = null) -> bool:
+	var kind := floor_kind_for_item(item_id)
+	if kind == "" or not can_place_floor(cell, farm):
+		return false
+	_floors[cell] = kind
+	_repaint_floor(cell)
+	Audio.play_sfx_at("footstep_stone", get_global_cell_center(cell), -2.0)
+	return true
+
+
+## Pulls a floor back up (pickaxe); returns the path item to give back ("" = no floor).
+func remove_floor(cell: Vector2i) -> String:
+	if not _floors.has(cell):
+		return ""
+	var kind := String(_floors[cell])
+	_floors.erase(cell)
+	_repaint_floor(cell)
+	for item in FLOOR_ITEMS:
+		if FLOOR_ITEMS[item] == kind:
+			return String(item)
+	return ""
+
+
+func _repaint_floor(cell: Vector2i) -> void:
+	if _base == null:
+		return
+	_repaint_overlay_around("gravel", cell)
+	_repaint_overlay_around("cobble", cell)
+	_paint_decor(cell)
+
+
 ## Old-road and plank cells (footstep surfaces).
 func is_path_at(cell: Vector2i) -> bool:
-	return (_plank_info["road"] as Dictionary).has(cell) or (_plank_info["planks"] as Dictionary).has(cell)
+	return (_plank_info["road"] as Dictionary).has(cell) or (_plank_info["planks"] as Dictionary).has(cell) \
+		or _floors.has(cell)
 
 
 func is_plank_at(cell: Vector2i) -> bool:
@@ -447,7 +512,10 @@ func _on_soil_changed(cell: Vector2i) -> void:
 ## can't diverge on what counts as blocked.
 
 func save_state() -> Dictionary:
-	return {"tilled": SaveData.encode_cells(_tilled.keys())}
+	var floors := {}
+	for cell in _floors:
+		floors[SaveData.cell_key(cell)] = String(_floors[cell])
+	return {"tilled": SaveData.encode_cells(_tilled.keys()), "floors": floors}
 
 
 func load_state(data: Dictionary) -> void:
@@ -457,6 +525,12 @@ func load_state(data: Dictionary) -> void:
 		# replay of established fact, not a new gameplay action to re-validate.
 		_tilled[cell] = true
 		_on_soil_changed(cell)
+	var floors = data.get("floors", {})
+	if floors is Dictionary:
+		for key in floors:
+			var cell := SaveData.parse_cell_key(String(key))
+			_floors[cell] = String(floors[key])
+			_repaint_floor(cell)
 
 
 ## World position -> logical cell coordinate (floor division by the 16px tile size).

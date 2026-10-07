@@ -30,10 +30,18 @@ drivers green) — not when code merely exists.
 ### Milestone B — "A reason to come back tomorrow"
 - [ ] Calendar: 4 seasons × 28 days, years; weather (clear/rain/storm/radstorm) with forecast;
       seasonal crop roster (12+ crops); seasonal tint
-- [ ] Crafting: recipes + crafting menu (sprinklers, fertiliser, chests, fences, lamps, food,
-      medicine, smelted metal)
-- [ ] Skills (Farming, Foraging, Scavenging, Combat, Crafting) with XP, levels and perks; tool
-      upgrade tiers
+- [x] Crafting: recipes + crafting menu (sprinklers, fertiliser, chests, fences, lamps, food,
+      medicine, smelted metal) *(2026-10-07: 41 recipes in `data/recipes.json` on the menu's CRAFT
+      tab. Crafted objects are placed in the world and picked back up with the axe or pickaxe:
+      chests with a two-grid storage screen, three sprinkler tiers that water overnight, an oil
+      lamp, gravel/cobble paths. Machines run on the game clock (`data/machines.json`): kiln,
+      smelter, compost bin, preserves jar, still, recycler, plus the passive bee box and rad rod.
+      Fences stay on the BUILD tab. Medkits and ammo need ruins loot, so they wait for
+      Milestone C.)*
+- [x] Skills (Farming, Foraging, Scavenging, Combat, Crafting) with XP, levels and perks; tool
+      upgrade tiers *(2026-10-07: ten levels each on a Stardew-shaped curve. Each level cuts that
+      skill's tool energy by 5% and unlocks recipes. Tools upgrade through tiers 2-4 at the
+      crafting menu, paid in metal bars from the kiln → smelter chain.)*
 - [ ] Quests: journal, daily bulletin-board requests, and the main "Rebuild the Settlement"
       project line whose completions visibly change the town
 - [ ] NPCs: context dialogue (season/weather/time/affinity), gifts with preferences (Phase 7

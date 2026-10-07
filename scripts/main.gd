@@ -14,6 +14,7 @@ extends Node2D
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const ModalGate := preload("res://scripts/modal_gate.gd")
+const StorageUIScript := preload("res://scripts/storage_ui.gd")
 const BuildingEffects := preload("res://scripts/building_effects.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const StoryBeats := preload("res://scripts/story_beats.gd")
@@ -46,6 +47,8 @@ var zones: Dictionary = {}
 ## here — one per main scene, dying with it — and wired to every modal surface in _ready() below.
 ## Exposed as a plain field so the test tooling (tools/soak_test.gd) can inspect it.
 var modal_gate: ModalGate = ModalGate.new()
+## Milestone B: the chest/storage screen (scripts/storage_ui.gd), built in code.
+var storage_ui: CanvasLayer = null
 
 ## The build/placement-mode node, kept as a field so _process's time-pause poll below can exempt
 ## it from the "any modal open" check (see that poll's comment for the judgment call), and so
@@ -77,9 +80,19 @@ func _ready() -> void:
 	# storage interaction opens the same chest UI, and any zone's shipping sale credits the same
 	# player — uniform across all four zones (only the farm authors a shipping box today, but
 	# wiring uniformly keeps this loop branch-free and forward-compatible).
+	storage_ui = StorageUIScript.new()
+	storage_ui.name = "StorageUI"
+	add_child(storage_ui)
+	storage_ui.bind(player)
+	player.storage_ui = storage_ui
 	for zone_id in zones:
 		var structures: Node = zones[zone_id]["structures"]
-		structures.chest_toggled.connect(hud.toggle_chest_ui)
+		# Milestone B: every storage (the layout chest, built sheds, crafted chests) opens the
+		# two-pane storage screen, which can move items in and out.
+		structures.chest_toggled.connect(func(inv, cell: Vector2i) -> void:
+			storage_ui.open_storage(inv, cell, "Storage"))
+		zones[zone_id]["objects"].storage_opened.connect(func(inv, cell: Vector2i) -> void:
+			storage_ui.open_storage(inv, cell, "Crate Chest"))
 		structures.crops_sold.connect(player.add_credits)
 		# Phase 8 Stage 1: any zone's daily building yield (Workshop's scrap, Greenhouse's
 		# seedling, ...) lands in the same player inventory — the generalized-dispatch
@@ -156,7 +169,8 @@ func _ready() -> void:
 	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
 	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
 	# modal UIs like quest journals or pause menus — the recipe the menu above just followed).
-	for surface in [builder, dialogue_ui, store_ui, ranch_store_ui, shipping_ui, menu_screen]:
+	for surface in [builder, dialogue_ui, store_ui, ranch_store_ui, shipping_ui, menu_screen,
+			storage_ui]:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data

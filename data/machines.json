@@ -1,0 +1,33 @@
+{
+  "_comment": "Machine recipes (Milestone B, 2026-10-07). Loaded by scripts/machine_db.gd; run by scripts/world_objects.gd for placed machines. A recipe: inputs (item ids it accepts), count (taken per batch), fuel/fuel_count (optional extra item consumed), output, out_count, minutes (game minutes until ready; a night's sleep counts). The first recipe whose inputs include the held item is used. produces: a passive producer - every_days (output appears every N mornings) and/or weather (only on those mornings).",
+  "machines": {
+    "kiln": {"name": "Charcoal Kiln", "recipes": [
+      {"inputs": ["wood"], "count": 10, "output": "charcoal", "out_count": 1, "minutes": 60},
+      {"inputs": ["hardwood"], "count": 2, "output": "charcoal", "out_count": 1, "minutes": 60}
+    ]},
+    "smelter": {"name": "Smelter", "recipes": [
+      {"inputs": ["scrap_metal"], "count": 5, "fuel": "charcoal", "fuel_count": 1, "output": "metal_bar", "out_count": 1, "minutes": 120},
+      {"inputs": ["lead_scrap"], "count": 5, "fuel": "charcoal", "fuel_count": 1, "output": "metal_bar", "out_count": 2, "minutes": 120}
+    ]},
+    "compost_bin": {"name": "Compost Bin", "recipes": [
+      {"inputs": ["fiber"], "count": 10, "output": "fertilizer", "out_count": 3, "minutes": 1440},
+      {"inputs": ["wild_greens", "rain_radish", "cleanleaf_kale", "mutant_potato", "ash_beet", "frostroot"], "count": 3, "output": "fertilizer", "out_count": 2, "minutes": 1440}
+    ]},
+    "preserves_jar": {"name": "Preserves Jar", "recipes": [
+      {"inputs": ["bloodberry", "rustvine_grape", "sun_berries", "ash_apple", "cactus_pear", "glow_melon"], "count": 1, "output": "berry_jam", "out_count": 1, "minutes": 2880},
+      {"inputs": ["rain_radish", "mutant_potato", "cleanleaf_kale", "ironroot", "scorch_pepper", "blister_tomato", "dust_corn", "ash_beet", "ember_pumpkin", "frostroot", "snow_yam"], "count": 1, "output": "pickled_veg", "out_count": 1, "minutes": 2880}
+    ]},
+    "still": {"name": "Still", "recipes": [
+      {"inputs": ["dustwheat_grain", "dust_corn"], "count": 5, "output": "rotgut", "out_count": 1, "minutes": 2880},
+      {"inputs": ["glow_melon"], "count": 1, "output": "glow_wine", "out_count": 1, "minutes": 4320}
+    ]},
+    "recycler": {"name": "Recycler", "recipes": [
+      {"inputs": ["scrap_metal"], "count": 8, "output": "copper_wire", "out_count": 2, "minutes": 120},
+      {"inputs": ["bottle_caps"], "count": 12, "output": "glass", "out_count": 2, "minutes": 60},
+      {"inputs": ["plastic"], "count": 4, "output": "chemicals", "out_count": 1, "minutes": 240},
+      {"inputs": ["rubber"], "count": 6, "output": "circuit_board", "out_count": 1, "minutes": 480}
+    ]},
+    "bee_box": {"name": "Bee Box", "produces": {"output": "honey", "out_count": 1, "every_days": 3}},
+    "rad_rod": {"name": "Rad Rod", "produces": {"output": "battery", "out_count": 1, "weather": ["storm", "radstorm"]}}
+  }
+}
