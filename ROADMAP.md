@@ -48,12 +48,46 @@ drivers green) — not when code merely exists.
       Stages 4-5), more named NPCs
 
 ### Milestone C — "The wasteland outside the fence"
-- [ ] Combat: player HP, melee + ranged weapons, ammo, knockback/hit-flash/i-frames
-- [ ] Enemies: Shambler, Runner, Bloater, Rad-Hound, Raider — patrol/alert/chase/attack AI
-- [ ] The Ruins: multi-level ruined-city expeditions built from hand-made chunks, loot
-      containers, salvage, radiation pockets, lore notes, blueprints
-- [ ] Expedition loop: depart via Kael's gate, extract or die (lose expedition loot), bring
-      salvage home to build/craft
+- [x] Combat: player HP, melee + ranged weapons, ammo, knockback/hit-flash/i-frames
+      *(2026-10-08):*
+      - Melee arcs aim with the mouse or the player's facing. Ranged weapons spend ammo; the
+        shotgun fires pellets and crossbow bolts can be recovered.
+      - Gunshots are loud and draw enemies; melee and bows are quiet.
+      - Damage numbers, crits, hit-stop, shake, blood and a hurt vignette.
+      - Armour and rad resistance come from worn gear (head/body/feet); the combat skill scales
+        damage dealt and taken.
+      - Bandages, medkits, purifiers and adrenal shots work from the hotbar.
+      - The world freezes behind menus.
+      - Rules live in `scripts/combat.gd` and `scripts/radiation.gd`.
+- [x] Enemies: Shambler, Runner, Bloater, Rad-Hound, Raider — patrol/alert/chase/attack AI
+      *(2026-10-08, `data/enemies.json`, `scripts/enemy.gd` + `scripts/enemies.gd`):*
+      - States: idle/patrol, alert, chase, a readable windup telegraph, strike, recover, hurt
+        (a stagger that cancels the windup), search, dead.
+      - Line of sight by raycast; AStarGrid2D paths; pack alerts; noise.
+      - Bloaters burst (and leave rad puddles); hounds lunge; raiders keep their distance and
+        aim along a visible line.
+      - Sprites: code-generated 24x24 sheets (`tools/art/enemies/`).*
+- [x] The Ruins: multi-level ruined-city expeditions built from hand-made chunks, loot
+      containers, salvage, radiation pockets, lore notes, blueprints *(2026-10-08:
+      `scripts/ruins_gen.gd` builds a street grid of city blocks per district rather than
+      fixed chunks. Districts: Residential Blocks, Downtown Ruins, Industrial Quarter, The
+      Core.*
+      - *Block roles: building rows, roofless ruins, parking lots, rubble fields, plazas,
+        walled yards, raider camps.*
+      - *Each block deeper is harder, hotter and richer.*
+      - *Searchable containers roll `data/loot_tables.json`, tiered by depth.*
+      - *Rad barrels and puddles; 18 lore notes.*
+      - *Blueprints teach 10 Gear/Supplies recipes.*
+      - *Art kit: `tools/art/ruins_city/`.)*
+- [x] Expedition loop: depart via Kael's gate, extract or die (lose expedition loot), bring
+      salvage home to build/craft *(2026-10-08, `scripts/expedition.gd`):*
+      - *Kael's truck at the north checkpoint drives you out. It meets you on every level to
+        take you home.*
+      - *The subway stairs lead deeper.*
+      - *Dying, or collapsing at 2 AM, forfeits that run's pickups: you wake at home next
+        morning at 10% HP.*
+      - *HUD: a haul counter, a marker pointing to the truck, and late-night warnings.*
+      - *No saving mid-run.*
 
 ### Milestone D — "A living settlement"
 - [ ] Settlement evolution visible on the map (projects add buildings, lights, settlers)
@@ -944,26 +978,54 @@ screenshotted and viewed, not just covered by headless assertions.
 
 ### Phase 9 — Expedition System: Ruined City & Combat
 - [ ] Ruined city map(s) — 2–3 distinct zones: Downtown Ruins, Industrial Quarter, Residential
-      Blocks; hand-crafted, hidden areas, loot spawns
+      Blocks; hand-crafted, hidden areas, loot spawns *(2026-10-08, mostly done:*
+      - *`scripts/ruins_gen.gd` builds all three districts plus The Core, with loot spawns.*
+      - *Levels are generated from hand-authored block roles rather than drawn by hand.*
+      - *Still to do: hidden areas.)*
 - [ ] Solo expedition mode — limited expedition-inventory backpack, travel to a zone, auto-return
-      at set time (or earlier by choice), stamina countdown
-- [ ] Zombie & monster AI — patrol routes, line-of-sight detection and chase, states Idle →
-      Alerted → Chasing → Attacking (`NavigationAgent2D`)
-- [ ] Combat system — melee (swing range, knockback, hit flash) and ranged (thrown objects,
+      at set time (or earlier by choice), stamina countdown *(2026-10-08, mostly done:*
+      - *Done: travel by Kael's truck, return whenever you choose, a forced return at 2 AM, and
+        energy as the countdown.*
+      - *Still to do: a limited expedition backpack. Today the run's haul goes into the normal
+        inventory and is tracked separately.)*
+- [x] Zombie & monster AI — patrol routes, line-of-sight detection and chase, states Idle →
+      Alerted → Chasing → Attacking (`NavigationAgent2D`) *(2026-10-08: see Milestone C.*
+      *Paths use `AStarGrid2D` over the level grid instead of `NavigationAgent2D`, which suits
+      tile-built levels better.)*
+- [x] Combat system — melee (swing range, knockback, hit flash) and ranged (thrown objects,
       scavenged crossbow); player HP; death during expedition loses expedition loot and respawns
-      at settlement with 10% HP
-- [ ] Loot system — destructible crates/cars/buildings, weighted loot table (scrap, food, seeds,
+      at settlement with 10% HP *(2026-10-08: see Milestone C. The slingshot covers thrown
+      objects.)*
+- [x] Loot system — destructible crates/cars/buildings, weighted loot table (scrap, food, seeds,
       medicine, tools, blueprint scrolls, ammo); blueprint scrolls unlock buildings/recipes
-- [ ] Settlement confirmed as a safe zone — zombies cannot enter the settlement boundary
+      *(2026-10-08, with deviations:*
+      - *Loot comes from tiered, weighted `data/loot_tables.json`.*
+      - *Containers (lockers, fridges, crates, car trunks) are searched rather than smashed.
+        Scrap piles and debris break.*
+      - *Building and car wrecks are solid scenery.*
+      - *Blueprints teach crafting recipes. Buildings stay on the build menu.)*
+- [x] Settlement confirmed as a safe zone — zombies cannot enter the settlement boundary
+      *(2026-10-08: enemies only exist on the ruins level, a separate map reached only by
+      Kael's truck. `expedition_smoke` checks that the director is empty once you're home.)*
 - [ ] **Raider/scavenger faction (added per `GDD.md` §6/§11)** — a human faction occupying part
       of the ruined city, distinct from zombie/monster AI: patrols, ambush events, and turf that
       reacts to the reputation system below rather than always attacking on sight
+      *(2026-10-08, mostly done:*
+      - *Raiders hold camps and walk patrol beats.*
+      - *Unless Hostile, they warn first: a "keep your distance" bark, then they open fire if you
+        crowd them or hit one. The rest of their group joins in.*
+      - *Still to do: ambush events.)*
 - [ ] **Faction reputation system (added per `GDD.md` §6/§11)** — tracked player standing
       (Hostile → Wary → Tolerated → Trusted) driven by actions (combat, fair trading, completed
       jobs, story/quest choices) not dialogue checkboxes; gates faction aggression, trader
       access, and safe passage through their turf. Deliberately quarantined from the
-      settlement's safe-zone guarantee — a city/world system only.
-- [ ] **Radiation exposure mechanic (elaborates Phase 11's radstorm event per `GDD.md` §5)** —
+      settlement's safe-zone guarantee — a city/world system only. *(2026-10-08, partly done,
+      `scripts/faction.gd`:*
+      - *Done: the four bands, driven by combat. Killing a raider costs 12, provoking one costs
+        5, and getting home from a run without killing a raider earns 3.*
+      - *Done: rep sets their aggression and how close you can walk past them.*
+      - *Still to do: trading, jobs and quest choices as drivers, and trader access.)*
+- [x] **Radiation exposure mechanic (elaborates Phase 11's radstorm event per `GDD.md` §5)** —
       persistent tracked meter alongside HP/stamina during expeditions; irradiated zones/loot,
       degraded stamina/HP ceiling as exposure climbs, countered by hazmat gear (scrap → proper
       suits) and purifier meds (craftable, see Phase 10); gives the radstorm weather event real

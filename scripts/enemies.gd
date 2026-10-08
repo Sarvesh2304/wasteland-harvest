@@ -21,6 +21,7 @@ const Radiation := preload("res://scripts/radiation.gd")
 const Projectile := preload("res://scripts/projectile.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 const FactionScript := preload("res://scripts/faction.gd")
+const LootDB := preload("res://scripts/loot_db.gd")
 
 const CELL := 16
 ## Combat music lingers this long after the last enemy stops hunting the player.
@@ -75,6 +76,7 @@ func spawn_enemies(entries: Array, level_depth: int, seed_value: int) -> void:
 	depth = maxi(level_depth, 1)
 	_rng.seed = seed_value
 	var hp_scale := 1.0 + HP_PER_DEPTH * float(depth - 1)
+	var group_beats := {}  # group -> [first member's cell, far cell]
 	for i in entries.size():
 		var e: Dictionary = entries[i]
 		var type := String(e.get("type", "shambler"))
@@ -88,6 +90,22 @@ func spawn_enemies(entries: Array, level_depth: int, seed_value: int) -> void:
 			enemy.wary = true
 			enemy.personal_space = FactionScript.personal_space(raider_rep)
 		add_child(enemy)
+		# Raider groups walk a beat together; about a third of runners roam alone.
+		var group_id := int(e.get("group", -1))
+		var patrols := type == "raider" or (type == "runner" and _rng.randf() < 0.35)
+		if patrols and _nav_ready:
+			var far := Vector2i(-1, -1)
+			var offset := Vector2i.ZERO
+			if group_id >= 0 and group_beats.has(group_id):
+				far = group_beats[group_id][1]
+				offset = cell - Vector2i(group_beats[group_id][0])
+			else:
+				far = _far_open_cell(cell, 6, 12)
+				if group_id >= 0:
+					group_beats[group_id] = [cell, far]
+			var target := _nearest_open(far + offset)
+			if far != Vector2i(-1, -1) and target != Vector2i(-1, -1):
+				enemy.patrol_point = _map.to_global(_cell_feet(target))
 
 
 ## Removes every enemy, shot, splat and rad source (a new level, or going home).
@@ -158,6 +176,21 @@ func path_between(from: Vector2, to: Vector2) -> PackedVector2Array:
 	for p in _astar.get_point_path(a, b, true):
 		out.append(_map.to_global(p))
 	return out
+
+
+## A random open cell `min_r`..`max_r` cells from `from` that a path actually reaches, or
+## (-1, -1). Used for patrol beats.
+func _far_open_cell(from: Vector2i, min_r: int, max_r: int) -> Vector2i:
+	for attempt in 24:
+		var angle := _rng.randf() * TAU
+		var r := _rng.randf_range(float(min_r), float(max_r))
+		var c := from + Vector2i(roundi(cos(angle) * r), roundi(sin(angle) * r))
+		if not _astar.is_in_boundsv(c) or _astar.is_point_solid(c):
+			continue
+		var path := _astar.get_id_path(from, c)
+		if not path.is_empty() and path.size() <= max_r * 2:
+			return c
+	return Vector2i(-1, -1)
 
 
 func _nearest_open(cell: Vector2i) -> Vector2i:
@@ -355,13 +388,9 @@ func on_enemy_died(enemy: Node, from: Vector2) -> void:
 	enemy_killed.emit(e.type)
 
 
-## Rolls a loot table through scripts/loot_db.gd (loaded at runtime so this compiles on its own).
+## Rolls an enemy's loot table (scripts/loot_db.gd).
 func _roll_loot(table_id: String, tier: int) -> Array:
-	if table_id == "" or not ResourceLoader.exists("res://scripts/loot_db.gd"):
-		return []
-	var loot_db: GDScript = load("res://scripts/loot_db.gd")
-	var out = loot_db.call("roll", table_id, tier, _rng)
-	return out if out is Array else []
+	return LootDB.roll(table_id, tier, _rng) if table_id != "" else []
 
 
 ## Spills `count` of `item_id` into the world as a pickup.

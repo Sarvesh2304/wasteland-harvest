@@ -13,6 +13,7 @@ extends Node
 ## penalty, level names) are static and unit tested in tests/test_expedition.gd.
 
 const Radiation := preload("res://scripts/radiation.gd")
+const RuinsGen := preload("res://scripts/ruins_gen.gd")
 const Faction := preload("res://scripts/faction.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 
@@ -234,14 +235,12 @@ func _inventory_counts() -> Dictionary:
 
 ## -- Building a level --
 
-## The level for `level_depth`: scripts/ruins_gen.gd when present (loaded at runtime so this
-## file stands alone), else a small hand-built yard so the loop still works.
+## The level for `level_depth` from scripts/ruins_gen.gd; the hand-built yard below stands in
+## only if the generator ever comes back empty.
 static func generate(level_depth: int, seed_value: int) -> Dictionary:
-	if ResourceLoader.exists("res://scripts/ruins_gen.gd"):
-		var gen: GDScript = load("res://scripts/ruins_gen.gd")
-		var out = gen.call("generate", level_depth, seed_value)
-		if out is Dictionary and not (out as Dictionary).get("rows", []).is_empty():
-			return out
+	var out := RuinsGen.generate(level_depth, seed_value)
+	if not (out.get("rows", []) as Array).is_empty():
+		return out
 	return fallback_level(level_depth)
 
 

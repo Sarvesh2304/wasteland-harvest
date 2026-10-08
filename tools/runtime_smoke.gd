@@ -852,7 +852,7 @@ func _physics_process(_delta: float) -> bool:
 					"a purchase confirmation status message is shown")
 				_enter_stage(92)
 		92:
-			# -- Cycle down to the purified-water row (index 7 of the 10-item spring shelf) and
+			# -- Cycle down to the purified-water row (index 7 of the spring shelf) and
 			#    buy one --
 			if ticks >= 2:
 				for i in 7:
@@ -889,9 +889,13 @@ func _physics_process(_delta: float) -> bool:
 		94:
 			# -- Cycle to the trailing "Leave" row and confirm it closes the store --
 			if ticks >= 2:
-				for i in 4:
-					_drive_store_action("move_down")  # preserved_food(6) -> ... -> Leave(10)
-				_check(store_ui._index == 10, "cycled down to the trailing Leave row")
+				# The trailing "" row is Leave; find it rather than counting, so adding a staple to
+				# the shelf (Milestone C added three) doesn't silently turn this into a purchase.
+				var leave_row: int = store_ui._row_ids.size() - 1
+				_check(store_ui._row_ids[leave_row] == "", "the store's last row is Leave")
+				for i in leave_row - store_ui._index:
+					_drive_store_action("move_down")  # preserved_food(6) -> ... -> Leave
+				_check(store_ui._index == leave_row, "cycled down to the trailing Leave row")
 				_drive_store_action("use_tool")  # confirm Leave -> closes the store
 				_check(not store_ui.active, "confirming the Leave row closes the store")
 				_check(not player.using_tool, "closing the store leaves no stray tool-swing lock")
@@ -1712,8 +1716,9 @@ func _physics_process(_delta: float) -> bool:
 					"bought seeds WITH the shipping-box Credits (67 -> 55, got %d)" % player.credits)
 				_check(player.inventory.count_of("seed_rain_radish") == seeds_before + 1,
 					"the purchased seed landed in inventory — the economy loop is closed")
-				_drive_store_action("move_up")  # row 0 wraps straight up to the Leave row (10)
-				_check(store_ui._index == 10, "move_up wraps to the trailing Leave row")
+				_drive_store_action("move_up")  # row 0 wraps straight up to the trailing Leave row
+				_check(store_ui._index == store_ui._row_ids.size() - 1 and store_ui._row_ids[store_ui._index] == "",
+					"move_up wraps to the trailing Leave row")
 				_drive_store_action("use_tool")
 				_check(not store_ui.active, "left the store cleanly")
 				_enter_stage(81)
@@ -2031,7 +2036,22 @@ func _npc_by_id(id: String, zone_id: String = "") -> Node:
 	return null
 
 
+## Something other than _finish ended the run (2026-10-08: a cascade of failed checks walked the
+## rebuilt title screen onto Exit, which quits with 0) — say so, and list what had failed, rather
+## than ending silently with a clean exit code.
+func _finalize() -> void:
+	if _finished:
+		return
+	print("RUNTIME SMOKE FAIL: the run ended at stage %d before finishing" % stage)
+	for failure in failures:
+		print("RUNTIME SMOKE FAIL: %s" % failure)
+
+
+var _finished := false
+
+
 func _finish() -> void:
+	_finished = true
 	if failures.is_empty():
 		print("RUNTIME SMOKE: all checks passed.")
 		quit(0)

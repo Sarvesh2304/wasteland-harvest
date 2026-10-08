@@ -182,6 +182,7 @@ func _physics_process(_delta: float) -> bool:
 			_check(not main.expedition.active, "the expedition ended")
 			_check(player.current_zone_id == "path", "home at the north checkpoint")
 			_check(player.inventory.count_of("scrap_metal") == _haul_before, "the haul came home")
+			_check(main.ruins["enemies"].live_count() == 0, "no enemies left anywhere once home (safe zone)")
 			_check(main.expedition.max_depth == 2, "deepest level remembered")
 			# Second run: this one goes badly.
 			day_manager.minutes_into_day = 10 * 60.0
@@ -212,6 +213,7 @@ func _physics_process(_delta: float) -> bool:
 			_check(player.inventory.count_of("copper_wire") == 0, "this run's copper wire was lost")
 			_check(player.inventory.count_of("scrap_metal") == _haul_before, "the first run's haul is untouched")
 			_check(not main.expedition.active, "the expedition is over")
+			_check(main.ruins["enemies"].live_count() == 0, "the ruins emptied when Kael carried the player home")
 			_check(main.confirm_ui.active, "the wake-up note is showing")
 			main.confirm_ui.choose(0)
 			_check(game_state.save_game(player, main.zones, main.get_node("Settlers"),

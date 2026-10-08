@@ -25,6 +25,7 @@ const NightLight := preload("res://scripts/night_light.gd")
 const READY_BUBBLE := preload("res://art/ui/ready_bubble.png")
 const ItemDB := preload("res://scripts/item_db.gd")
 const InventoryScript := preload("res://scripts/inventory.gd")
+const LootDB := preload("res://scripts/loot_db.gd")
 
 signal object_removed(anchor: Vector2i, kind: String)
 ## A placed chest was opened (Milestone B): main.gd routes this to the storage UI.
@@ -804,8 +805,11 @@ func _search(anchor: Vector2i, player) -> void:
 	_opened[anchor] = true
 	var node: Node2D = _nodes.get(anchor)
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") if node != null else null
+	var open_path := WorldObjectDB.open_sprite(kind)
 	if sprite != null and sprite.hframes > 1:
 		sprite.frame = 1
+	elif sprite != null and open_path != "" and ResourceLoader.exists(open_path):
+		sprite.texture = load(open_path)
 	elif sprite != null:
 		sprite.modulate = Color(0.78, 0.78, 0.78, 1.0)
 	var center := _center_world(kind, anchor)
@@ -828,11 +832,7 @@ func _search(anchor: Vector2i, player) -> void:
 
 
 func _roll_container(table_id: String, tier: int) -> Array:
-	if table_id == "" or not ResourceLoader.exists("res://scripts/loot_db.gd"):
-		return []
-	var loot_db: GDScript = load("res://scripts/loot_db.gd")
-	var out = loot_db.call("roll", table_id, tier, _rng)
-	return out if out is Array else []
+	return LootDB.roll(table_id, tier, _rng) if table_id != "" else []
 
 
 func is_opened(cell: Vector2i) -> bool:

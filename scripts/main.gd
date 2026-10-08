@@ -22,6 +22,7 @@ const ExpeditionScript := preload("res://scripts/expedition.gd")
 const ConfirmUIScript := preload("res://scripts/confirm_ui.gd")
 const EnemiesScript := preload("res://scripts/enemies.gd")
 const MapScene := preload("res://scenes/test_map.tscn")
+const LoreDB := preload("res://scripts/lore_db.gd")
 
 ## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
 ## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
@@ -541,12 +542,7 @@ func _read_note(item_id: String = "lore_note") -> void:
 		return
 	if player.inventory.count_of("lore_note") <= 0:
 		return
-	var note: Dictionary = {}
-	if ResourceLoader.exists("res://scripts/lore_db.gd"):
-		var lore: GDScript = load("res://scripts/lore_db.gd")
-		var got = lore.call("next_unread", expedition.notes_read, maxi(expedition.max_depth, 1))
-		if got is Dictionary:
-			note = got
+	var note := LoreDB.next_unread(expedition.notes_read, maxi(expedition.max_depth, 1))
 	if note.is_empty():
 		confirm_ui.show_text("A scrap of paper", "Too water-stained to read. Whatever it said is gone.")
 		player.inventory.remove_item("lore_note", 1)

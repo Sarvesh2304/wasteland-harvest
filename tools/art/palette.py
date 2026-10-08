@@ -105,3 +105,52 @@ def season_grass_ramp(season: str) -> list:
 
 
 SEASONS = ["spring", "summer", "autumn", "winter"]
+
+
+# -- Enemies / combat FX (added by tools/art/enemies/, Milestone C) ------------------------------
+# Ruins-side only (GDD §5/§9: the infected and raiders never appear in town). Ramps run darkest ->
+# lightest like the ones above. Gore stays on the shared BLOOD ramp; these are its dried/dark kin.
+INFECTED_SHIRT_RAMP = ["#2c3340", "#465062", "#64707f", "#848f9c"]   # shambler's faded work shirt
+INFECTED_TROUSER_RAMP = ["#2a2620", "#423b30", "#5e5545"]             # grimy grey-brown trousers
+INFECTED_HAIR = "#26241f"      # matted dark hair / scalp shadow on the infected
+INFECTED_EYE = "#dcdcb2"       # milky eye glint of the infected (reads as "not human" at 1x)
+GORE_DARK = "#3a1210"          # open maws, deep wounds (darker than BLOOD[0])
+GORE_STAIN = "#6a2018"         # dried blood soaked into cloth (desaturated BLOOD[0])
+FILTH = "#4a4030"              # grime smears on clothes
+RUNNER_SKIN_RAMP = ["#3c4240", "#5f6764", "#8a918b", "#b0b4a8", "#cfd0c2"]  # runner: pallid, starved grey-white
+RAIDER_LEATHER_RAMP = ["#2e231d", "#47362c", "#62493b", "#7e604d"]  # raider's scavenged leather vest
+RAIDER_RED_RAMP = ["#4e1a14", "#7e2a1e", "#a83a26", "#c4583a"]      # raider rust-red bandana / wraps
+RAIDER_TROUSER_RAMP = ["#232428", "#35373c", "#4b4d52"]             # raider's charcoal work trousers
+RAIDER_HAIR = "#211a16"        # raider mohawk (near-black brown)
+BLOATER_SKIN_RAMP = ["#34361a", "#545626", "#7c7c34", "#a29e46", "#c4bc68"]  # bloater: sickly swollen yellow-green
+ICHOR_RAMP = ["#232c0e", "#3a4c14", "#5a741c", "#82a028", "#aac846"]  # bloater ichor / irradiated gore (ground stains, sprays)
+RAD_HOT = "#d6ffa0"            # white-hot core of a rad glow (bloater about to burst) - hazard accent only
+HOUND_FUR_RAMP = ["#2a2420", "#433830", "#5e4f40", "#796751", "#958267"]  # rad-hound: mangy ash-brown fur
+HOUND_SKIN_RAMP = ["#5e3b38", "#87554f", "#ad7568"]  # rad-hound: raw bald patches, tongue
+FX_WHITE = "#fff7dc"           # hottest core of slashes, tracers, muzzle flashes, sparks (warm, never pure white)
+ALERT_RAMP = ["#8e2016", "#c43020", "#e84030", "#ff8a4a"]  # "!" alert mark over an enemy that spots you
+BLOOD_STAIN_RAMP = ["#341411", "#4c1c17", "#64251c", "#7c3022"]  # blood decals on the ground (desaturated BLOOD)
+HEART_HIGHLIGHT = "#ff9c80"    # HUD heart highlight (warm, on BLOOD[2])
+
+
+# -- Ruined city kit (added by tools/art/ruins_city/, Milestone C) -------------------------------
+# Building masses, ruin walls, landmarks and the ruins base ground. Ruins-side only, never
+# seasonally modulated (GDD §9). Ramps run darkest -> lightest; all sit between the locked ruins
+# colours (concrete / ash / rust / signage cream) so the city stays desaturated next to the town.
+RUIN_BRICK_RAMP = ["#2b1d1a", "#432a23", "#5a382c", "#6e4636", "#825742", "#956a51"]  # weathered red-brown brick: ruin walls, shopfront
+RUIN_BRICK_DARK_RAMP = ["#221c1a", "#332925", "#443630", "#55453b", "#675548", "#7a6757"]  # sooty umber brick: apartment block
+RUIN_STONE_TRIM_RAMP = ["#4f4b42", "#666155", "#7d7768", "#948d7c", "#aaa28f"]  # pale cast-stone lintels, sills, cornices
+RUIN_SIDING_RAMP = ["#262e30", "#354043", "#475457", "#5b686a", "#717d7c", "#8a9490"]  # faded blue-grey clapboard paint (house)
+RUIN_SHINGLE_RAMP = ["#211b19", "#2e2522", "#3c302b", "#4b3c35", "#5b4a41", "#6c5a4e"]  # weathered brown asphalt shingles
+RUIN_BLOCK_RAMP = ["#4c4a43", "#625f56", "#79766b", "#8f8b7f", "#a29e90", "#b5b0a0"]  # faded off-white painted block (garage)
+RUIN_GLASS_RAMP = ["#161c1f", "#1f292c", "#2a373a", "#3b4b4e", "#566a6c", "#8199a0"]  # tinted window glass, dark -> sky glint
+RUIN_VINE_RAMP = ["#2a271d", "#3b3628", "#4e4733", "#635a40"]  # dead climbing vines
+RUIN_WEED_RAMP = ["#2d3324", "#3f4730", "#535c3b", "#6a7148"]  # dull olive weeds in cracks (NOT rad glow)
+RUIN_DRYGRASS_RAMP = ["#4d4536", "#665c48", "#7f735a", "#998c6e"]  # dead straw-grey grass
+RUIN_GROUND_RAMP = ["#3b342c", "#463f36", "#514940", "#5c5347", "#675d50", "#73685a"]  # ash-brown dirt base ground, [3] = ASH_BROWN
+CHAR_RAMP = ["#171615", "#211f1d", "#2c2926", "#3a3632", "#4a4540", "#5d5750"]  # burnt-out metal / charred wood
+ASH_PALE = "#8d877b"           # pale ash deposits on burnt things
+PAPER_RAMP = ["#6e6754", "#8e866e", "#b5a98c", "#cfc5a8"]  # old paper / files ([2] = SIGNAGE_CREAM)
+BONE_RAMP = ["#3e3a31", "#5c5649", "#7f7764", "#9e957d", "#b5a98c"]  # weathered bone, somber ([4] = SIGNAGE_CREAM)
+TRUCK_PAINT_RAMP = ["#3a2a1a", "#574026", "#765834", "#937044", "#ad8957", "#c4a26c"]  # Kael's pickup: faded, cared-for sand-amber
+TRANSIT_SIGN_RAMP = ["#1d2531", "#283446", "#36465c", "#4a5d74"]  # faded enamel transit-blue (subway sign)

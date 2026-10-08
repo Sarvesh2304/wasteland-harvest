@@ -181,6 +181,11 @@ static func container_of(kind: String) -> String:
 	return String(get_kind(kind).get("container", ""))
 
 
+## A single-frame container's searched look (a separate sprite), "" if it has none.
+static func open_sprite(kind: String) -> String:
+	return String(get_kind(kind).get("open_sprite", ""))
+
+
 ## Kael's truck: rides out to the ruins from the settlement, and home again from the ruins.
 static func is_vehicle(kind: String) -> bool:
 	return bool(get_kind(kind).get("vehicle", false))

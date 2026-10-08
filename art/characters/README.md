@@ -122,3 +122,37 @@ Every player-sprite PNG here (`rotations/`, `idle/`, `walk/`, `tool/`) had its p
 brightened/saturated in place (HSV saturation ×1.30, value ×1.12) as part of a Phase 3 palette
 fix — see `GDD.md` §9's "Revision note." `player_frames.tres` itself references the same PNGs
 by path, so no `.tres` changes were needed.
+
+## Enemies (code-generated) — Milestone C
+
+`enemies/<id>.png` for `shambler`, `runner`, `raider`, `bloater`, `rad_hound` are drawn by code,
+not PixelLab: `python3 tools/art/enemies/build.py` (package `tools/art/enemies/`; deterministic,
+re-running gives byte-identical PNGs). Colours come from `tools/art/palette.py` (the
+"Enemies / combat FX" block). The same build writes the combat FX in `art/fx/` and the HUD icons
+`art/ui/hp_icon.png` / `art/ui/rad_icon.png`.
+
+**Sheet format** (the game slices by these coordinates): 24x24 frames, 4 columns x 14 rows =
+**96x336**.
+
+| rows | content |
+|------|---------|
+| 0-3 | idle S, N, E, W — 2 frames (cols 2-3 transparent) |
+| 4-7 | walk S, N, E, W — 4 frames |
+| 8-11 | attack S, N, E, W — 4 frames: 0 windup start, **1 windup peak = the dodge telegraph**, 2 strike, 3 recover |
+| 12 | hurt — col 0 S, 1 N, 2 E, 3 W |
+| 13 | death — 4 frames, direction-agnostic; frame 3 is the corpse left on the ground |
+
+W frames are mirrors of E. Same canvas and anchoring as the player: the figure is centred on
+column 12 and **the lowest opaque row of every standing frame is row 20** (the player's feet
+row; body pixels end on row 19, the 1 px cold outline sits on row 20). The build asserts this,
+plus 96x336 and no pure black. No contact shadow is baked in (the player/NPC frames have none
+either). Translucent pixels appear only in the bloater's warning glow and belch gas.
+
+Telegraphs: shambler throws both clawed arms over its head, jaw open; runner cocks one claw high
+and shrieks; raider locks the pipe pistol out (S view: elbows out, gun centred on the chest;
+frame 2 is the kick, the muzzle flash is the separate `art/fx/muzzle_flash.png`); bloater
+swells to ~21 px with white-hot pustules and a rad-green halo, then belches gas on frame 2;
+rad-hound coils low with hackles up and fangs bared, then lunges.
+
+Review aids: `enemies/_preview.png` (all sheets at 3x beside the player) and
+`enemies/_preview_anim/<id>.gif` (walk S, attack S, death; Godot-ignored).

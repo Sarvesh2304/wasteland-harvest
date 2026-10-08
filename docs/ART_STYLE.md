@@ -70,3 +70,35 @@ Before calling an asset done: view it at 1× in a mock scene (several tiles toge
 real background, next to the player sprite for scale) and at 4×/8× zoom. Ask: would this look
 at home in Stardew Valley? Does it read at 1×? Is it consistent in scale, light direction,
 outline treatment and palette with everything around it? If not, iterate.
+
+## 6. Ruined-city kit (`tools/art/ruins_city/`, Milestone C)
+`python3 tools/art/ruins_city/build.py [ground walls landmarks buildings props preview]`
+(an output allowlist in `build.py` stops it from writing anything but its own files). Colours:
+the "Ruined city kit" block at the end of `tools/art/palette.py`.
+- **Ruin walls** (`fences/ruin_wall_brick.png`, `ruin_wall_concrete.png`) use the fence-sheet
+  contract (64x128, mask `N*1 + E*2 + S*4 + W*8`). They are drawn by a small voxel painter over
+  the cell's footprint (6 px thick bands: E-W rows 23..28, N-S columns 5..10; every arm leaves
+  the cell at height 11), so runs, corners and T-joints meet exactly. Straight runs stay fairly
+  level (detail there would repeat every 16 px); corners rise into piers, ends crumble down.
+- **Building masses** (`ruins/ruin_*.png`): flat south-facing elevation plus a foreshortened
+  roof band, footprint = bottom W x H cells. No door is enterable (boarded, collapsed or
+  buried in rubble). Curtains are never yellow: in a dead city, yellow reads as a lit window.
+- **Kael's truck** is the one settlement object in the ruins: warm outline, warm shadow and
+  lamplight, so it reads as safe at a glance.
+- `ruins/dumpster_open.png` is the searched state of `dumpster.png`, with identical body pixels.
+- Review scene: `art/env/_previews/ruins_city.png`.
+
+## 7. Enemies, combat FX, combat HUD (`tools/art/enemies/`, Milestone C)
+`python3 tools/art/enemies/build.py [enemies fx hud preview] [<enemy id> ...]`. Colours: the
+"Enemies / combat FX" block in `tools/art/palette.py`.
+- **Enemy sheets** (`art/characters/enemies/<id>.png`, 96x336 = 4x14 frames of 24x24; row
+  layout in `art/characters/README.md` and `tools/art/enemies/rig.py`). Same canvas, centring
+  and feet row as the PixelLab player (lowest opaque row = 20), cold 1 px selective outline,
+  parts cast a 1 px contour onto what they overlap. Humanoids are paper dolls (ASCII heads and
+  torsos per facing + procedural limbs, `humanoid.py`); corpses are the front view rotated 90°
+  clockwise, which keeps the top-left light. Attack frame 1 is always the dodge telegraph and
+  must change the silhouette, not just a colour.
+- **FX** (`art/fx/`) may be translucent; the slash is drawn for an east swing around the
+  frame's left-middle so code can rotate it. Ground decals (blood/ichor splats) stay opaque.
+- **HUD icons**: `art/ui/hp_icon.png` (warm outline, settlement UI) and `rad_icon.png`
+  (rad-glow trefoil, cold outline: it is a hazard sign).

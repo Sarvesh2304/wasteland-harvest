@@ -30,6 +30,8 @@ const GroundRules := preload("res://scripts/ground_rules.gd")
 const TerrainTiles := preload("res://scripts/terrain_tiles.gd")
 const Calendar := preload("res://scripts/calendar.gd")
 const RuinsLayoutScript := preload("res://scripts/map_layouts/ruins_layout.gd")
+## The overlay terrains a ruins level can contain (ruins_gen.gd's legend).
+const RUINS_OVERLAYS: Array[String] = ["asphalt", "concrete", "rubble_ground", "dirt", "water"]
 
 ## All 3 map_layouts/*.gd scripts share this tile size; hardcoded (rather than read off
 ## `layout`) because it's needed before `layout` is resolved in some call orders and every start
@@ -133,6 +135,8 @@ func build() -> void:
 			_paint_base(cell)
 			_paint_decor(cell)
 	for terrain in OVERLAY_ORDER:
+		if zone_id == "ruins" and not RUINS_OVERLAYS.has(terrain):
+			continue  # never present in a ruins level (cleared above): skip ~half the painting
 		for vy in size.y + 1:
 			for vx in size.x + 1:
 				_paint_overlay(terrain, Vector2i(vx, vy))
@@ -265,7 +269,10 @@ func _build_scenery() -> void:
 	for child in _scenery.get_children():
 		child.queue_free()
 	_fence_count = 0
-	var fence_path := FENCE_DIR + String(FENCE_STYLE.get(zone_id, "fence_wood")) + ".png"
+	var style := String(FENCE_STYLE.get(zone_id, "fence_wood"))
+	if zone_id == "ruins" and layout != null and layout.get("level") is Dictionary:
+		style = String((layout.get("level") as Dictionary).get("wall_style", style))
+	var fence_path := FENCE_DIR + style + ".png"
 	if not ResourceLoader.exists(fence_path):
 		fence_path = FENCE_DIR + "fence_chainlink.png"
 	var fence_tex: Texture2D = load(fence_path)

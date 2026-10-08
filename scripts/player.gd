@@ -29,6 +29,7 @@ const DayManagerScript := preload("res://scripts/day_manager.gd")
 const WorldObjectDB := preload("res://scripts/world_object_db.gd")
 const Combat := preload("res://scripts/combat.gd")
 const Radiation := preload("res://scripts/radiation.gd")
+const NightLight := preload("res://scripts/night_light.gd")
 
 signal energy_changed(current: float, max_energy: float)
 signal npc_dialogue_requested(npc: Node)
@@ -108,6 +109,9 @@ var _boost_until := 0.0
 var _boost_mult := 1.0
 var _geiger_acc := 0.0
 var _hp_emit_acc := 0.0
+## A hand lantern: lights the player's way in the ruins after dark (nowhere else; the settlement
+## has its own lamps and windows).
+var _lantern: PointLight2D = null
 
 var _instant_armed := true
 var _interact_armed := true
@@ -149,6 +153,10 @@ var inventory: Inventory = Inventory.new()
 
 func _ready() -> void:
 	add_to_group("player")
+	_lantern = NightLight.make(Color("#ffd27f"), 0.75, 1.15, 0.05)
+	_lantern.position = Vector2(0, -6)
+	_lantern.visible = false
+	add_child(_lantern)
 	sprite.animation_finished.connect(_on_sprite_animation_finished)
 	_play("idle")
 	_give_starting_loadout()
@@ -320,6 +328,8 @@ func _in_any_modal() -> bool:
 
 func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
 		npcs_node: Node = null, objects_node: Node = null) -> void:
+	if _lantern != null:
+		_lantern.visible = map_node != null and String(map_node.get("zone_id")) == "ruins"
 	farm = farm_node
 	test_map = map_node
 	structures = structures_node
@@ -1098,6 +1108,11 @@ func _melee(item_id: String, item: Dictionary, aim: Vector2) -> void:
 
 func _fire(item_id: String, item: Dictionary, aim: Vector2) -> void:
 	if _attack_cd > 0.0:
+		return
+	if enemies == null:
+		# Nothing to shoot at home: don't waste a round on the fence posts.
+		Fx.float_text(hit_center() + Vector2(0, -16), "Save it for the ruins", Color("#ffedb1"))
+		_attack_cd = 0.6
 		return
 	var ammo := String(item.get("ammo_item", ""))
 	if ammo != "" and inventory.count_of(ammo) <= 0:

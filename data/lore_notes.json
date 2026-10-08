@@ -1,0 +1,113 @@
+{
+ "_comment": "Lore notes (Milestone C, 2026-10-08), loaded by scripts/lore_db.gd. Found in the ruins as 'Old Note' items; reading one shows the next unread note this player has earned, in file order, gated by min_depth (the deepest district reached). Text <= 300 chars, titles <= 24. Voice per GDD.md 2: fragmentary, dark but humane, hinting at the bio-weapons, the founders' walk west, the raider faction (Rook, the Northgate Company) and threads for the main story (the seed vault, Harlan's family).",
+ "notes": [
+  {
+   "id": "fridge_door",
+   "title": "Fridge Door Note",
+   "min_depth": 1,
+   "text": "Mia - school's closed again. Dad says it's only a drill. If the sirens go, we meet at Grandma's, NOT the stadium. Love you. P.S. Feed Biscuit. Two scoops, not three, whatever he tells you."
+  },
+  {
+   "id": "block_watch",
+   "title": "Block Watch Notice",
+   "min_depth": 1,
+   "text": "NOTICE: Do not open doors after dark. The Hendersons at number 14 are not the Hendersons any more. If you hear knocking, it is not them. Keep your lights off. - Block Committee"
+  },
+  {
+   "id": "grocery_list",
+   "title": "Grocery List",
+   "min_depth": 1,
+   "text": "Water (ALL of it). Batteries. Beans. Antibiotics?? Pharmacy's cleaned out. Tape for the windows. Something for Rob's cough. It's getting worse, and he won't stop scratching that bite on his arm."
+  },
+  {
+   "id": "big_tree_day",
+   "title": "A Child's Drawing",
+   "min_depth": 1,
+   "text": "Crayon on card: a house, a yellow sun, and a huge grey tree where the city should be. Underneath, in careful letters: MY HOUSE. MY FAMLY. THE BIG TREE DAY. Someone has added a gold star."
+  },
+  {
+   "id": "emergency_radio",
+   "title": "Radio Transcript",
+   "min_depth": 1,
+   "text": "...repeat, this is not a test. Stay indoors. Seal windows and doors. Do not approach anyone showing fever, confusion or aggression. Do not attempt to... [static] ...they've released the second wave, God help us, the second-"
+  },
+  {
+   "id": "brothers_letter",
+   "title": "Unsent Letter",
+   "min_depth": 1,
+   "text": "Ruth - the garden's finally giving tomatoes. Big ugly ones, but sweet. If the news is right and it all goes bad, come out to us. The soil's good and the well's deep. We'd make it work. - Tom"
+  },
+  {
+   "id": "office_memo",
+   "title": "Office Memo",
+   "min_depth": 2,
+   "text": "MEMO: Due to the current situation, staff will remain at their desks until the all-clear. Quarterly reviews proceed as scheduled. Management thanks you for your resilience. (In the margin, in pen: LOL.)"
+  },
+  {
+   "id": "transit_map",
+   "title": "Marked-Up Transit Map",
+   "min_depth": 2,
+   "text": "A subway map, every line crossed out in red. Bridges gone. Tunnels flooded. Scrawled along the bottom: EVERYONE LEFT IS WALKING WEST. TOWARD THE FARMS. GO WEST."
+  },
+  {
+   "id": "peach_ledger",
+   "title": "Trader's Ledger",
+   "min_depth": 2,
+   "text": "Day 312. Traded two tins of peaches for a radio that works. The peaches were worth more. Folk who live on the city's leftovers keep getting sick. Eat what you grow, or don't eat."
+  },
+  {
+   "id": "militia_poster",
+   "title": "Torn Recruiting Poster",
+   "min_depth": 2,
+   "text": "VOLUNTEERS WANTED - Northgate Company. Food. Shelter. Purpose. The old rules died with the old world. We take what we need, and we need a lot. Ask for Rook at the old courthouse."
+  },
+  {
+   "id": "raider_tally",
+   "title": "Cigarette-Box Tally",
+   "min_depth": 2,
+   "text": "Nine scratches. Then, in pencil: Rook says we only take from folk who can spare it. Rook's soft. Rook's also the only reason any of us are still breathing. Ten scratches."
+  },
+  {
+   "id": "patient_chart",
+   "title": "Hospital Chart",
+   "min_depth": 2,
+   "text": "PATIENT 0471. Fever 41.2. Aggression escalating. Pupils fixed. Bit an orderly at 03:10; the orderly now shows the same symptoms. Recommend quarantine of the whole west wing. Recommend prayer."
+  },
+  {
+   "id": "pump_log",
+   "title": "Pump-House Log",
+   "min_depth": 3,
+   "text": "Thirty days, no relief crew. We keep the cooling pumps going by hand, in shifts. If anyone reads this: the core stays quiet as long as the pumps run. Keep the pumps running. Please."
+  },
+  {
+   "id": "lab_notice",
+   "title": "Laboratory Notice",
+   "min_depth": 3,
+   "text": "AUTHORISED PERSONNEL ONLY. Agent stocks moved to Vault C. In the event of a breach, do NOT attempt containment. Seal the floor and wait for retrieval. (Underneath, scratched into the paint: NOBODY CAME.)"
+  },
+  {
+   "id": "union_flyer",
+   "title": "Union Flyer",
+   "min_depth": 3,
+   "text": "WORKERS! They say machines will rebuild the world. Who rebuilds the machines? Meeting Thursday, Bay 4. Bring your tools. Bring your hands. Bring whatever hope you've got left. We'll need all of it."
+  },
+  {
+   "id": "rad_diary",
+   "title": "Rad Diary",
+   "min_depth": 3,
+   "text": "Day 9: thirty rads. Day 14: eighty-five, and my hair's coming out. Doc says get clean water and get out. Day 15: leaving at dawn with the Harlan kids and the Okafors. There has to be somewhere clean."
+  },
+  {
+   "id": "seed_vault",
+   "title": "Foreman's Letter",
+   "min_depth": 3,
+   "text": "To whoever finds the farm: the seed vault under the depot opens on 4-1-7-7. There's enough in there to green a whole valley. Don't let anyone sell it, and don't let anyone burn it. - E.M."
+  },
+  {
+   "id": "kaels_mark",
+   "title": "A Familiar Hand",
+   "min_depth": 3,
+   "text": "A note in a hand you know: 'Checked this block. Nothing here worth dying for. Stairs down were clear as of spring. If you're reading this, you're further in than you should be. Go home. - K.'"
+  }
+ ]
+}

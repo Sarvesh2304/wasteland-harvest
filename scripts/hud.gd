@@ -89,6 +89,7 @@ const Weather := preload("res://scripts/weather.gd")
 ## "+N item" toasts (bottom-left), the context prompt above the hotbar, and the weather icon
 ## beside the day sign. Toasts merge repeats of the same item while it's still on screen.
 const TOAST_SECONDS := 2.6
+const TOAST_WRAP_WIDTH := 190.0
 const TOAST_MAX := 4
 const TOAST_BG := Color("#281a0b", 0.82)
 const TEXT_COLOR := Color("#ffedb1")
@@ -808,8 +809,17 @@ func _add_toast(item_id: String, count: int, text: String) -> void:
 	label.add_theme_constant_override("outline_size", 2)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(label)
+	# Long messages (Kael's lines, warnings) wrap instead of running under the HP/energy bars,
+	# and stay up a little longer.
+	var seconds := TOAST_SECONDS
+	var font := label.get_theme_font("font")
+	if font != null and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			label.get_theme_font_size("font_size")).x > TOAST_WRAP_WIDTH:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.custom_minimum_size.x = TOAST_WRAP_WIDTH
+		seconds *= 1.6
 	_toast_box.add_child(panel)
-	_toasts.append({"item": item_id, "count": count, "time_left": TOAST_SECONDS,
+	_toasts.append({"item": item_id, "count": count, "time_left": seconds,
 		"node": panel, "label": label})
 
 
@@ -1025,5 +1035,6 @@ func _tick_expedition_widgets() -> void:
 	_truck_marker.text = arrow + " Truck" if arrow == "<" else ("Truck " + arrow if arrow == ">" else "Truck " + arrow)
 	_truck_marker.reset_size()
 	var size := _truck_marker.get_combined_minimum_size()
-	_truck_marker.position = (at - size / 2.0).clamp(Vector2(2, 2), view - size - Vector2(2, 2))
+	# Keep it in the play area: below the date sign, above the hotbar, clear of the HP/energy bars.
+	_truck_marker.position = (at - size / 2.0).clamp(Vector2(2, 14), Vector2(view.x - size.x - 34.0, view.y - size.y - 34.0))
 	_truck_marker.visible = true

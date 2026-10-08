@@ -53,6 +53,10 @@ var director: Node = null
 ## until the player crowds them (closer than personal_space) or hits one.
 var wary := false
 var personal_space := 44.0
+## Patrollers walk between home and a far point (global) instead of milling about; set by the
+## director at spawn (raider groups together, some runners alone).
+var patrol_point := Vector2.ZERO
+var _patrol_out := true
 
 var _state_time := 0.0
 var _anim_time := 0.0
@@ -251,10 +255,19 @@ func _tick_idle(delta: float) -> Vector2:
 		_play_sound("idle", -12.0)
 	if _look_for_player():
 		return Vector2.ZERO
-	# Mill about within ~2 cells of home.
 	if _wander_wait > 0.0:
 		_wander_wait -= delta
 		return Vector2.ZERO
+	if patrol_point != Vector2.ZERO:
+		# Walk the beat: home -> far point -> home, pausing at each end.
+		var goal := patrol_point if _patrol_out else home
+		if global_position.distance_to(goal) < 6.0:
+			_patrol_out = not _patrol_out
+			_wander_wait = _rng.randf_range(2.0, 5.0)
+			_path = PackedVector2Array()
+			return Vector2.ZERO
+		return _follow_path(goal, delta) * float(data["speed"]) + _separation()
+	# Mill about within ~2 cells of home.
 	if _wander_target == Vector2.ZERO or global_position.distance_to(_wander_target) < 2.0:
 		_wander_target = home + Vector2(_rng.randf_range(-28.0, 28.0), _rng.randf_range(-28.0, 28.0))
 		_wander_wait = _rng.randf_range(1.0, 4.0)
