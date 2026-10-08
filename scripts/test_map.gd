@@ -29,6 +29,7 @@ const SaveData := preload("res://scripts/save_data.gd")
 const GroundRules := preload("res://scripts/ground_rules.gd")
 const TerrainTiles := preload("res://scripts/terrain_tiles.gd")
 const Calendar := preload("res://scripts/calendar.gd")
+const RuinsLayoutScript := preload("res://scripts/map_layouts/ruins_layout.gd")
 
 ## All 3 map_layouts/*.gd scripts share this tile size; hardcoded (rather than read off
 ## `layout`) because it's needed before `layout` is resolved in some call orders and every start
@@ -36,7 +37,7 @@ const Calendar := preload("res://scripts/calendar.gd")
 const CELL_SIZE := 16
 
 ## Dual-grid overlays, bottom to top.
-const OVERLAY_ORDER: Array[String] = ["road", "dirt", "cobble", "gravel", "rubble_ground", "soil",
+const OVERLAY_ORDER: Array[String] = ["road", "asphalt", "concrete", "dirt", "cobble", "gravel", "rubble_ground", "soil",
 	"soil_wet", "water"]
 ## Crafted path items -> the floor they lay (Milestone B): painted with the matching overlay.
 const FLOOR_ITEMS := {"gravel_path": "gravel", "cobble_path": "cobble"}
@@ -44,15 +45,15 @@ const FLOOR_ITEMS := {"gravel_path": "gravel", "cobble_path": "cobble"}
 ## settlement, cracked asphalt on the old highway.
 const ROAD_SHEET := {"path": "asphalt"}
 const DEFAULT_ROAD_SHEET := "concrete"
-const Z_BASE := -20
-const Z_OVERLAY := -19  # + index in OVERLAY_ORDER
+const Z_BASE := -22
+const Z_OVERLAY := -21  # + index in OVERLAY_ORDER (ten layers: -21..-12, under the planks)
 const Z_PLANKS := -10
 const Z_DECOR := -9
 
 ## Fence/gate art per zone: the farm and ranch are timber, the old highway is chain-link, the town
 ## hides behind a palisade.
 const FENCE_STYLE := {"farm": "fence_wood", "path": "fence_chainlink", "town": "fence_palisade",
-	"ranch": "fence_wood"}
+	"ranch": "fence_wood", "ruins": "ruin_wall_brick"}
 const GATE_STYLE := {"farm": "gate_wood", "path": "gate_chainlink", "town": "gate_wood",
 	"ranch": "gate_wood"}
 const FENCE_DIR := "res://art/env/fences/"
@@ -186,7 +187,14 @@ func _in_terrain(terrain: String, cell: Vector2i) -> bool:
 		"water":
 			return String(layout.cell(cell.x, cell.y)) == "W" or (_plank_info["bridge"] as Dictionary).has(cell)
 		"rubble_ground":
-			return String(layout.cell(cell.x, cell.y)) == "#"
+			var ch := String(layout.cell(cell.x, cell.y))
+			return ch == "#" or ch == "r"
+		# Milestone C ruins ground: streets and sidewalks (buildings stand on concrete).
+		"asphalt":
+			return String(layout.cell(cell.x, cell.y)) == "a"
+		"concrete":
+			var c := String(layout.cell(cell.x, cell.y))
+			return c == "c" or c == "X"
 		"dirt":
 			return String(layout.cell(cell.x, cell.y)) == ":"
 		"cobble":
@@ -227,11 +235,18 @@ func _repaint_overlay_around(terrain: String, cell: Vector2i) -> void:
 
 
 func _paint_base(cell: Vector2i) -> void:
+	if zone_id == "ruins":
+		_base.set_cell(cell, TerrainTiles.ruins_source(),
+			Vector2i(GroundRules.weighted_variant(cell, 3, GroundRules.GRASS_VARIANT_WEIGHTS), 0))
+		return
 	_base.set_cell(cell, TerrainTiles.season_source(_season),
 		Vector2i(GroundRules.weighted_variant(cell, 3, GroundRules.GRASS_VARIANT_WEIGHTS), 0))
 
 
 func _paint_decor(cell: Vector2i) -> void:
+	if zone_id == "ruins":
+		_decor.erase_cell(cell)  # nothing blooms in the ruins
+		return
 	var ch := String(layout.cell(cell.x, cell.y))
 	var grassy := ch == "." or ch == "," or ch == "@" or ch == "T" or ch == "O"
 	if not grassy or is_soil_at(cell.x, cell.y) or layout.is_solid(cell.x, cell.y) \
@@ -250,7 +265,10 @@ func _build_scenery() -> void:
 	for child in _scenery.get_children():
 		child.queue_free()
 	_fence_count = 0
-	var fence_tex: Texture2D = load(FENCE_DIR + String(FENCE_STYLE.get(zone_id, "fence_wood")) + ".png")
+	var fence_path := FENCE_DIR + String(FENCE_STYLE.get(zone_id, "fence_wood")) + ".png"
+	if not ResourceLoader.exists(fence_path):
+		fence_path = FENCE_DIR + "fence_chainlink.png"
+	var fence_tex: Texture2D = load(fence_path)
 	var gate_tex: Texture2D = load(FENCE_DIR + String(GATE_STYLE.get(zone_id, "gate_wood")) + ".png")
 	var size: Vector2i = layout.size()
 	for y in size.y:
@@ -322,7 +340,20 @@ func _build_walls() -> void:
 
 
 func _solid_terrain(x: int, y: int) -> bool:
-	return String(layout.cell(x, y)) in ["#", "F", "W"]
+	return String(layout.cell(x, y)) in ["#", "F", "W", "X"]
+
+
+## -- The ruins zone (Milestone C, 2026-10-07) --
+
+## Swaps in a generated level (scripts/ruins_gen.gd output, wrapped as a RuinsLayout) and
+## repaints everything. Only the ruins map does this; its objects and enemies are respawned by
+## main.gd's expedition flow right after.
+func load_ruins_level(level: Dictionary) -> void:
+	layout = RuinsLayoutScript.new(level)
+	_floors.clear()
+	_tilled.clear()
+	_runtime_blocked.clear()
+	build()
 
 
 ## Painted-layer stats for the smoke tools: {base, fences, wall_cells, planks, road, water}.
@@ -360,7 +391,7 @@ func _on_wet_changed(cell: Vector2i) -> void:
 
 func _on_day_started(day: int) -> void:
 	var season := Calendar.season(day)
-	if season == _season:
+	if season == _season or zone_id == "ruins":
 		return
 	_season = season
 	var size: Vector2i = layout.size()

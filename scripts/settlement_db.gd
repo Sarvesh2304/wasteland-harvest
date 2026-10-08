@@ -134,6 +134,9 @@ static func layout_for_id(id: String):
 static func layout_for_zone(zone_id: String, settlement_id: String):
 	var riverside := settlement_id == "riverside"
 	match zone_id:
+		"ruins":
+			# Milestone C: a placeholder yard until an expedition generates a real level.
+			return (load("res://scripts/map_layouts/ruins_layout.gd") as GDScript).new()
 		"path":
 			return PathRiversideLayout if riverside else PathStandardLayout
 		"town":

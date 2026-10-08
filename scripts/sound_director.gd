@@ -59,6 +59,11 @@ static func music_for(zone: String, minutes: float, season: String, weather: Str
 		override: String = "") -> String:
 	if override != "":
 		return override
+	# The ruins keep their own soundscape at any hour, in any weather.
+	if zone == "ruins_deep":
+		return "ruins_deep"
+	if zone.begins_with("ruins"):
+		return "ruins_explore"
 	if Weather.is_wet(weather):
 		return ""
 	var late := minutes < 6 * 60  # after midnight
@@ -68,8 +73,6 @@ static func music_for(zone: String, minutes: float, season: String, weather: Str
 		return "night"
 	if zone == "town":
 		return "town"
-	if zone.begins_with("ruins"):
-		return "ruins_explore"
 	return season
 
 

@@ -10,9 +10,12 @@ extends RefCounted
 const ItemDB := preload("res://scripts/item_db.gd")
 const CropDB := preload("res://scripts/crop_db.gd")
 
-## Sold every day of the year, after the seasonal seeds.
+## Sold every day of the year, after the seasonal seeds. Milestone C adds expedition kit: a
+## slingshot (stones are free ammo), crossbow bolts, and pistol rounds at a price that makes
+## every shot count (GDD.md §5's ammo economy).
 const STAPLES: Array[String] = [
 	"fertilizer", "preserved_food", "purified_water", "bandage", "cooked_meal",
+	"slingshot", "crossbow_bolt", "pistol_ammo",
 ]
 
 

@@ -39,6 +39,8 @@ const TOOL_SKILL := {
 signal changed
 
 var xp: Dictionary = {}
+## Milestone C: recipe ids learned from blueprints found in the ruins.
+var blueprints: Array[String] = []
 
 
 func _ready() -> void:
@@ -72,6 +74,32 @@ func energy_multiplier(tool_kind: String) -> float:
 	return energy_multiplier_for_level(level(skill))
 
 
+## -- Blueprints (Milestone C) --
+
+func knows_blueprint(recipe_id: String) -> bool:
+	return blueprints.has(recipe_id)
+
+
+## Learns `recipe_id` (false if already known).
+func learn_blueprint(recipe_id: String) -> bool:
+	if recipe_id == "" or blueprints.has(recipe_id):
+		return false
+	blueprints.append(recipe_id)
+	changed.emit()
+	return true
+
+
+## {skill: level} for every skill plus {"blueprint:<id>": 1} for every learned blueprint: what
+## the crafting rules (recipe_db.gd is_unlocked) check recipes against.
+func crafting_levels() -> Dictionary:
+	var out := {}
+	for skill in SKILLS:
+		out[skill] = level(skill)
+	for id in blueprints:
+		out["blueprint:" + id] = 1
+	return out
+
+
 ## -- Pure rules (unit tested) --
 
 static func level_for_xp(total: int) -> int:
@@ -101,10 +129,15 @@ static func energy_multiplier_for_level(lvl: int) -> float:
 ## -- Save/load (the "skills" save section) --
 
 func save_state() -> Dictionary:
-	return xp.duplicate()
+	var out := xp.duplicate()
+	out["_blueprints"] = blueprints.duplicate()
+	return out
 
 
 func load_state(data: Dictionary) -> void:
 	for skill in SKILLS:
 		xp[skill] = maxi(int(data.get(skill, 0)), 0)
+	blueprints.clear()
+	for id in data.get("_blueprints", []):
+		blueprints.append(String(id))
 	changed.emit()

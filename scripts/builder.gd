@@ -99,6 +99,10 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Entering build mode is refused while another modal UI is open (see modal_gate's comment
 ## above); leaving (value == false) is never gated — cancel must always work.
 func set_active(value: bool) -> void:
+	if value and _test_map != null and String(_test_map.get("zone_id")) == "ruins":
+		# Milestone C: the ruins are rebuilt every expedition; nothing built out there would last.
+		Events.message.emit("Nothing you build out here would last.")
+		return
 	if value and modal_gate != null and modal_gate.is_any_open_except(self):
 		return
 	active = value and _player != null

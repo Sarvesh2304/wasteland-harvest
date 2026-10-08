@@ -18,6 +18,10 @@ const StorageUIScript := preload("res://scripts/storage_ui.gd")
 const BuildingEffects := preload("res://scripts/building_effects.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const StoryBeats := preload("res://scripts/story_beats.gd")
+const ExpeditionScript := preload("res://scripts/expedition.gd")
+const ConfirmUIScript := preload("res://scripts/confirm_ui.gd")
+const EnemiesScript := preload("res://scripts/enemies.gd")
+const MapScene := preload("res://scenes/test_map.tscn")
 
 ## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
 ## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
@@ -49,6 +53,12 @@ var zones: Dictionary = {}
 var modal_gate: ModalGate = ModalGate.new()
 ## Milestone B: the chest/storage screen (scripts/storage_ui.gd), built in code.
 var storage_ui: CanvasLayer = null
+## Milestone C: the ruins zone, built in code: {map, farm, structures, npcs, objects, enemies}.
+## Deliberately NOT in `zones`: every expedition regenerates it, so it's never saved.
+var ruins: Dictionary = {}
+var expedition: Node = null
+## Milestone C: the yes/no prompt (ride out, go deeper, head home) and the lore-note reader.
+var confirm_ui: CanvasLayer = null
 
 ## The build/placement-mode node, kept as a field so _process's time-pause poll below can exempt
 ## it from the "any modal open" check (see that poll's comment for the judgment call), and so
@@ -66,6 +76,7 @@ func _ready() -> void:
 			"npcs": map.get_node("Npcs"),
 			"objects": map.get_node("Objects"),
 		}
+	_build_ruins_zone()
 	hud.bind_player(player)
 	hud.bind_inventory(player.inventory)
 	Fx.register_camera(camera)
@@ -73,6 +84,7 @@ func _ready() -> void:
 	hud.bind_target_cursor(target_cursor)
 	GameState.clear_save_sections()
 	GameState.register_save_section("skills", func() -> Dictionary: return skills.save_state())
+	GameState.register_save_section("expedition", func() -> Dictionary: return expedition.save_state())
 	GameState.register_save_section("weather", func() -> Dictionary:
 		return {"today": DayManager.weather_today, "tomorrow": DayManager.weather_tomorrow,
 			"seed": DayManager.weather_seed})
@@ -98,6 +110,7 @@ func _ready() -> void:
 		# seedling, ...) lands in the same player inventory — the generalized-dispatch
 		# counterpart of crops_sold -> player.add_credits above.
 		structures.building_yield_produced.connect(player.add_items)
+		zones[zone_id]["objects"].vehicle_used.connect(_on_vehicle_used)
 	# Livestock is settlement-wide. Structures are wired first and Animals is a later sibling, so
 	# its day_started handler observes completed Barns/Coops before resolving production.
 	animals.set_completed_entries_provider(Callable(self, "_all_completed_entries"))
@@ -170,7 +183,7 @@ func _ready() -> void:
 	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
 	# modal UIs like quest journals or pause menus — the recipe the menu above just followed).
 	for surface in [builder, dialogue_ui, store_ui, ranch_store_ui, shipping_ui, menu_screen,
-			storage_ui]:
+			storage_ui, confirm_ui]:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
@@ -189,6 +202,7 @@ func _ready() -> void:
 		_recompute_capacity_unlocks()
 	else:
 		_apply_save(save_data)
+	_ensure_home_truck()
 	_try_start_day_28_food_shortage()
 
 
@@ -223,7 +237,7 @@ func _exit_tree() -> void:
 ## camera's clamp bounds. Save restoration calls only this (player.load_state already restored
 ## the exact saved position); live transitions and boot go through _bind_zone below.
 func _bind_zone_refs(zone_id: String) -> void:
-	var zone: Dictionary = zones[zone_id]
+	var zone: Dictionary = _zone(zone_id)
 	player.current_zone_id = zone_id
 	player.bind_world(zone["farm"], zone["map"], zone["structures"], zone["npcs"], zone["objects"])
 	_builder.bind(player, zone["map"], zone["structures"])
@@ -241,7 +255,7 @@ const NO_ENTRY_CELL := Vector2i(-1, -1)
 
 func _bind_zone(zone_id: String, entry_cell: Vector2i = NO_ENTRY_CELL) -> void:
 	_bind_zone_refs(zone_id)
-	var map: Node2D = zones[zone_id]["map"]
+	var map: Node2D = _zone(zone_id)["map"]
 	if entry_cell == NO_ENTRY_CELL:
 		player.global_position = map.to_global(map.get_spawn_position())
 	else:
@@ -267,6 +281,7 @@ func _apply_save(data: Dictionary) -> void:
 	DayManager.day = int(data.get("day", 1))
 	DayManager.minutes_into_day = float(data.get("minutes_into_day", DayManager.DAY_START_MINUTES))
 	skills.load_state(data.get("skills", {}))
+	expedition.load_state(data.get("expedition", {}))
 	var weather: Dictionary = data.get("weather", {})
 	if weather.is_empty():
 		DayManager.reset_weather(hash([data.get("settlement_id", ""), data.get("saved_unix", 0)]))
@@ -299,6 +314,11 @@ func _apply_save(data: Dictionary) -> void:
 	affinity.load_state(data.get("affinity", {}))
 	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
 	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
+	if not zones.has(player.current_zone_id):
+		# Never resume inside a generated zone (the ruins aren't saved): wake by Kael's truck.
+		player.current_zone_id = ExpeditionScript.HOME_TRUCK_ZONE
+		player.global_position = zones[ExpeditionScript.HOME_TRUCK_ZONE]["map"].get_global_cell_center(
+			ExpeditionScript.HOME_RETURN_CELL)
 	_bind_zone_refs(player.current_zone_id)
 	camera.set_target(player)
 	# Phase 8 Stage 1: re-derive capacity bonuses from the JUST-RESTORED structures rather than
@@ -373,3 +393,195 @@ func _try_start_day_28_food_shortage() -> void:
 func _grant_starting_resource_bonus() -> void:
 	for entry in SettlementDB.starting_items(GameState.chosen_settlement_id):
 		player.inventory.add_item(String(entry.get("item_id", "")), int(entry.get("count", 0)))
+
+
+## -- Milestone C: the ruins and the expedition loop --
+
+## The zone entry for `zone_id`: one of the four settlement zones, or the ruins.
+func _zone(zone_id: String) -> Dictionary:
+	if zone_id == "ruins":
+		return ruins
+	return zones[zone_id]
+
+
+## Builds the ruins zone (a fifth test_map.tscn, offset well clear of the settlement zones), its
+## enemy director, the expedition controller and the prompt.
+func _build_ruins_zone() -> void:
+	var map: Node2D = MapScene.instantiate()
+	map.name = "RuinsMap"
+	map.zone_id = "ruins"
+	map.position = Vector2(0, 4096)
+	add_child(map)
+	move_child(map, get_node("RanchMap").get_index() + 1)
+	var director: Node2D = EnemiesScript.new()
+	director.name = "Enemies"
+	map.add_child(director)
+	director.setup(map, map.get_node("Objects"), player)
+	ruins = {"map": map, "farm": map.get_node("Farm"), "structures": map.get_node("Structures"),
+		"npcs": map.get_node("Npcs"), "objects": map.get_node("Objects"), "enemies": director}
+	confirm_ui = ConfirmUIScript.new()
+	confirm_ui.name = "ConfirmUI"
+	add_child(confirm_ui)
+	player.confirm_ui = confirm_ui
+	expedition = ExpeditionScript.new()
+	expedition.name = "Expedition"
+	add_child(expedition)
+	expedition.bind(self, player, map, ruins["objects"], director)
+	expedition.level_entered.connect(_on_level_entered)
+	expedition.ended.connect(_on_expedition_ended)
+	hud.expedition = expedition
+	hud.truck_position = func() -> Variant:
+		if not expedition.active or not expedition.level.has("truck"):
+			return null
+		return map.get_global_cell_center(Vector2i(expedition.level["truck"])) + Vector2(16, 0)
+	director.combat_changed.connect(func(active: bool) -> void:
+		sound_director.set_override("combat" if active else ""))
+	ruins["objects"].vehicle_used.connect(_on_vehicle_used)
+	ruins["objects"].descent_used.connect(_on_descent_used)
+	player.died.connect(_on_player_died)
+	player.note_read_requested.connect(_read_note)
+
+
+## Kael's truck parks at the path zone's north checkpoint; older saves predate it.
+func _ensure_home_truck() -> void:
+	var objects: Node = zones[ExpeditionScript.HOME_TRUCK_ZONE]["objects"]
+	if objects.count_kinds(["kaels_truck"]) == 0:
+		objects.add_generated("kaels_truck", ExpeditionScript.HOME_TRUCK_ANCHOR)
+
+
+## Called by the expedition (inside the fade) once a level is built: put the player in it.
+func enter_ruins(entry_cell: Vector2i) -> void:
+	_bind_zone("ruins", entry_cell)
+	player.facing = "south"
+	if expedition.depth >= 3:
+		sound_director.set_zone("ruins_deep")
+
+
+## Called by the expedition (inside the fade): back to `zone_id` at `cell`.
+func leave_ruins(zone_id: String, cell: Vector2i) -> void:
+	sound_director.set_override("")
+	_bind_zone(zone_id, cell)
+
+
+func _on_vehicle_used(zone: String) -> void:
+	if zone == "ruins":
+		var n := ExpeditionScript.ledger_total(expedition.ledger)
+		confirm_ui.ask("Head home?", "Kael's engine is running. You're carrying %d %s you found out here."
+				% [n, "thing" if n == 1 else "things"], ["Head home", "Keep looking"],
+			func(choice: int) -> void:
+				if choice == 0:
+					player.begin_zone_transition()
+					zone_fade.play(expedition.extract))
+		return
+	if DayManager.minutes_into_day >= 22.0 * 60.0:
+		confirm_ui.show_text("Too late", "Kael shakes his head. \"Not at this hour. Come back in the morning.\"")
+		return
+	confirm_ui.ask("Ride out with Kael?", "Kael can run you out to the ruined city. What you scavenge is yours if you make it back to the truck. Go down out there and you lose it all.",
+		["Ride out", "Not yet"], func(choice: int) -> void:
+			if choice == 0:
+				player.begin_zone_transition()
+				zone_fade.play(expedition.depart))
+
+
+func _on_descent_used() -> void:
+	var next: int = expedition.depth + 1
+	confirm_ui.ask("Go deeper?", "Down the stairs: %s. Meaner things, hotter air, better salvage. Kael will meet you there."
+			% ExpeditionScript.district_name(next), ["Go deeper", "Stay"],
+		func(choice: int) -> void:
+			if choice == 0:
+				player.begin_zone_transition()
+				zone_fade.play(expedition.descend))
+
+
+func _on_level_entered(depth: int, level_name: String) -> void:
+	hud.show_banner(level_name, "Depth %d" % depth)
+	if expedition.runs == 1 and depth == 1:
+		Events.message.emit("Swing with Space or left-click. When something winds up, step back.")
+	elif depth == 3 and expedition.max_depth == 3:
+		Events.message.emit("The air tastes of metal down here. Watch your rads.")
+
+
+func _on_expedition_ended(success: bool, summary: Dictionary) -> void:
+	if success:
+		Events.message.emit("Home safe: %d things scavenged, %d kills." % [int(summary["items"]), int(summary["kills"])])
+
+
+## Went down in the ruins (or collapsed at 2 AM out there): a beat on the ground, then Kael
+## carries you home. You wake the next morning at 10% HP, without anything found out there.
+func _on_player_died() -> void:
+	if not expedition.active:
+		player.revive(maxf(1.0, player.effective_max_hp() * ExpeditionScript.DEATH_HP_FRACTION))
+		return
+	Audio.play_stinger("stinger_death", -2.0)
+	hud.show_banner("You went down...", "Everything goes dark")
+	player.begin_zone_transition()
+	get_tree().create_timer(1.6).timeout.connect(func() -> void: zone_fade.play(_carry_home))
+
+
+func _carry_home() -> void:
+	hud.hide_banner()
+	var summary: Dictionary = expedition.fail()
+	sound_director.set_override("")
+	_bind_zone("farm")
+	player.revive(maxf(1.0, player.effective_max_hp() * ExpeditionScript.DEATH_HP_FRACTION))
+	player.end_day(false)
+	var lost: Dictionary = summary.get("lost", {})
+	var lost_n := ExpeditionScript.ledger_total(lost)
+	var body := "Kael found you face-down in the rubble and drove you home. You slept through to morning."
+	if lost_n > 0:
+		body += " Everything you scavenged out there (%d %s) is gone." % [lost_n, "thing" if lost_n == 1 else "things"]
+	confirm_ui.show_text("You wake up at home", body)
+
+
+## Reads a lore note from the pack: the next unread note this player has earned (by the
+## deepest district reached), in the reader panel. A blueprint teaches a recipe instead.
+func _read_note(item_id: String = "lore_note") -> void:
+	if item_id == "blueprint":
+		_read_blueprint()
+		return
+	if player.inventory.count_of("lore_note") <= 0:
+		return
+	var note: Dictionary = {}
+	if ResourceLoader.exists("res://scripts/lore_db.gd"):
+		var lore: GDScript = load("res://scripts/lore_db.gd")
+		var got = lore.call("next_unread", expedition.notes_read, maxi(expedition.max_depth, 1))
+		if got is Dictionary:
+			note = got
+	if note.is_empty():
+		confirm_ui.show_text("A scrap of paper", "Too water-stained to read. Whatever it said is gone.")
+		player.inventory.remove_item("lore_note", 1)
+		return
+	if confirm_ui.show_text(String(note.get("title", "A note")), String(note.get("text", ""))):
+		player.inventory.remove_item("lore_note", 1)
+		expedition.notes_read.append(String(note.get("id", "")))
+		Audio.play_sfx("ui_open", -4.0)
+
+
+## A pre-war blueprint teaches one recipe the player doesn't know yet (random among those
+## left); once every blueprint is known, it's still worth some Crafting XP.
+func _read_blueprint() -> void:
+	if player.inventory.count_of("blueprint") <= 0:
+		return
+	var recipe_db: GDScript = load("res://scripts/recipe_db.gd")
+	var unknown: Array = []
+	for id in recipe_db.call("blueprint_recipes"):
+		if not skills.knows_blueprint(String(id)):
+			unknown.append(String(id))
+	var title := "Pre-war plans"
+	var body := ""
+	if unknown.is_empty():
+		body = "Plans for things you already know how to build. You study them anyway and pick up a trick or two."
+		Events.xp_gained.emit("crafting", 25)
+	else:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash([DayManager.day, skills.blueprints.size(), GameState.chosen_settlement_id])
+		var id: String = unknown[rng.randi_range(0, unknown.size() - 1)]
+		skills.learn_blueprint(id)
+		var item_name := String(load("res://scripts/item_db.gd").call("display_name", recipe_db.call("result_item", id)))
+		title = "Blueprint: " + item_name
+		body = "Faded pre-war plans, still readable. You can craft the %s now (menu, CRAFT tab, %s)." \
+			% [item_name, String(recipe_db.call("category", id))]
+		Events.xp_gained.emit("crafting", 10)
+	if confirm_ui.show_text(title, body):
+		player.inventory.remove_item("blueprint", 1)
+		Audio.play_sfx("achievement", -4.0)

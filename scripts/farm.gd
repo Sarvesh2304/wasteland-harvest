@@ -54,6 +54,8 @@ func _season() -> String:
 ## -- Tilling --
 
 func can_till(cell: Vector2i) -> bool:
+	if String(_test_map.get("zone_id")) == "ruins":
+		return false  # Milestone C: nothing grows in the ruins (and every farming action needs tilled soil)
 	if _plots.has(cell) or _test_map.is_tilled_at(cell) or _test_map.is_blocked_at(cell):
 		return false
 	if _test_map.has_method("has_floor") and _test_map.has_floor(cell):

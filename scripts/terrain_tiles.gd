@@ -75,11 +75,26 @@ static func base_set() -> TileSet:
 		_base_set.add_source(src, i)
 		for v in 8:
 			src.create_tile(Vector2i(v, 0))
+	if ResourceLoader.exists(TERRAIN_DIR + "ruins_ground.png"):
+		var ruins := _atlas(load(TERRAIN_DIR + "ruins_ground.png"))
+		_base_set.add_source(ruins, RUINS_SOURCE)
+		for v in 8:
+			ruins.create_tile(Vector2i(v, 0))
 	return _base_set
 
 
 static func season_source(season: String) -> int:
 	return maxi(SEASONS.find(season), 0)
+
+
+## The ruins' ash ground (Milestone C): source RUINS_SOURCE in the base set when its sheet
+## exists, else the winter grass stands in (grey, dead-looking).
+const RUINS_SOURCE := 4
+
+
+static func ruins_source() -> int:
+	base_set()
+	return RUINS_SOURCE if _base_set.has_source(RUINS_SOURCE) else season_source("winter")
 
 
 static func plank_set() -> TileSet:

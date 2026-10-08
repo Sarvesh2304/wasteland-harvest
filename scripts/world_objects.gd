@@ -30,6 +30,11 @@ signal object_removed(anchor: Vector2i, kind: String)
 ## A placed chest was opened (Milestone B): main.gd routes this to the storage UI.
 signal storage_opened(inventory, cell: Vector2i)
 signal object_added(anchor: Vector2i, kind: String)
+## Milestone C: Kael's truck was used (main.gd: ride out from the settlement / head home from
+## the ruins), the subway stairs were taken, a container was searched.
+signal vehicle_used(zone: String)
+signal descent_used
+signal container_searched(kind: String)
 
 const CELL := 16
 
@@ -69,6 +74,8 @@ var _faded: Dictionary = {}
 ## "machine": {output, count, ready_at, input, input_count} or {}, "days": passive counter}.
 var _extra: Dictionary = {}
 var _machine_clock := 0.0
+## Milestone C: containers already searched (anchor -> true).
+var _opened: Dictionary = {}
 
 
 func _ready() -> void:
@@ -133,6 +140,8 @@ func all_objects() -> Dictionary:
 ## Whether `kind` could be placed with its top-left at `anchor` (in bounds, free terrain, no
 ## other object/plot/structure, not tilled soil).
 func can_place(kind: String, anchor: Vector2i, for_player: bool = false) -> bool:
+	if for_player and zone_id() == "ruins":
+		return false  # the ruins are rebuilt every expedition: nothing the player sets down survives
 	var size := WorldObjectDB.size_of(kind)
 	var map_size: Vector2i = _test_map.layout.size()
 	for dy in size.y:
@@ -164,6 +173,22 @@ func place(kind: String, anchor: Vector2i, variant: int = 0, hp: int = -1) -> bo
 	if not can_place(kind, anchor):
 		return false
 	_add(kind, anchor, variant, hp)
+	return true
+
+
+## Puts a generated ruins object down as-is (main.gd's expedition loader: the generator already
+## validated the footprint). `tier` is a container's loot tier. False if anything's in the way.
+func add_generated(kind: String, anchor: Vector2i, tier: int = 1) -> bool:
+	if not WorldObjectDB.has_kind(kind):
+		return false
+	var size := WorldObjectDB.size_of(kind)
+	for dy in size.y:
+		for dx in size.x:
+			if _occupancy.has(anchor + Vector2i(dx, dy)):
+				return false
+	_add(kind, anchor, 1)
+	if WorldObjectDB.container_of(kind) != "":
+		_objects[anchor]["tier"] = tier
 	return true
 
 
@@ -206,6 +231,7 @@ func remove(anchor: Vector2i) -> void:
 			_occupancy.erase(anchor + Vector2i(dx, dy))
 	_objects.erase(anchor)
 	_extra.erase(anchor)
+	_opened.erase(anchor)
 	var node: Node = _nodes.get(anchor)
 	if node != null:
 		node.queue_free()
@@ -217,6 +243,13 @@ func remove(anchor: Vector2i) -> void:
 func clear_all() -> void:
 	for anchor in _objects.keys():
 		remove(anchor)
+
+
+## Milestone C: removes every loose pickup lying in this zone (the ruins between levels).
+func clear_pickups() -> void:
+	for child in get_children():
+		if child is Pickup:
+			child.queue_free()
 
 
 ## -- Interaction --
@@ -678,14 +711,17 @@ func _process(delta: float) -> void:
 	var p: Vector2 = (players[0] as Node2D).global_position
 	for anchor in _nodes:
 		var obj: Dictionary = _objects.get(anchor, {})
-		if obj.is_empty() or not WorldObjectDB.falls(String(obj["kind"])):
+		if obj.is_empty() or not WorldObjectDB.fades(String(obj["kind"])):
 			continue
 		var node: Node2D = _nodes[anchor]
 		var base: Vector2 = node.global_position
-		var behind: bool = p.y < base.y - 2.0 and p.y > base.y - 60.0 and absf(p.x - base.x) < 22.0
 		var sprite: Sprite2D = node.get_node_or_null("Sprite")
 		if sprite == null:
 			continue
+		# Behind = above the footprint's ground line, within the sprite's height and half-width.
+		var half_w := maxf(22.0, sprite.texture.get_width() / float(sprite.hframes) * 0.5 - 4.0)
+		var tall := maxf(60.0, sprite.texture.get_height() - 4.0)
+		var behind: bool = p.y < base.y - 2.0 and p.y > base.y - tall and absf(p.x - base.x) < half_w
 		if behind and not _faded.has(anchor):
 			_faded[anchor] = true
 			sprite.modulate.a = 0.55
@@ -761,12 +797,60 @@ func _storage_empty(anchor: Vector2i) -> bool:
 	return true
 
 
+## Searches a ruins container once: its loot (scripts/loot_db.gd, by the container's table and
+## tier) spills out toward the player, the sprite shows its searched frame, scavenging XP.
+func _search(anchor: Vector2i, player) -> void:
+	var kind := String(_objects[anchor]["kind"])
+	_opened[anchor] = true
+	var node: Node2D = _nodes.get(anchor)
+	var sprite: Sprite2D = node.get_node_or_null("Sprite") if node != null else null
+	if sprite != null and sprite.hframes > 1:
+		sprite.frame = 1
+	elif sprite != null:
+		sprite.modulate = Color(0.78, 0.78, 0.78, 1.0)
+	var center := _center_world(kind, anchor)
+	Audio.play_sfx_at("container_open", center, -2.0)
+	Fx.burst(center + Vector2(0, -6), "dust", Vector2.UP, 0.7)
+	if node != null:
+		Fx.wobble(node, 1.0, 0.15)
+	var toward: Vector2 = Vector2.DOWN
+	if player != null and player is Node2D:
+		toward = ((player as Node2D).global_position - center).normalized()
+	var drops := _roll_container(WorldObjectDB.container_of(kind), int(_objects[anchor].get("tier", 1)))
+	if drops.is_empty():
+		Fx.float_text(center + Vector2(0, -18), "Nothing useful", Color("#b5a98c"))
+	for i in drops.size():
+		var d: Dictionary = drops[i]
+		spawn_pickup(String(d["item_id"]), int(d["count"]), center + Vector2(0, -4),
+			toward.rotated(_rng.randf_range(-0.6, 0.6)), 0.05 * i)
+	Events.xp_gained.emit("scavenging", 3)
+	container_searched.emit(kind)
+
+
+func _roll_container(table_id: String, tier: int) -> Array:
+	if table_id == "" or not ResourceLoader.exists("res://scripts/loot_db.gd"):
+		return []
+	var loot_db: GDScript = load("res://scripts/loot_db.gd")
+	var out = loot_db.call("roll", table_id, tier, _rng)
+	return out if out is Array else []
+
+
+func is_opened(cell: Vector2i) -> bool:
+	return _opened.has(anchor_of(cell))
+
+
 ## What Interact would do at `cell` with `held_item` selected: "Open", "Collect", "Load" or "".
 func instant_verb(cell: Vector2i, held_item: String) -> String:
 	if not _occupancy.has(cell):
 		return ""
 	var anchor: Vector2i = _occupancy[cell]
 	var kind := String(_objects[anchor]["kind"])
+	if WorldObjectDB.container_of(kind) != "":
+		return "" if _opened.has(anchor) else "Search"
+	if WorldObjectDB.is_vehicle(kind):
+		return "Head home" if zone_id() == "ruins" else "Ride out"
+	if WorldObjectDB.is_descent(kind):
+		return "Go deeper"
 	if not WorldObjectDB.is_placed(kind):
 		return ""
 	if WorldObjectDB.storage_size(kind) > 0:
@@ -789,6 +873,16 @@ func interact_placed(cell: Vector2i, player) -> bool:
 		return false
 	var anchor: Vector2i = _occupancy[cell]
 	var kind := String(_objects[anchor]["kind"])
+	if WorldObjectDB.container_of(kind) != "":
+		if not _opened.has(anchor):
+			_search(anchor, player)
+		return true
+	if WorldObjectDB.is_vehicle(kind):
+		vehicle_used.emit(zone_id())
+		return true
+	if WorldObjectDB.is_descent(kind):
+		descent_used.emit()
+		return true
 	if not WorldObjectDB.is_placed(kind):
 		return false
 	var center := _center_world(kind, anchor)

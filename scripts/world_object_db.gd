@@ -174,6 +174,33 @@ static func is_placed(kind: String) -> bool:
 	return bool(get_kind(kind).get("placed", false))
 
 
+## -- Ruins kinds (Milestone C, 2026-10-07) --
+
+## The loot table a searchable container rolls ("" = not a container).
+static func container_of(kind: String) -> String:
+	return String(get_kind(kind).get("container", ""))
+
+
+## Kael's truck: rides out to the ruins from the settlement, and home again from the ruins.
+static func is_vehicle(kind: String) -> bool:
+	return bool(get_kind(kind).get("vehicle", false))
+
+
+## The subway stairs: the way deeper into the city.
+static func is_descent(kind: String) -> bool:
+	return bool(get_kind(kind).get("descent", false))
+
+
+## Rads/second a kind gives off at its centre (0 = none).
+static func rad_of(kind: String) -> float:
+	return float(get_kind(kind).get("rad", 0.0))
+
+
+## Big kinds that go translucent while the player walks behind them.
+static func fades(kind: String) -> bool:
+	return bool(get_kind(kind).get("fade", false)) or falls(kind)
+
+
 ## The item a placed kind was made from (and drops when picked up).
 static func item_of(kind: String) -> String:
 	return String(get_kind(kind).get("item", ""))

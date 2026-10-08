@@ -27,6 +27,8 @@ const CropDB := preload("res://scripts/crop_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const DayManagerScript := preload("res://scripts/day_manager.gd")
 const WorldObjectDB := preload("res://scripts/world_object_db.gd")
+const Combat := preload("res://scripts/combat.gd")
+const Radiation := preload("res://scripts/radiation.gd")
 
 signal energy_changed(current: float, max_energy: float)
 signal npc_dialogue_requested(npc: Node)
@@ -35,6 +37,13 @@ signal shipping_box_requested
 signal zone_exit_requested(target_zone: String, entry_cell: Vector2i)
 ## The tile the player is aiming at changed (target_cursor.gd and the HUD prompt listen).
 signal target_changed(cell: Vector2i)
+## Milestone C: health, radiation, gear and death (the HUD and main.gd's expedition flow listen).
+signal hp_changed(current: float, max_hp: float)
+signal rads_changed(rads: float)
+signal equipment_changed
+signal died
+## A lore note or blueprint from the pack wants reading (main.gd shows it): `item_id` is which.
+signal note_read_requested(item_id: String)
 
 ## ~3.5 tiles/second at 16 px tiles — Stardew's walk feel.
 const SPEED := 56.0
@@ -79,6 +88,27 @@ var credits := 0
 var using_tool := false
 var stay_awake_tonight := false
 
+## -- Milestone C: health, radiation, gear --
+const BASE_MAX_HP := 100.0
+var max_hp := BASE_MAX_HP
+var hp := BASE_MAX_HP
+## Radiation exposure, 0..Radiation.MAX_RADS: shrinks the HP/energy ceilings (scripts/radiation.gd).
+var rads := 0.0
+var dead := false
+## Worn gear by slot (item ids, "" = nothing): armour, rad resistance, speed.
+var equipment := {"head": "", "body": "", "feet": ""}
+## The active zone's enemy director (scripts/enemies.gd), or null outside the ruins.
+var enemies: Node = null
+## Background rads/second where the player is (set by main.gd's expedition flow per level).
+var ambient_rads := 0.0
+var _iframes := 0.0
+var _knock := Vector2.ZERO
+var _attack_cd := 0.0
+var _boost_until := 0.0
+var _boost_mult := 1.0
+var _geiger_acc := 0.0
+var _hp_emit_acc := 0.0
+
 var _instant_armed := true
 var _interact_armed := true
 var _modal_open_last_frame := false
@@ -110,6 +140,8 @@ var shipping_ui: Node = null
 var menu_screen: Node = null
 ## Milestone B: the chest/storage screen (scripts/storage_ui.gd).
 var storage_ui: Node = null
+## Milestone C: the yes/no prompt and note reader (scripts/confirm_ui.gd).
+var confirm_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -124,8 +156,22 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_iframes = maxf(_iframes - delta, 0.0)
+	_attack_cd = maxf(_attack_cd - delta, 0.0)
+	_blink()
+	if dead:
+		velocity = Vector2.ZERO
+		return
 	var modal_open := _in_dialogue() or _in_store() or _in_shipping() or _in_build_mode() \
-		or _in_menu() or _in_storage()
+		or _in_menu() or _in_storage() or _in_confirm()
+	if not modal_open and not _zone_transitioning:
+		_tick_hazards(delta)
+	# A hit's knockback overrides control (and any swing) for a moment.
+	if _knock.length_squared() > 25.0:
+		velocity = _knock
+		move_and_slide()
+		_knock = _knock.move_toward(Vector2.ZERO, 900.0 * delta)
+		return
 	var use_pressed := _use_pressed()
 	_instant_armed = instant_armed_next(_instant_armed, use_pressed, modal_open, _modal_open_last_frame)
 	_interact_armed = instant_armed_next(_interact_armed, Input.is_action_pressed("interact"),
@@ -136,7 +182,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 	if _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage() \
-			or _zone_transitioning:
+			or _in_confirm() or _zone_transitioning:
 		velocity = Vector2.ZERO
 		return
 	if test_map != null:
@@ -155,7 +201,8 @@ func _physics_process(delta: float) -> void:
 		if _interact_armed:
 			_interact_armed = false
 			interact()
-			if using_tool or _in_dialogue() or _in_store() or _in_shipping() or _in_storage():
+			if using_tool or _in_dialogue() or _in_store() or _in_shipping() or _in_storage() \
+					or _in_confirm():
 				velocity = Vector2.ZERO
 				return
 	if use_pressed and not _in_build_mode():
@@ -191,7 +238,10 @@ func _mouse_over_ui() -> bool:
 
 
 func _speed_multiplier() -> float:
-	return 1.0
+	var mult := 1.0 + float(_gear_total("speed_bonus"))
+	if _now() < _boost_until:
+		mult *= _boost_mult
+	return mult
 
 
 func _tick_footsteps(delta: float, moving: bool) -> void:
@@ -264,7 +314,8 @@ func _now() -> float:
 
 
 func _in_any_modal() -> bool:
-	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage()
+	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage() \
+		or _in_confirm()
 
 
 func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
@@ -276,6 +327,7 @@ func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
 	objects = objects_node
 	if objects == null and map_node != null:
 		objects = map_node.get_node_or_null("Objects")
+	enemies = map_node.get_node_or_null("Enemies") if map_node != null else null
 
 
 ## -- Targeting --
@@ -362,6 +414,17 @@ func describe_action() -> Dictionary:
 	var slot := inventory.get_selected_slot()
 	var item_id := String(slot.get("item_id", ""))
 	var kind := ItemDB.tool_kind(item_id)
+	if ItemDB.item_type(item_id) == "equipment":
+		out["use"] = "Equip"
+		out["interact"] = "Equip"
+		return out
+	if item_id == "lore_note" or item_id == "blueprint":
+		out["use"] = "Read"
+		out["interact"] = "Read"
+		return out
+	if ItemDB.is_weapon(item_id) and enemies != null:
+		out["use"] = "Attack" if ItemDB.get_item(item_id).get("weapon_class", "") != "ranged" else "Fire"
+		return out
 	if farm.is_dead(cell) and (kind != "" or item_id == ""):
 		out["use"] = "Clear"
 		out["interact"] = "Clear"
@@ -490,6 +553,10 @@ func interact() -> void:
 		_resolve_use(cell)
 	elif ItemDB.is_consumable(item_id):
 		_consume_food(item_id)
+	elif ItemDB.item_type(item_id) == "equipment":
+		equip(item_id)
+	elif item_id == "lore_note" or item_id == "blueprint":
+		note_read_requested.emit(item_id)
 
 
 func _do_instant(cell: Vector2i) -> void:
@@ -525,6 +592,15 @@ func _resolve_use(cell: Vector2i) -> void:
 	var kind := ItemDB.tool_kind(item_id)
 	var tier := inventory.selected_tool_tier()
 	var is_weapon := ItemDB.is_weapon(item_id)
+	if is_weapon:
+		_attack(item_id)
+		return
+	if ItemDB.item_type(item_id) == "equipment":
+		equip(item_id)
+		return
+	if item_id == "lore_note" or item_id == "blueprint":
+		note_read_requested.emit(item_id)
+		return
 	if farm.is_dead(cell) and (kind != "" or is_weapon):
 		_swing()
 		farm.clear_dead(cell)
@@ -763,6 +839,9 @@ func _on_time_advanced(prev_minutes: float, new_minutes: float) -> void:
 
 
 func _pass_out() -> void:
+	if current_zone_id == "ruins":
+		_die()  # collapsing out there is as bad as going down: main.gd's expedition flow
+		return
 	_end_day()
 
 
@@ -770,12 +849,22 @@ func _sleep_in_bed() -> void:
 	_end_day()
 
 
-## The one way a day ends: jump to 6 AM (day_started fires), wake rested, auto-save.
-func _end_day() -> void:
+## main.gd's expedition flow: end the day after Kael carries the player home.
+func end_day(full_rest: bool = true) -> void:
+	_end_day(full_rest)
+
+
+## The one way a day ends: jump to 6 AM (day_started fires), wake rested, auto-save. After a
+## collapse in the ruins (`full_rest` false) you wake with half energy and your HP as it was.
+func _end_day(full_rest: bool = true) -> void:
 	stay_awake_tonight = false
 	DayManager.skip_to_next_morning()
-	energy = max_energy
+	set_rads(Radiation.after_sleep(rads))
+	energy = max_energy if full_rest else max_energy * 0.5
 	energy_changed.emit(energy, max_energy)
+	if not dead and full_rest:
+		hp = effective_max_hp()
+		hp_changed.emit(hp, effective_max_hp())
 	_refill_cans()
 	if not zones.is_empty():
 		GameState.save_game(self, zones, settlers, animals, affinity)
@@ -816,8 +905,19 @@ func _in_storage() -> bool:
 	return storage_ui != null and bool(storage_ui.active)
 
 
+func _in_confirm() -> bool:
+	return confirm_ui != null and bool(confirm_ui.active)
+
+
 func end_zone_transition() -> void:
 	_zone_transitioning = false
+
+
+## Freezes the player for a scripted transition (main.gd's expedition fades); released by
+## end_zone_transition when the new zone is bound.
+func begin_zone_transition() -> void:
+	_zone_transitioning = true
+	velocity = Vector2.ZERO
 
 
 ## Kept for older tools/tests: resolves a USE action at an explicit cell.
@@ -825,17 +925,45 @@ func _interact(cell: Vector2i) -> void:
 	_resolve_use(cell)
 
 
-## Eats/uses one of the selected consumable: energy, HP, rads, and coffee's stay-awake charge.
+## Eats/uses one of the selected consumable: energy, HP, rads, a speed boost, and coffee's
+## stay-awake charge. Medicine that would do nothing (a bandage at full health, a purifier with
+## no rads) stays in the pack.
 func _consume_food(item_id: String) -> void:
+	var heals := ItemDB.hp_restored(item_id)
+	var cleans := ItemDB.rad_removed(item_id)
+	var restored := ItemDB.energy_restored(item_id)
+	var boost := float(ItemDB.get_item(item_id).get("speed_boost", 0.0))
+	if ItemDB.item_type(item_id) == "medicine" and restored <= 0 and boost <= 0.0:
+		var useful := (heals > 0 and hp < effective_max_hp()) or (cleans > 0 and rads > 0.0)
+		if not useful:
+			Fx.float_text(hit_center() + Vector2(0, -16), "Not needed", Color("#ffedb1"))
+			Audio.play_sfx("ui_error", -8.0)
+			return
 	if inventory.remove_item(item_id, 1) != 1:
 		return
 	if ItemDB.grants_stay_awake(item_id):
 		stay_awake_tonight = true
-	var restored := ItemDB.energy_restored(item_id)
 	if restored > 0:
 		set_energy(energy + float(restored))
+	if heals > 0:
+		heal(float(heals))
+	if cleans > 0:
+		set_rads(rads - float(cleans))
+	if boost > 0.0:
+		_boost_mult = boost
+		_boost_until = _now() + 60.0
 	Audio.play_sfx("eat" if ItemDB.is_edible(item_id) else "heal", -2.0)
-	Fx.float_text(global_position + Vector2(0, -22), "+%d" % restored if restored > 0 else "", Color("#95ac49"))
+	var text := ""
+	if heals > 0:
+		text = "+%d HP" % heals
+	elif cleans > 0:
+		text = "-%d rads" % cleans
+	elif restored > 0:
+		text = "+%d" % restored
+	Fx.float_text(global_position + Vector2(0, -22), text,
+		Color("#e84030") if heals > 0 else (Color("#86e83e") if cleans > 0 else Color("#95ac49")))
+	if heals > 0:
+		Fx.burst(hit_center(), "heart", Vector2.UP, 0.6)
 	_lock_for(0.35)
 	_squash()
 
@@ -870,6 +998,9 @@ func save_state() -> Dictionary:
 		"credits": credits,
 		"current_zone": current_zone_id,
 		"inventory": SaveData.encode_inventory(inventory.slots, inventory.selected_hotbar_index),
+		"hp": hp,
+		"rads": rads,
+		"equipment": equipment.duplicate(),
 	}
 
 
@@ -884,6 +1015,16 @@ func load_state(data: Dictionary) -> void:
 	energy_changed.emit(energy, max_energy)
 	credits = int(data.get("credits", 0))
 	credits_changed.emit(credits)
+	var gear = data.get("equipment", {})
+	if gear is Dictionary:
+		for slot in equipment:
+			var id := String((gear as Dictionary).get(slot, ""))
+			equipment[slot] = id if ItemDB.has_item(id) else ""
+	equipment_changed.emit()
+	rads = Radiation.clamp_rads(float(data.get("rads", 0.0)))
+	rads_changed.emit(rads)
+	hp = clampf(float(data.get("hp", effective_max_hp())), 1.0, effective_max_hp())
+	hp_changed.emit(hp, effective_max_hp())
 	var inventory_data = data.get("inventory", {})
 	if inventory_data is Dictionary and not (inventory_data as Dictionary).is_empty():
 		var decoded := SaveData.decode_inventory(inventory_data)
@@ -901,6 +1042,329 @@ func _give_starting_loadout() -> void:
 	for tool_id in ["hoe", "watering_can", "axe", "pickaxe", "scythe"]:
 		inventory.add_tool(tool_id, 1)
 	inventory.add_item("seed_rain_radish", 15)
+
+
+## -- Combat (Milestone C) --
+
+## The player's body centre (hit tests, projectiles, effects).
+func hit_center() -> Vector2:
+	return global_position + Vector2(0, -4)
+
+
+## Swing or fire the weapon in hand toward the aim (mouse when it's in charge, else facing).
+func _attack(item_id: String) -> void:
+	var item := ItemDB.get_item(item_id)
+	var aim := _aim_vector()
+	facing = facing_from_input(aim, facing)
+	if String(item.get("weapon_class", "melee")) == "ranged":
+		_fire(item_id, item, aim)
+	else:
+		_melee(item_id, item, aim)
+
+
+func _aim_vector() -> Vector2:
+	if mouse_aiming():
+		var v := get_global_mouse_position() - hit_center()
+		if v.length() > 2.0:
+			return v.normalized()
+	return FACING_VECTORS.get(facing, Vector2.DOWN)
+
+
+func _melee(item_id: String, item: Dictionary, aim: Vector2) -> void:
+	var reach := float(item.get("reach", 18))
+	_swing_timed(Combat.swing_seconds(item_id))
+	set_energy(energy - Combat.ENERGY_PER_SWING)
+	Audio.play_sfx("swing", -3.0, 0.1)
+	_slash_fx(aim)
+	var hits := 0
+	if enemies != null:
+		hits = enemies.melee_attack(hit_center(), aim, reach, int(item.get("damage", 5)),
+			float(item.get("knockback", 80)), _damage_multiplier())
+		enemies.noise(global_position, Combat.NOISE_MELEE)
+	if hits > 0:
+		Audio.play_sfx("hit", -2.0)
+		Fx.shake(1.0 + 0.5 * hits, 0.08)
+		_hitstop(0.045)
+		return
+	# Nothing in the arc: the swing still clears junk and weeds at the target, like before.
+	var cell := _target_cell()
+	if farm != null and farm.is_dead(cell):
+		farm.clear_dead(cell)
+	elif objects != null and objects.has_object(cell) and not objects.is_forage_at(cell):
+		var result: Dictionary = objects.hit(cell, "weapon", inventory.selected_tool_tier(), global_position)
+		if String(result.get("result", "")) == "destroyed" and enemies != null:
+			enemies.set_cell_solid(cell, false)
+
+
+func _fire(item_id: String, item: Dictionary, aim: Vector2) -> void:
+	if _attack_cd > 0.0:
+		return
+	var ammo := String(item.get("ammo_item", ""))
+	if ammo != "" and inventory.count_of(ammo) <= 0:
+		Audio.play_sfx("gun_empty", -2.0)
+		Fx.float_text(hit_center() + Vector2(0, -16), "No %s" % ItemDB.display_name(ammo), Color("#ffb72d"))
+		_attack_cd = 0.4
+		_lock_for(0.15)
+		return
+	if ammo != "":
+		inventory.remove_item(ammo, 1)
+	_attack_cd = float(item.get("cooldown", 0.5))
+	_lock_for(0.14)
+	_play("tool")
+	Audio.play_sfx(_shot_sound(ammo), -1.0, 0.06)
+	var muzzle := hit_center() + aim * 9.0
+	var loud := Combat.noise_radius(item_id) >= Combat.NOISE_GUNSHOT
+	_muzzle_fx(muzzle, aim, loud)
+	if loud:
+		Fx.shake(1.6, 0.07)
+	if enemies != null:
+		enemies.fire_player_shot(hit_center() + aim * 4.0, aim, item_id, _damage_multiplier())
+
+
+func _shot_sound(ammo: String) -> String:
+	match ammo:
+		"crossbow_bolt":
+			return "crossbow"
+		"stone":
+			return "slingshot"
+		"rifle_ammo":
+			return "gun_rifle"
+		"shotgun_shells":
+			return "gun_shotgun"
+	return "gun_pistol"
+
+
+## Plays the swing animation stretched or squeezed to last `seconds` (a weapon's cooldown).
+func _swing_timed(seconds: float) -> void:
+	_swing()
+	var anim := sprite.animation
+	if sprite.sprite_frames != null and sprite.sprite_frames.has_animation(anim):
+		var frames := sprite.sprite_frames.get_frame_count(anim)
+		var fps := sprite.sprite_frames.get_animation_speed(anim)
+		if frames > 0 and fps > 0.0:
+			sprite.speed_scale = (float(frames) / fps) / maxf(seconds, 0.1)
+
+
+func _slash_fx(aim: Vector2) -> void:
+	var path := "res://art/fx/slash.png"
+	if not ResourceLoader.exists(path):
+		Fx.burst(hit_center() + aim * 12.0, "dust", aim, 0.6)
+		return
+	var slash := Sprite2D.new()
+	slash.texture = load(path)
+	slash.hframes = 4
+	slash.centered = false
+	slash.offset = Vector2(0, -16)
+	slash.rotation = aim.angle()
+	slash.position = Vector2(0, -4)
+	slash.z_index = 6
+	add_child(slash)
+	var tw := slash.create_tween()
+	tw.tween_property(slash, "frame", 3, 0.16)
+	tw.tween_callback(slash.queue_free)
+
+
+func _muzzle_fx(at: Vector2, aim: Vector2, loud: bool) -> void:
+	var path := "res://art/fx/muzzle_flash.png"
+	if loud and ResourceLoader.exists(path):
+		var flash := Sprite2D.new()
+		flash.texture = load(path)
+		flash.hframes = 3
+		flash.rotation = aim.angle()
+		flash.z_index = 6
+		flash.position = at - global_position
+		add_child(flash)
+		var tw := flash.create_tween()
+		tw.tween_property(flash, "frame", 2, 0.08)
+		tw.tween_callback(flash.queue_free)
+	Fx.burst(at, "sparkle" if loud else "dust", aim, 0.35)
+
+
+## A beat of near-freeze on a solid hit, so it lands.
+func _hitstop(seconds: float) -> void:
+	if not is_inside_tree():
+		return
+	Engine.time_scale = 0.05
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(func() -> void:
+		Engine.time_scale = 1.0)
+
+
+func _combat_level() -> int:
+	return skills.level("combat") if skills != null else 0
+
+
+func _damage_multiplier() -> float:
+	return Combat.skill_damage_multiplier(_combat_level())
+
+
+## Hurt by an enemy, a shot or a blast. Ignored while invulnerable, dead or mid-transition.
+func take_hit(raw: int, from: Vector2, knockback: float, rads_in: float = 0.0) -> void:
+	if dead or _iframes > 0.0 or _zone_transitioning:
+		return
+	if rads_in > 0.0:
+		add_rads(rads_in)
+	var dmg := Combat.player_damage_taken(raw, armor(), _combat_level())
+	if dmg <= 0:
+		return
+	hp = maxf(hp - float(dmg), 0.0)
+	_iframes = Combat.PLAYER_IFRAMES
+	_knock = Combat.knockback_velocity(from, global_position, knockback, Combat.PLAYER_WEIGHT)
+	_stepping = false
+	Fx.flash(sprite, 0.12)
+	Fx.float_text(hit_center() + Vector2(0, -14), "-%d" % dmg, Color("#e84030"))
+	Fx.burst(hit_center(), "blood", (global_position - from).normalized(), 0.6)
+	Fx.shake(2.0, 0.15)
+	Audio.play_sfx("player_hurt", -1.0)
+	hp_changed.emit(hp, effective_max_hp())
+	if hp <= 0.0:
+		_die()
+
+
+func heal(amount: float) -> void:
+	if dead:
+		return
+	hp = minf(hp + amount, effective_max_hp())
+	hp_changed.emit(hp, effective_max_hp())
+
+
+## Sets HP directly (main.gd's death/respawn flow), clamped to the current ceiling.
+func set_hp(value: float) -> void:
+	hp = clampf(value, 0.0, effective_max_hp())
+	hp_changed.emit(hp, effective_max_hp())
+
+
+func effective_max_hp() -> float:
+	return Radiation.effective_max(max_hp, rads)
+
+
+## Exposure from the world, cut by worn gear.
+func add_rads(amount: float) -> void:
+	set_rads(rads + Radiation.absorbed(amount, rad_resist()))
+
+
+func set_rads(value: float) -> void:
+	var before := rads
+	rads = Radiation.clamp_rads(value)
+	if is_equal_approx(before, rads):
+		return
+	rads_changed.emit(rads)
+	if hp > effective_max_hp():
+		hp = effective_max_hp()
+	hp_changed.emit(hp, effective_max_hp())
+	if before < Radiation.WARN_AT and rads >= Radiation.WARN_AT:
+		Audio.play_sfx("rad_warning", -2.0)
+		Events.message.emit("You're irradiated. Your body won't hold as much.")
+	if before < Radiation.SICKNESS_AT and rads >= Radiation.SICKNESS_AT:
+		Audio.play_sfx("rad_warning", 0.0)
+		Events.message.emit("Radiation sickness. Get out, or find a purifier.")
+
+
+func _die() -> void:
+	if dead:
+		return
+	dead = true
+	using_tool = false
+	_stepping = false
+	velocity = Vector2.ZERO
+	_knock = Vector2.ZERO
+	sprite.speed_scale = 1.0
+	_play("idle")
+	sprite.rotation = deg_to_rad(90.0)
+	sprite.modulate = Color(1.0, 0.6, 0.6, 1.0)
+	Audio.play_sfx("player_death", 0.0)
+	died.emit()
+
+
+## Back on your feet (main.gd, after carrying the player home) at `hp_value`.
+func revive(hp_value: float) -> void:
+	dead = false
+	_iframes = 0.0
+	_knock = Vector2.ZERO
+	sprite.rotation = 0.0
+	sprite.modulate = Color.WHITE
+	set_hp(hp_value)
+	_play("idle")
+
+
+func _blink() -> void:
+	if sprite == null or dead:
+		return
+	sprite.self_modulate.a = 0.35 if _iframes > 0.0 and int(_iframes * 14.0) % 2 == 0 else 1.0
+
+
+## Radiation where the player stands (sources + background), the geiger, and sickness.
+func _tick_hazards(delta: float) -> void:
+	var rate := ambient_rads
+	if enemies != null and enemies.has_method("rad_rate_at"):
+		rate += float(enemies.rad_rate_at(global_position))
+	if rate > 0.0:
+		add_rads(rate * delta)
+		_geiger_acc += rate * delta * 6.0 + delta * 0.5
+		if _geiger_acc >= 1.0:
+			_geiger_acc = 0.0
+			Audio.play_sfx("geiger_tick", -6.0, 0.2)
+	if Radiation.is_sick(rads) and enemies != null and hp > 1.0:
+		hp = maxf(hp - Radiation.SICKNESS_HP_PER_SECOND * delta, 1.0)
+		_hp_emit_acc += delta
+		if _hp_emit_acc >= 0.5:
+			_hp_emit_acc = 0.0
+			hp_changed.emit(hp, effective_max_hp())
+
+
+## -- Gear --
+
+## Wears `item_id` (from the pack) in its slot; whatever was there goes back in the pack.
+func equip(item_id: String) -> bool:
+	var slot := String(ItemDB.get_item(item_id).get("slot", ""))
+	if not equipment.has(slot) or inventory.count_of(item_id) <= 0:
+		return false
+	var old := String(equipment[slot])
+	inventory.remove_item(item_id, 1)
+	equipment[slot] = item_id
+	if old != "":
+		var left := inventory.add_item(old, 1)
+		if left > 0 and objects != null:
+			objects.spawn_pickup(old, left, global_position)
+	Audio.play_sfx("ui_confirm", -4.0)
+	Fx.float_text(hit_center() + Vector2(0, -16), "Wearing " + ItemDB.display_name(item_id), Color("#ffedb1"))
+	equipment_changed.emit()
+	hp_changed.emit(hp, effective_max_hp())
+	_lock_for(0.25)
+	return true
+
+
+## Takes off whatever is in `slot` into the pack (if there's room).
+func unequip(slot: String) -> bool:
+	var id := String(equipment.get(slot, ""))
+	if id == "" or not inventory.can_add(id, 1):
+		return false
+	inventory.add_item(id, 1)
+	equipment[slot] = ""
+	equipment_changed.emit()
+	return true
+
+
+func armor() -> int:
+	return int(_gear_total("armor"))
+
+
+## Combined resistance of every worn piece (each cuts what the others let through).
+func rad_resist() -> float:
+	var through := 1.0
+	for slot in equipment:
+		var id := String(equipment[slot])
+		if id != "":
+			through *= 1.0 - clampf(float(ItemDB.get_item(id).get("rad_resist", 0.0)), 0.0, 0.9)
+	return 1.0 - through
+
+
+func _gear_total(field: String) -> float:
+	var total := 0.0
+	for slot in equipment:
+		var id := String(equipment[slot])
+		if id != "":
+			total += float(ItemDB.get_item(id).get(field, 0.0))
+	return total
 
 
 ## -- Pure rules (unit tested) --
@@ -956,6 +1420,7 @@ func _play(action: String) -> void:
 
 
 func _on_sprite_animation_finished() -> void:
+	sprite.speed_scale = 1.0
 	if using_tool:
 		using_tool = false
 		var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")

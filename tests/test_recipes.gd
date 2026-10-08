@@ -27,7 +27,11 @@ func test_every_recipe_points_at_real_items() -> void:
 		for item in RecipeDB.ingredients(id):
 			assert_true(ItemDB.has_item(item), "%s needs a real item (%s)" % [id, item])
 		for skill in RecipeDB.unlock(id):
-			assert_true(Skills.SKILLS.has(String(skill)), "%s unlocks on a real skill" % id)
+			var key := String(skill)
+			if key.begins_with(RecipeDB.BLUEPRINT_PREFIX):
+				assert_eq(key, RecipeDB.BLUEPRINT_PREFIX + id, "%s's blueprint key names itself" % id)
+			else:
+				assert_true(Skills.SKILLS.has(key), "%s unlocks on a real skill" % id)
 
 
 func test_every_placeable_and_crafted_item_has_a_recipe() -> void:
@@ -90,3 +94,13 @@ func test_tool_upgrade_rebuilds_the_tool_in_place() -> void:
 	p.inventory.add_item("metal_bar", 5)
 	assert_eq(Crafting.check("upgrade_axe_2", p.inventory, 999, {}), Crafting.NO_TOOL,
 		"and no tier-1 axe left to upgrade")
+
+
+func test_blueprint_recipes_unlock_only_when_learned() -> void:
+	var taught := RecipeDB.blueprint_recipes()
+	assert_true(taught.size() >= 6, "the ruins teach a real set of recipes (%d)" % taught.size())
+	assert_true(taught.has("machete") and taught.has("rad_suit"), "weapons and rad gear among them")
+	assert_false(RecipeDB.is_unlocked("machete", {"combat": 10}), "skill alone never teaches a blueprint")
+	assert_true(RecipeDB.is_unlocked("machete", {"blueprint:machete": 1}), "reading the blueprint does")
+	assert_eq(RecipeDB.unlock_text("machete"), "A blueprint")
+	assert_false(RecipeDB.needs_blueprint("crate_chest"))

@@ -6,7 +6,11 @@ extends RefCounted
 const PATH := "res://data/recipes.json"
 ## Display order of the categories on the CRAFT tab.
 const CATEGORY_ORDER: Array[String] = ["Farming", "Machines", "Storage", "Paths", "Light & Decor",
-	"Supplies", "Cooking", "Upgrades"]
+	"Supplies", "Gear", "Cooking", "Upgrades"]
+## Milestone C: a recipe whose unlock names "blueprint:<its id>" is learned from a pre-war
+## blueprint found in the ruins (scripts/skills.gd keeps the learned set; crafting_levels()
+## reports each as level 1, so is_unlocked needs no special case).
+const BLUEPRINT_PREFIX := "blueprint:"
 const DEFAULT_XP := 4
 
 static var _recipes: Dictionary = {}
@@ -115,13 +119,33 @@ static func is_unlocked(id: String, levels: Dictionary) -> bool:
 	return true
 
 
-## Human text for what unlocks a locked recipe, e.g. "Farming 3".
+## Human text for what unlocks a locked recipe, e.g. "Farming 3", "A blueprint".
 static func unlock_text(id: String) -> String:
 	var parts: Array[String] = []
 	var u := unlock(id)
 	for skill in u:
-		parts.append("%s %d" % [String(skill).capitalize(), int(u[skill])])
+		if String(skill).begins_with(BLUEPRINT_PREFIX):
+			parts.append("A blueprint")
+		else:
+			parts.append("%s %d" % [String(skill).capitalize(), int(u[skill])])
 	return ", ".join(parts)
+
+
+## Whether `id` is learned from a blueprint.
+static func needs_blueprint(id: String) -> bool:
+	for key in unlock(id):
+		if String(key).begins_with(BLUEPRINT_PREFIX):
+			return true
+	return false
+
+
+## Every blueprint-taught recipe, in display order.
+static func blueprint_recipes() -> Array[String]:
+	var out: Array[String] = []
+	for id in ids():
+		if needs_blueprint(id):
+			out.append(id)
+	return out
 
 
 ## Ingredients still missing given backpack counts: {item: shortfall}.

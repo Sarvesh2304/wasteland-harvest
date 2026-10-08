@@ -31,11 +31,13 @@ func _initialize() -> void:
 	quit(0 if failed == 0 else 1)
 
 
+## WH_TEST_FILTER=<text> runs only the test files whose name contains <text> (e.g. "ruins").
 func _discover_test_files() -> Array[String]:
+	var only := OS.get_environment("WH_TEST_FILTER")
 	var files: Array[String] = []
 	for file_name in DirAccess.get_files_at(TESTS_DIR):
 		if file_name.begins_with("test_") and file_name.ends_with(".gd") \
-				and file_name != "test_case.gd":
+				and file_name != "test_case.gd" and (only == "" or file_name.contains(only)):
 			files.append(file_name)
 	files.sort()
 	return files

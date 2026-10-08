@@ -193,6 +193,23 @@ var _toasts: Array = []
 var _prompt: Label = null
 var _target_cursor: Node = null
 var _weather_icon: TextureRect = null
+## Milestone C: health (beside the energy bar), the radiation meter, the hurt vignette and the
+## district banner, all built in code by _build_combat_hud().
+var _health_bar: Control = null
+var _health_fill: ProgressBar = null
+var _rad_bar: Control = null
+var _rad_fill: ProgressBar = null
+var _vignette: TextureRect = null
+var _banner: VBoxContainer = null
+var _banner_tween: Tween = null
+var _last_hp := -1.0
+var _hurt_flash := 0.0
+## Set by main.gd: the expedition (for the haul counter) and a callable giving Kael's truck's
+## world position in the ruins (for the way-home marker), or null when there's none.
+var expedition: Node = null
+var truck_position: Callable = Callable()
+var _haul_label: Label = null
+var _truck_marker: Label = null
 var _weather_shown := ""
 
 
@@ -235,6 +252,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	_tick_toasts(delta)
 	_refresh_prompt()
+	_tick_combat_hud(delta)
 	if chest_grid.visible and _player != null \
 			and chest_out_of_range(_player.global_position, _chest_cell):
 		chest_grid.visible = false
@@ -307,6 +325,11 @@ func bind_player(player: Node) -> void:
 	_on_energy_changed(player.energy, player.max_energy)
 	player.credits_changed.connect(_on_credits_changed)
 	_on_credits_changed(player.credits)
+	if player.has_signal("hp_changed"):
+		player.hp_changed.connect(_on_hp_changed)
+		player.rads_changed.connect(_on_rads_changed)
+		_on_hp_changed(float(player.hp), float(player.effective_max_hp()))
+		_on_rads_changed(float(player.rads))
 
 
 ## Called by main.gd once the player's Inventory exists. Builds the slot widgets once, then
@@ -688,6 +711,7 @@ func _build_v2() -> void:
 
 	Events.item_gained.connect(_on_item_gained)
 	Events.message.connect(_on_message)
+	_build_combat_hud()
 
 
 func _refresh_weather_icon() -> void:
@@ -798,3 +822,208 @@ func _tick_toasts(delta: float) -> void:
 			node.queue_free()
 		elif toast["time_left"] < 0.5:
 			node.modulate.a = float(toast["time_left"]) / 0.5
+
+
+## -- Milestone C: health, radiation, hurt vignette, district banner --
+
+const HP_FILL := Color("#c43020")
+const RAD_FILL := Color("#86e83e")
+
+
+func _build_combat_hud() -> void:
+	var root: Control = $Root
+	var energy_bar: Control = $Root/EnergyBar
+	_health_bar = _clone_bar(energy_bar, "HealthBar", HP_FILL, -14.0)
+	_health_fill = _health_bar.get_node("Fill")
+	_add_bar_icon(_health_bar, "res://art/ui/hp_icon.png")
+	root.add_child(_health_bar)
+	_rad_bar = _clone_bar(energy_bar, "RadBar", RAD_FILL, -28.0)
+	_rad_fill = _rad_bar.get_node("Fill")
+	_rad_fill.max_value = 200.0
+	_add_bar_icon(_rad_bar, "res://art/ui/rad_icon.png")
+	root.add_child(_rad_bar)
+	_health_bar.visible = false
+	_rad_bar.visible = false
+	# A soft red edge that pulses when HP runs low and flashes on a hit.
+	_vignette = TextureRect.new()
+	_vignette.name = "HurtVignette"
+	_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vignette.stretch_mode = TextureRect.STRETCH_SCALE
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.6, 0.0, 0.0, 0.0))
+	grad.set_color(1, Color(0.6, 0.02, 0.0, 0.75))
+	grad.add_point(0.55, Color(0.6, 0.0, 0.0, 0.0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.05, 1.05)
+	tex.width = 64
+	tex.height = 40
+	_vignette.texture = tex
+	_vignette.modulate.a = 0.0
+	root.add_child(_vignette)
+	root.move_child(_vignette, 0)
+	# District banner: top centre, fades in and out on arrival.
+	_banner = VBoxContainer.new()
+	_banner.name = "Banner"
+	_banner.anchor_left = 0.5
+	_banner.anchor_right = 0.5
+	_banner.offset_left = -110
+	_banner.offset_right = 110
+	_banner.offset_top = 34
+	_banner.offset_bottom = 60
+	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner.add_theme_constant_override("separation", 0)
+	for i in 2:
+		var label := Label.new()
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_color_override("font_color", TEXT_COLOR if i == 0 else WARN_COLOR)
+		label.add_theme_color_override("font_outline_color", TEXT_OUTLINE)
+		label.add_theme_constant_override("outline_size", 3)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_banner.add_child(label)
+	_banner.modulate.a = 0.0
+	root.add_child(_banner)
+	# What a death would cost: the haul so far, under the bars.
+	_haul_label = Label.new()
+	_haul_label.name = "Haul"
+	_haul_label.anchor_left = 1.0
+	_haul_label.anchor_right = 1.0
+	_haul_label.anchor_top = 1.0
+	_haul_label.anchor_bottom = 1.0
+	_haul_label.offset_left = -96
+	_haul_label.offset_right = -34
+	_haul_label.offset_top = -12
+	_haul_label.offset_bottom = -2
+	_haul_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_haul_label.add_theme_color_override("font_color", TEXT_COLOR)
+	_haul_label.add_theme_color_override("font_outline_color", TEXT_OUTLINE)
+	_haul_label.add_theme_constant_override("outline_size", 2)
+	_haul_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_haul_label.visible = false
+	root.add_child(_haul_label)
+	# Points the way home when Kael's truck is off screen.
+	_truck_marker = Label.new()
+	_truck_marker.name = "TruckMarker"
+	_truck_marker.add_theme_color_override("font_color", Color("#ffc948"))
+	_truck_marker.add_theme_color_override("font_outline_color", TEXT_OUTLINE)
+	_truck_marker.add_theme_constant_override("outline_size", 2)
+	_truck_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_truck_marker.visible = false
+	root.add_child(_truck_marker)
+
+
+## A copy of the energy bar (frame + fill) `dx` px to its left, filled with `color`.
+func _clone_bar(source: Control, bar_name: String, color: Color, dx: float) -> Control:
+	var bar: Control = source.duplicate()
+	bar.name = bar_name
+	bar.offset_left += dx
+	bar.offset_right += dx
+	for child in bar.get_children():
+		if child is ProgressBar:
+			child.unique_name_in_owner = false
+			child.name = "Fill"
+			var style = (child as ProgressBar).get_theme_stylebox("fill")
+			if style is StyleBoxFlat:
+				var fill: StyleBoxFlat = (style as StyleBoxFlat).duplicate()
+				fill.bg_color = color
+				(child as ProgressBar).add_theme_stylebox_override("fill", fill)
+	return bar
+
+
+func _add_bar_icon(bar: Control, path: String) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var icon := TextureRect.new()
+	icon.texture = load(path)
+	icon.position = Vector2(1, -10)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(icon)
+
+
+func _on_hp_changed(current: float, max_hp: float) -> void:
+	if _health_fill == null:
+		return
+	_health_fill.max_value = maxf(max_hp, 1.0)
+	_health_fill.value = current
+	if _last_hp >= 0.0 and current < _last_hp - 0.5:
+		_hurt_flash = 1.0
+	_last_hp = current
+
+
+func _on_rads_changed(rads: float) -> void:
+	if _rad_fill == null:
+		return
+	_rad_fill.value = rads
+	_rad_bar.visible = rads > 0.5
+
+
+## Called by main.gd on arriving in a ruins district.
+func show_banner(title: String, subtitle: String) -> void:
+	if _banner == null:
+		return
+	(_banner.get_child(0) as Label).text = title
+	(_banner.get_child(1) as Label).text = subtitle
+	if _banner_tween != null:
+		_banner_tween.kill()
+	_banner.modulate.a = 0.0
+	_banner_tween = _banner.create_tween()
+	_banner_tween.tween_property(_banner, "modulate:a", 1.0, 0.5).set_delay(0.3)
+	_banner_tween.tween_interval(2.4)
+	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.8)
+
+
+func hide_banner() -> void:
+	if _banner_tween != null:
+		_banner_tween.kill()
+	if _banner != null:
+		_banner.modulate.a = 0.0
+
+
+func _tick_combat_hud(delta: float) -> void:
+	if _player == null or _health_bar == null or not _player.has_method("effective_max_hp"):
+		return
+	var max_hp := float(_player.effective_max_hp())
+	var hp := float(_player.hp)
+	_health_bar.visible = String(_player.current_zone_id) == "ruins" or hp < max_hp - 0.5
+	_hurt_flash = maxf(_hurt_flash - delta * 2.5, 0.0)
+	var low := 0.0
+	if hp < max_hp * 0.3 and not bool(_player.dead):
+		low = 0.35 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
+	_vignette.modulate.a = clampf(maxf(low, _hurt_flash * 0.8), 0.0, 1.0)
+	_tick_expedition_widgets()
+
+
+func _tick_expedition_widgets() -> void:
+	var in_ruins := String(_player.current_zone_id) == "ruins" and expedition != null and bool(expedition.active)
+	_haul_label.visible = in_ruins
+	if in_ruins:
+		var n := 0
+		for item_id in expedition.ledger:
+			n += int(expedition.ledger[item_id])
+		_haul_label.text = "Haul %d" % n
+	_truck_marker.visible = false
+	if not in_ruins or not truck_position.is_valid():
+		return
+	var world_pos = truck_position.call()
+	if not (world_pos is Vector2):
+		return
+	var screen: Vector2 = get_viewport().get_canvas_transform() * (world_pos as Vector2)
+	var view := Vector2(320, 192)
+	var margin := 10.0
+	if screen.x >= 0.0 and screen.y >= 0.0 and screen.x <= view.x and screen.y <= view.y:
+		return
+	var center := view / 2.0
+	var dir := (screen - center)
+	if dir.length() < 0.01:
+		return
+	var scale := minf((center.x - margin) / maxf(absf(dir.x), 0.01), (center.y - margin) / maxf(absf(dir.y), 0.01))
+	var at := center + dir * scale
+	var arrow := "<" if absf(dir.x) >= absf(dir.y) and dir.x < 0.0 else (">" if absf(dir.x) >= absf(dir.y) else ("^" if dir.y < 0.0 else "v"))
+	_truck_marker.text = arrow + " Truck" if arrow == "<" else ("Truck " + arrow if arrow == ">" else "Truck " + arrow)
+	_truck_marker.reset_size()
+	var size := _truck_marker.get_combined_minimum_size()
+	_truck_marker.position = (at - size / 2.0).clamp(Vector2(2, 2), view - size - Vector2(2, 2))
+	_truck_marker.visible = true

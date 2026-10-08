@@ -77,7 +77,7 @@ const QUIT_HINT_ARMED := "Space AGAIN — Save & Return to Title"
 const CONTROLS_REFERENCE := [
 	{"keys": "W/A/S/D, Arrows, L-stick", "does": "Move",
 		"actions": ["move_up", "move_down", "move_left", "move_right"]},
-	{"keys": "Space, C, Left click, X", "does": "Use the held tool or item",
+	{"keys": "Space, C, Left click, X", "does": "Use the held item; swing or fire a weapon",
 		"actions": ["use_tool"]},
 	{"keys": "E, F, Right click, A", "does": "Interact, harvest, talk, pick up",
 		"actions": ["interact"]},
@@ -148,6 +148,7 @@ func _ready() -> void:
 		_build_row_labels.append(label)
 	_build_craft_tab()
 	_build_skills_tab()
+	_build_gear_row()
 	var hint := get_node_or_null("Root/Box/HintLabel") as Label
 	if hint != null:
 		hint.text = "Q / Left / Right: tabs    Tab / Esc: close"
@@ -242,6 +243,11 @@ func _quit_pressed() -> void:
 ## scene change mirrors title_screen.gd's own change_scene_to_file hops, and main.gd's
 ## _exit_tree already guarantees the paused clock can't leak into the next boot.
 func _save_and_return_to_title() -> void:
+	if String(_player.get("current_zone_id")) == "ruins":
+		# The ruins are rebuilt every expedition and never saved: no quitting mid-run.
+		Events.message.emit("You can't save out here. Get back to Kael's truck.")
+		Audio.play_sfx("ui_error", -6.0)
+		return
 	if not _player.zones.is_empty():
 		GameState.save_game(_player, _player.zones, _player.settlers, _player.animals,
 			_player.affinity)
@@ -254,6 +260,8 @@ func _refresh() -> void:
 		_tab_labels[i].add_theme_color_override("font_color",
 			TAB_ACTIVE_COLOR if i == tab_index else TAB_INACTIVE_COLOR)
 	inventory_tab.visible = tab_index == TAB_INVENTORY
+	if tab_index == TAB_INVENTORY:
+		_refresh_gear()
 	_craft_tab.visible = tab_index == TAB_CRAFT
 	_skills_tab.visible = tab_index == TAB_SKILLS
 	build_tab.visible = tab_index == TAB_BUILD
@@ -403,6 +411,8 @@ static func quit_hint(armed: bool) -> String:
 ## -- CRAFT tab (Milestone B, 2026-10-07) --
 
 func _levels() -> Dictionary:
+	if skills != null and skills.has_method("crafting_levels"):
+		return skills.crafting_levels()
 	var out := {}
 	if skills != null:
 		for skill in SkillsScript.SKILLS:
@@ -677,3 +687,67 @@ func _refresh_skills() -> void:
 		perk.custom_minimum_size = Vector2(130, 12)
 		row.add_child(perk)
 		_skills_rows.add_child(row)
+
+
+## -- Worn gear (Milestone C) --
+## A row under the backpack grid: the head/body/feet slots (click to take a piece off; wear one
+## by using it from the hotbar) and the numbers that matter on an expedition.
+
+const GEAR_SLOTS: Array[String] = ["head", "body", "feet"]
+var _gear_slots: Dictionary = {}  # slot -> {"frame": ColorRect, "icon": TextureRect}
+var _gear_stats: Label = null
+
+
+func _build_gear_row() -> void:
+	var row := HBoxContainer.new()
+	row.name = "GearRow"
+	row.anchor_left = 0.0
+	row.anchor_right = 1.0
+	row.anchor_top = 1.0
+	row.anchor_bottom = 1.0
+	row.offset_top = -20
+	row.offset_bottom = -2
+	row.add_theme_constant_override("separation", 3)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inventory_tab.add_child(row)
+	var label := Label.new()
+	label.text = "Worn"
+	label.add_theme_color_override("font_color", ROW_COLOR)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(label)
+	for slot in GEAR_SLOTS:
+		var frame := ColorRect.new()
+		frame.custom_minimum_size = Vector2(18, 18)
+		frame.color = Color("#5c4a33")
+		frame.tooltip_text = slot.capitalize()
+		var icon := TextureRect.new()
+		icon.position = Vector2(1, 1)
+		icon.size = Vector2(16, 16)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.add_child(icon)
+		var which := slot
+		frame.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed and _player != null:
+				if _player.unequip(which):
+					Audio.play_sfx("ui_close", -6.0)
+				_refresh_gear())
+		row.add_child(frame)
+		_gear_slots[slot] = {"frame": frame, "icon": icon}
+	_gear_stats = Label.new()
+	_gear_stats.add_theme_color_override("font_color", ROW_COLOR)
+	_gear_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_gear_stats)
+
+
+func _refresh_gear() -> void:
+	if _player == null or _gear_stats == null or not _player.has_method("armor"):
+		return
+	for slot in GEAR_SLOTS:
+		var id := String(_player.equipment.get(slot, ""))
+		var w: Dictionary = _gear_slots[slot]
+		var path := ItemDB.icon_path(id) if id != "" else ""
+		(w["icon"] as TextureRect).texture = load(path) if path != "" and ResourceLoader.exists(path) else null
+		(w["frame"] as ColorRect).tooltip_text = "%s: %s" % [slot.capitalize(), ItemDB.display_name(id) if id != "" else "nothing"]
+	_gear_stats.text = "HP %d/%d  Armour %d  Rad resist %d%%  Rads %d" % [int(_player.hp),
+		int(_player.effective_max_hp()), int(_player.armor()), int(round(_player.rad_resist() * 100.0)),
+		int(_player.rads)]
