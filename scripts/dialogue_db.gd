@@ -137,6 +137,152 @@ static func reload_from_disk() -> void:
 	_ensure_loaded()
 
 
+## -- v2: daily context lines, repeats, gift reactions, service nodes, birthdays (Milestone B
+##    2026-10-08, docs/SOCIAL_AND_QUESTS.md §3). An entry without "lines" (a settler) keeps the
+##    v1 behaviour: every conversation is its start tree. --
+
+const TIME_BANDS: Array[String] = ["morning", "afternoon", "evening", "night"]
+const WHEN_KEYS: Array[String] = ["season", "weather", "time", "weekday", "tier", "tier_max", "flag", "not_flag"]
+## Mirrors scripts/affinity.gd's TIERS (kept here so this module stays free of node scripts).
+const TIER_ORDER: Array[String] = ["stranger", "acquaintance", "friend", "close"]
+
+
+static func entry(npc_id: String) -> Dictionary:
+	_ensure_loaded()
+	return _dialogues.get(npc_id, {})
+
+
+## True when the NPC speaks v2 daily lines (named NPCs); settlers don't.
+static func has_daily_lines(npc_id: String) -> bool:
+	return not (entry(npc_id).get("lines", []) as Array).is_empty()
+
+
+static func daily_lines(npc_id: String) -> Array:
+	return entry(npc_id).get("lines", [])
+
+
+static func repeat_lines(npc_id: String) -> Array:
+	return entry(npc_id).get("repeat", [])
+
+
+## Gift reaction lines of `kind` (loved/liked/neutral/disliked/hated/birthday/birthday_loved).
+static func gift_lines(npc_id: String, kind: String) -> Array:
+	return (entry(npc_id).get("gift", {}) as Dictionary).get(kind, [])
+
+
+## {"season": String, "day": int}, or {} if none.
+static func birthday(npc_id: String) -> Dictionary:
+	var b = entry(npc_id).get("birthday", {})
+	if b is Dictionary and b.has("season") and b.has("day"):
+		return {"season": String(b["season"]), "day": int(b["day"])}
+	return {}
+
+
+static func service_node_id(npc_id: String) -> String:
+	return String(entry(npc_id).get("service", ""))
+
+
+static func service_when(npc_id: String) -> Dictionary:
+	var w = entry(npc_id).get("service_when", {})
+	return w if w is Dictionary else {}
+
+
+## The time band for a clock reading (minutes past midnight, 0-1439): morning 6:00-11:59,
+## afternoon 12:00-16:59, evening 17:00-20:59, night 21:00-5:59.
+static func time_band(minutes: float) -> String:
+	if minutes >= 21 * 60 or minutes < 6 * 60:
+		return "night"
+	if minutes >= 17 * 60:
+		return "evening"
+	if minutes >= 12 * 60:
+		return "afternoon"
+	return "morning"
+
+
+## Whether every condition in `when` holds for `ctx` ({season, weather, time, weekday, tier,
+## flags: {flag: true}}). An unknown key never matches, so a typo can't make a line play everywhere.
+static func when_matches(when: Dictionary, ctx: Dictionary) -> bool:
+	var flags: Dictionary = ctx.get("flags", {})
+	for key in when:
+		var want := String(when[key])
+		match String(key):
+			"season", "weather", "time", "weekday":
+				if String(ctx.get(key, "")) != want:
+					return false
+			"tier":
+				if TIER_ORDER.find(String(ctx.get("tier", "stranger"))) < TIER_ORDER.find(want):
+					return false
+			"tier_max":
+				if TIER_ORDER.find(String(ctx.get("tier", "stranger"))) > TIER_ORDER.find(want):
+					return false
+			"flag":
+				if not flags.has(want):
+					return false
+			"not_flag":
+				if flags.has(want):
+					return false
+			_:
+				return false
+	return true
+
+
+## Picks today's line from `lines` (docs/SOCIAL_AND_QUESTS.md §3): the lines whose `when` match
+## `ctx`, minus `once` lines whose id is in `seen`; if any has a priority above 0, only the
+## highest-priority ones; otherwise weighted 1 + 2 x (number of conditions). `seed_value` makes it
+## deterministic (daily_seed). Returns the line Dictionary, or {} if nothing matches.
+static func pick_line(lines: Array, ctx: Dictionary, seen: Dictionary, seed_value: int) -> Dictionary:
+	var candidates: Array = []
+	var top_priority := 0
+	for raw in lines:
+		if not (raw is Dictionary):
+			continue
+		var line: Dictionary = raw
+		if bool(line.get("once", false)) and seen.has(String(line.get("id", ""))):
+			continue
+		var when = line.get("when", {})
+		if not (when is Dictionary) or not when_matches(when, ctx):
+			continue
+		candidates.append(line)
+		top_priority = maxi(top_priority, int(line.get("priority", 0)))
+	if candidates.is_empty():
+		return {}
+	if top_priority > 0:
+		candidates = candidates.filter(func(l): return int(l.get("priority", 0)) == top_priority)
+	var total := 0
+	for line in candidates:
+		total += 1 + 2 * (line.get("when", {}) as Dictionary).size()
+	var pick := posmod(seed_value, total)
+	for line in candidates:
+		pick -= 1 + 2 * (line.get("when", {}) as Dictionary).size()
+		if pick < 0:
+			return line
+	return candidates.back()
+
+
+## One string from `texts`, chosen by `seed_value`; "" if empty.
+static func pick_text(texts: Array, seed_value: int) -> String:
+	if texts.is_empty():
+		return ""
+	return String(texts[posmod(seed_value, texts.size())])
+
+
+## A stable per-(npc, day, salt) number: the same all day, the same after a reload, different
+## between NPCs. FNV-1a over the text, so it doesn't depend on the engine's String.hash().
+static func daily_seed(npc_id: String, day: int, salt: String = "") -> int:
+	var h := 2166136261
+	for byte in ("%s|%d|%s" % [npc_id, day, salt]).to_utf8_buffer():
+		h = ((h ^ byte) * 16777619) & 0xFFFFFFFF
+	return h
+
+
+## Replaces {key} tokens with `tokens` values.
+static func fill(text: String, tokens: Dictionary) -> String:
+	var out := text
+	for key in tokens:
+		out = out.replace("{%s}" % key, str(tokens[key]))
+	return out
+
+
 ## -- Runtime-only registration (Phase 8 Stage 3: settler arrivals) --
 ## An additive layer on top of the disk-loaded cache: a settler visitor/flavor tree doesn't exist
 ## as authored data/dialogue.json content, so scripts/settlers.gd registers/unregisters it here

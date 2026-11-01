@@ -11,25 +11,30 @@ const BuildingDB := preload("res://scripts/building_db.gd")
 ## -- Tab cycling (forward-only ring over the four live tabs) --
 
 func test_next_tab_cycles_forward_and_wraps() -> void:
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_CRAFT,
-		"Inventory -> Craft")
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CRAFT), MenuScreen.TAB_SKILLS,
-		"Craft -> Skills")
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_SKILLS), MenuScreen.TAB_BUILD,
-		"Skills -> Build")
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_BUILD), MenuScreen.TAB_ASSIGNMENTS,
-		"Build -> Settlers")
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_ASSIGNMENTS), MenuScreen.TAB_CONTROLS,
-		"Assignments -> Controls")
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CONTROLS), MenuScreen.TAB_INVENTORY,
-		"Controls wraps back to Inventory")
+	var ring := [MenuScreen.TAB_INVENTORY, MenuScreen.TAB_CRAFT, MenuScreen.TAB_SKILLS,
+		MenuScreen.TAB_JOURNAL, MenuScreen.TAB_PEOPLE, MenuScreen.TAB_BUILD,
+		MenuScreen.TAB_ASSIGNMENTS, MenuScreen.TAB_CONTROLS]
+	for i in ring.size():
+		assert_eq(MenuScreen.next_tab(ring[i]), ring[(i + 1) % ring.size()],
+			"%s -> %s" % [MenuScreen.TAB_NAMES[ring[i]], MenuScreen.TAB_NAMES[ring[(i + 1) % ring.size()]]])
 
 
 func test_tab_names_cover_exactly_the_real_tabs() -> void:
-	# Every tab is a working system (Milestone B added CRAFT and SKILLS); no placeholder stubs.
-	assert_eq(MenuScreen.TAB_NAMES, ["INVENTORY", "CRAFT", "SKILLS", "BUILD", "SETTLERS", "CONTROLS"])
+	# Every tab is a working system (Milestone B added CRAFT, SKILLS, JOURNAL and PEOPLE); no
+	# placeholder stubs. INVENTORY became ITEMS so eight names fit the tab bar.
+	assert_eq(MenuScreen.TAB_NAMES, ["ITEMS", "CRAFT", "SKILLS", "JOURNAL", "PEOPLE", "BUILD", "SETTLERS", "CONTROLS"])
 	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_CRAFT], "CRAFT")
+	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_JOURNAL], "JOURNAL")
+	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_PEOPLE], "PEOPLE")
 	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_ASSIGNMENTS], "SETTLERS")
+
+
+func test_tab_names_fit_the_tab_bar() -> void:
+	# The pixel font advances 5 px a glyph; the bar is 296 px with 6 px between names.
+	var chars := 0
+	for name in MenuScreen.TAB_NAMES:
+		chars += String(name).length()
+	assert_true(chars * 5 + (MenuScreen.TAB_NAMES.size() - 1) * 6 <= 296, "%d chars fit" % chars)
 
 
 func test_tabs_cycle_both_ways() -> void:

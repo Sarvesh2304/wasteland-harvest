@@ -65,7 +65,7 @@ offset_right = -8.0
 offset_bottom = 14.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 6
 alignment = 1
 
 [node name="InventoryTab" type="Control" parent="Root/Box"]

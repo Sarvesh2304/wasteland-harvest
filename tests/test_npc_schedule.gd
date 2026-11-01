@@ -179,9 +179,9 @@ func _roster() -> Dictionary:
 	return out
 
 
-func test_schedules_cover_exactly_the_four_named_npcs() -> void:
+func test_schedules_cover_exactly_the_named_npcs() -> void:
 	var roster := _roster()
-	assert_eq(NpcSchedule.SCHEDULES.size(), 4, "4 named NPCs are scheduled")
+	assert_eq(NpcSchedule.SCHEDULES.size(), 7, "the 7 named NPCs are scheduled (Milestone B added 3)")
 	for npc_id in NpcSchedule.SCHEDULES:
 		assert_true(roster.has(String(npc_id)),
 			"scheduled npc '%s' is a real roster NPC" % npc_id)

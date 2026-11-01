@@ -1,0 +1,25 @@
+{
+  "_comment": "Town Works projects (Milestone B, 2026-10-08): Harlan's list of what the town needs rebuilt, posted on the notice board. The contract is docs/SOCIAL_AND_QUESTS.md section 6; loaded by scripts/quest_db.gd. id, npc, needs and credits are copied exactly from the spec's table and are what the engine and tests key on; name, summary (the board's pitch), reward (one sentence, what you get) and done (the morning-after notice, in Harlan's voice) are player-visible, at most 220 characters each. Each project's NPC also has project_<id>_new dialogue lines at priority 5 for the three days after it's built. tools/validate_social_data.py checks this file.",
+  "projects": [
+    {"id": "shop_expansion", "name": "Marta's New Shopfront", "npc": "marta",
+     "needs": {"wood": 50, "stone": 30, "fiber": 20}, "credits": 400,
+     "summary": "Marta runs the whole town's trade out of a shop built for half of it, stacking crates on crates. A proper shopfront means fuller shelves and a better price for everything you grow.",
+     "reward": "Marta pays 10% more for everything you ship.",
+     "done": "Marta's new shopfront opened this morning, and the chicken has already claimed the awning. Everything you ship now fetches ten percent more. I cut the ribbon. The ribbon was a shoelace."},
+    {"id": "clinic", "name": "The Clinic Roof", "npc": "doc_ama",
+     "needs": {"wood": 40, "stone": 40, "glass": 6, "cloth_scrap": 10, "copper_wire": 3}, "credits": 600,
+     "summary": "The clinic roof came down two winters ago, and Doc Ama has worked from a leaky tent beside it ever since. A town that needs a doctor needs a doctor with a roof.",
+     "reward": "The clinic reopens: Doc heals you, HP and rads, for 80 Cr and sells medical supplies.",
+     "done": "The clinic has a roof again! Doc Ama is back inside, warm and dry, and she'll patch you up, rads and all, for 80 Cr. She said 'about time'. From Doc, that's a parade."},
+    {"id": "watchtower", "name": "The West Watchtower", "npc": "brask",
+     "needs": {"hardwood": 20, "scrap_metal": 40, "metal_bar": 6, "rubber": 4}, "credits": 800,
+     "summary": "Since the old north tower burned, the wall has had no eyes but Brask's. A tower by the west gate would see every road in, and let Kael drive the deep routes safely.",
+     "reward": "Kael can drive you straight to any district you've reached.",
+     "done": "The West Watchtower stands, and its lamp burned all night. With eyes on every road, Kael can drive you straight to any district you've reached. Brask climbed it at dawn and said 'good'. Twice."},
+    {"id": "greenhouse", "name": "The Farm Greenhouse", "npc": "mayor_harlan",
+     "needs": {"wood": 60, "glass": 24, "metal_bar": 10, "circuit_board": 2, "battery": 2}, "credits": 1500,
+     "summary": "Your parents' old glasshouse still stands on the farm, rusted through and missing every pane. Rebuilt, it would grow any crop in any season, even in the teeth of Grey Winter.",
+     "reward": "A glass greenhouse on your farm where any crop grows in any season.",
+     "done": "Your parents' old glasshouse stands whole again, every pane back in its frame. Plant anything in there, in any season, and it will grow. They'd be proud, and I am insufferable about it."}
+  ]
+}

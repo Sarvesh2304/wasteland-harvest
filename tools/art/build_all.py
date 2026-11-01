@@ -10,7 +10,7 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent
-PIPELINES = ["env", "items", "ruins_city", "enemies"]
+PIPELINES = ["env", "items", "ruins_city", "enemies", "townsfolk"]
 
 
 def _run(name: str) -> None:

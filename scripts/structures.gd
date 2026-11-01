@@ -153,6 +153,16 @@ var _completed: Array[Dictionary] = []
 ## per built Storage Shed, exactly the chest_inventory pattern generalized.
 var _storage_inventories: Dictionary = {}
 
+## Milestone B (2026-10-08, Town Works): multiplies the overnight shipping sale (1.1 once Marta's
+## shopfront is rebuilt — main.gd sets it), the layout buildings' visuals by building id (so a
+## finished project can swap the store's or the clinic's art), the notice board's cell, and the
+## buildings Town Works adds (rebuilt from the quests state at boot, so never saved here).
+var sale_multiplier := 1.0
+var _layout_visuals: Dictionary = {}
+var _layout_kinds: Dictionary = {}
+var _board_cell := Vector2i(-1, -1)
+var _works: Dictionary = {}
+
 
 func _ready() -> void:
 	_test_map = get_parent()
@@ -175,6 +185,10 @@ const WINDOW_LIGHTS := {
 	"clinic": ["#fff0c8", 0.9, 1.2],
 	"community_kitchen": ["#ffc27a", 0.9, 1.3],
 	"trading_post": ["#ffd08a", 0.8, 1.2],
+	# Milestone B Town Works: Marta's rebuilt shopfront and the rebuilt clinic (the ruined clinic
+	# stays dark).
+	"store_expanded": ["#ffd08a", 0.95, 1.35],
+	"town_clinic": ["#fff0c8", 0.95, 1.45],
 }
 
 
@@ -188,7 +202,12 @@ func _spawn_building(building: Dictionary) -> void:
 		_bed_cell = top_left
 	elif kind == "shipping_box":
 		_shipping_box_cell = top_left
-	_spawn_footprint_body(top_left, footprint_size, kind)
+	elif kind == "bulletin_board":
+		_board_cell = top_left
+	var visual := _spawn_footprint_body(top_left, footprint_size, kind)
+	var id := String(building.get("id", kind))
+	_layout_visuals[id] = visual
+	_layout_kinds[id] = kind
 
 
 ## The shared "one StaticBody2D + one visual covering the footprint" spawner — Phase 4 Stage 1's
@@ -247,12 +266,20 @@ func _make_visual(kind: String, px_size: Vector2, blueprint: bool) -> CanvasItem
 		return rect
 	var sprite := Sprite2D.new()
 	sprite.texture = _building_texture(kind, px_size)
+	_bottom_align(sprite, px_size)
 	if WINDOW_LIGHTS.has(kind):
 		var spec: Array = WINDOW_LIGHTS[kind]
 		var light := NightLight.make(Color(spec[0]), float(spec[1]), float(spec[2]))
 		light.position = Vector2(0, px_size.y * 0.15)
 		sprite.add_child(light)
 	return sprite
+
+
+## Art taller than its footprint (a tower, a roof) rises above it: the sprite's bottom edge sits
+## on the footprint's bottom edge instead of the art being centred on the footprint.
+static func _bottom_align(sprite: Sprite2D, px_size: Vector2) -> void:
+	var extra := float(sprite.texture.get_height()) - px_size.y
+	sprite.offset = Vector2(0, -extra / 2.0) if extra > 0.0 else Vector2.ZERO
 
 
 ## Real PixelLab art if the kind's file exists (art/buildings/<kind>.png — see
@@ -477,6 +504,73 @@ func is_shipping_box_at(cell: Vector2i) -> bool:
 	return cell == _shipping_box_cell
 
 
+## -- Milestone B: the notice board and Town Works --
+
+## Whether the cell is the town square's notice board (player.gd opens the board on it).
+func is_board_at(cell: Vector2i) -> bool:
+	return cell == _board_cell
+
+
+## The kind a layout building is currently drawn as ("" for an unknown id).
+func building_kind(building_id: String) -> String:
+	return String(_layout_kinds.get(building_id, ""))
+
+
+## Redraws a layout building as `kind` (a finished project: the store's new shopfront, the rebuilt
+## clinic). Its footprint and collision don't change; the window glow follows the new kind.
+func set_building_art(building_id: String, kind: String) -> void:
+	var sprite: Sprite2D = _layout_visuals.get(building_id) as Sprite2D
+	if sprite == null:
+		return
+	# The footprint in px: the collision rect plus its 1px margin each side.
+	var px_size := Vector2(sprite.texture.get_size())
+	for child in sprite.get_parent().get_children():
+		if child is CollisionShape2D and (child as CollisionShape2D).shape is RectangleShape2D:
+			px_size = ((child as CollisionShape2D).shape as RectangleShape2D).size + Vector2(2, 2)
+	sprite.texture = _building_texture(kind, px_size)
+	_bottom_align(sprite, px_size)
+	for child in sprite.get_children():
+		child.queue_free()
+	if WINDOW_LIGHTS.has(kind):
+		var spec: Array = WINDOW_LIGHTS[kind]
+		var light := NightLight.make(Color(spec[0]), float(spec[1]), float(spec[2]))
+		light.position = Vector2(0, px_size.y * 0.15)
+		sprite.add_child(light)
+	_layout_kinds[building_id] = kind
+
+
+## Adds a Town Works building (the watchtower): a solid footprint drawn with art/buildings/<kind>.png,
+## optionally with a night glow ([colour, strength, radius scale, height above the base in px]).
+## Idempotent per id, so re-applying the finished projects at boot is harmless.
+func add_works_building(id: String, kind: String, top_left: Vector2i, footprint_size: Vector2i,
+		light: Array = []) -> void:
+	if _works.has(id):
+		return
+	var visual := _spawn_footprint_body(top_left, footprint_size, kind)
+	if not light.is_empty() and visual is Sprite2D:
+		var glow := NightLight.make(Color(String(light[0])), float(light[1]), float(light[2]))
+		glow.position = Vector2(0, float(footprint_size.y) * float(CELL_SIZE) / 2.0 - float(light[3]))
+		visual.add_child(glow)
+	_test_map.block_cells(BuildGrid.footprint_cells(top_left, footprint_size))
+	_works[id] = visual
+
+
+func has_works_building(id: String) -> bool:
+	return _works.has(id)
+
+
+## Takes a Town Works building down again (Doc's tent, once the clinic is rebuilt).
+func remove_works_building(id: String, top_left: Vector2i, footprint_size: Vector2i) -> void:
+	var visual: Node = _works.get(id)
+	if visual == null:
+		return
+	var body: Node = visual.get_parent()
+	_bodies.erase(body)
+	body.queue_free()
+	_test_map.unblock_cells(BuildGrid.footprint_cells(top_left, footprint_size))
+	_works.erase(id)
+
+
 ## Loads crops into the box's pending contents. Returns false (contents untouched) for a
 ## non-crop item or non-positive count — the item-removal from the player's inventory is the
 ## CALLER's job (scripts/shipping_ui.gd), and only after this returns true, so a refusal can
@@ -496,6 +590,9 @@ func _resolve_shipping_sale(day: int) -> void:
 	if shipping_contents.is_empty():
 		return
 	var entry := ShippingDB.make_history_entry(day, shipping_contents)
+	if sale_multiplier != 1.0:
+		entry["bonus"] = int(round(float(entry["total"]) * (sale_multiplier - 1.0)))
+		entry["total"] = int(entry["total"]) + int(entry["bonus"])
 	sale_history.append(entry)
 	shipping_contents = {}
 	crops_sold.emit(int(entry["total"]))

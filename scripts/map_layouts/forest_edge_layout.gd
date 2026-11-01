@@ -145,6 +145,14 @@ static func is_tillable(x: int, y: int) -> bool:
 	return LayoutCommon.is_tillable(ROWS, BUILDINGS, x, y)
 
 
+## Milestone B (2026-10-08): the top-left of the 8x6 greenhouse (scripts/greenhouse.gd) — the
+## parents' old glasshouse, east along the homestead's row, half on the eastern old field (so its
+## plot is fertile once tilled). Kept clear of the open grass just east of the farmhouse, where the
+## smoke tests and screenshot tools place their chests, machines and blueprints.
+static func greenhouse_site() -> Vector2i:
+	return Vector2i(36, 5)
+
+
 static func spawn_cell() -> Vector2i:
 	return LayoutCommon.spawn_cell(ROWS)
 

@@ -53,6 +53,9 @@ const BUILDINGS: Array[Dictionary] = [
 	{"id": "shack_2", "kind": "shack", "top_left": Vector2i(26, 4), "size": Vector2i(2, 2)},
 	{"id": "shack_3", "kind": "shack", "top_left": Vector2i(27, 7), "size": Vector2i(2, 2)},
 	{"id": "shack_4", "kind": "shack", "top_left": Vector2i(25, 10), "size": Vector2i(2, 2)},
+	# Milestone B (2026-10-08): the one-room clinic the player was born in, roof caved in; the
+	# "clinic" Town Works project rebuilds it (structures.set_building_art -> town_clinic).
+	{"id": "clinic", "kind": "town_clinic_ruined", "top_left": Vector2i(2, 12), "size": Vector2i(4, 3)},
 ]
 
 

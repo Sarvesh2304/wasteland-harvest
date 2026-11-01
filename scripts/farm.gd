@@ -31,6 +31,9 @@ var _wet: Dictionary = {}
 ## cell -> fertiliser level (1 basic, 2 rich) laid on soil, consumed by the next planting.
 var _fertilized: Dictionary = {}
 var _crop_sprites: Dictionary = {}
+## Milestone B (2026-10-08): the restored greenhouse's plot (scripts/greenhouse.gd sets it) —
+## crops there are planted and keep growing whatever the season.
+var greenhouse_cells: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 var _test_map: Node2D
@@ -92,7 +95,7 @@ func plant_check(cell: Vector2i, crop_id: String) -> String:
 	var objects := _objects()
 	if _plots.has(cell) or (objects != null and objects.has_object(cell)):
 		return OCCUPIED
-	if not CropDB.grows_in_season(crop_id, _season()):
+	if not greenhouse_cells.has(cell) and not CropDB.grows_in_season(crop_id, _season()):
 		return WRONG_SEASON
 	return OK
 
@@ -270,6 +273,17 @@ func get_plot(cell: Vector2i) -> Dictionary:
 	return _plots.get(cell, {})
 
 
+## Drops whatever grows at `cell` (a wall is going up there: scripts/greenhouse.gd).
+func clear_plot_at(cell: Vector2i) -> void:
+	if _plots.has(cell):
+		_plots.erase(cell)
+		_clear_crop_sprite(cell, false)
+		plot_changed.emit(cell)
+	if _wet.has(cell):
+		_set_wet(cell, false)
+	_fertilized.erase(cell)
+
+
 func all_plots() -> Dictionary:
 	return _plots
 
@@ -311,7 +325,7 @@ func _on_day_started(day: int) -> void:
 		var plot: Dictionary = _plots[cell]
 		plot["watered"] = _wet.has(cell)
 		var crop_def := CropDB.get_crop(String(plot.get("crop_id", "")))
-		_plots[cell] = FarmGrid.advance_plot(plot, crop_def, season)
+		_plots[cell] = FarmGrid.advance_plot(plot, crop_def, "" if greenhouse_cells.has(cell) else season)
 	for cell in _wet.keys():
 		_set_wet(cell, false)
 	if DayManager.is_raining():

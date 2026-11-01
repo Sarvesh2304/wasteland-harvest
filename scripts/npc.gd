@@ -95,6 +95,10 @@ const NPC_COLORS := {
 	# Ranch/Sanctuary keeper (MAPS.md §3): rust-red duster — distinct from the town three, and
 	# reads against the compound's grass. (He's far south, so overlap with Harlan's brown is moot.)
 	"rancher_silas": "#9e4b34",
+	# Milestone B townsfolk (their code-generated art replaces these once it's on disk).
+	"brask": "#5d6b3a",
+	"wren": "#a5532a",
+	"doc_ama": "#e8dcc0",
 }
 const HEAD_COLOR := Color("#281a0b")  # warm near-black "head" band tops the body read
 
@@ -273,14 +277,59 @@ func _build_collision_shape() -> void:
 ## Real art when this npc_id has a NPC_FRAMES entry; Phase 5's flat-color placeholder otherwise
 ## (see the class doc's sprite section for why the fallback is kept).
 func _build_sprite() -> void:
-	if NPC_FRAMES.has(npc_id):
+	var frames := frames_for(npc_id)
+	if frames != null:
 		_sprite = AnimatedSprite2D.new()
-		_sprite.sprite_frames = NPC_FRAMES[npc_id]
+		_sprite.sprite_frames = frames
 		_sprite.position = SPRITE_OFFSET
 		add_child(_sprite)
 		_play("idle")
 		return
 	_build_placeholder_sprite()
+
+
+## -- Milestone B: the "!" over someone waiting on your accepted request --
+
+const QUEST_MARKER_PATH := "res://art/ui/quest_marker.png"
+var _quest_marker: Node2D = null
+
+
+func set_quest_marker(on: bool) -> void:
+	if on and _quest_marker == null:
+		if ResourceLoader.exists(QUEST_MARKER_PATH):
+			var sprite := Sprite2D.new()
+			sprite.texture = load(QUEST_MARKER_PATH)
+			_quest_marker = sprite
+		else:
+			var label := Label.new()
+			label.text = "!"
+			label.add_theme_color_override("font_color", Color("#ffc948"))
+			label.position = Vector2(-2, -6)
+			_quest_marker = Node2D.new()
+			_quest_marker.add_child(label)
+		_quest_marker.position = Vector2(0, -27)
+		_quest_marker.z_index = 5
+		add_child(_quest_marker)
+		var bob := create_tween().set_loops()
+		bob.tween_property(_quest_marker, "position:y", -29.0, 0.45).set_trans(Tween.TRANS_SINE)
+		bob.tween_property(_quest_marker, "position:y", -27.0, 0.45).set_trans(Tween.TRANS_SINE)
+	if _quest_marker != null:
+		_quest_marker.visible = on
+
+
+func has_quest_marker() -> bool:
+	return _quest_marker != null and _quest_marker.visible
+
+
+## The NPC's SpriteFrames: the preloaded PixelLab sets, else art/characters/<id>/<id>_frames.tres
+## if it exists (Milestone B's code-generated townsfolk follow that convention), else null.
+static func frames_for(id: String) -> SpriteFrames:
+	if NPC_FRAMES.has(id):
+		return NPC_FRAMES[id]
+	var path := "res://art/characters/%s/%s_frames.tres" % [id, id]
+	if id != "" and ResourceLoader.exists(path):
+		return load(path)
+	return null
 
 
 ## Same animation-selection rule as player.gd's _play(): "<action>_<facing>", switched only when

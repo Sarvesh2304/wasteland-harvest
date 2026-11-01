@@ -41,18 +41,31 @@ const Crafting := preload("res://scripts/crafting.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 const SkillsScript := preload("res://scripts/skills.gd")
 const BuildingDB := preload("res://scripts/building_db.gd")
+const QuestDB := preload("res://scripts/quest_db.gd")
+const LoreDB := preload("res://scripts/lore_db.gd")
+const DialogueDB := preload("res://scripts/dialogue_db.gd")
+const AffinityScript := preload("res://scripts/affinity.gd")
+const NpcScript := preload("res://scripts/npc.gd")
+const Weather := preload("res://scripts/weather.gd")
+const Calendar := preload("res://scripts/calendar.gd")
+const UIText := preload("res://scripts/ui_text.gd")
 const Builder := preload("res://scripts/builder.gd")
 
 ## 2026-10-07 Milestone B: CRAFT (the recipe book, scripts/crafting.gd) and SKILLS tabs join the
 ## ring, right after the inventory. Tabs cycle forward with Q, and either way with Left/Right
 ## or the pad's shoulder buttons.
-const TAB_NAMES: Array[String] = ["INVENTORY", "CRAFT", "SKILLS", "BUILD", "SETTLERS", "CONTROLS"]
+## Milestone B (2026-10-08) adds JOURNAL (today and tomorrow, the request you hold, Town Works,
+## the notes you've read) and PEOPLE (hearts, birthdays, tastes discovered). Eight names only fit
+## the tab bar with INVENTORY shortened to ITEMS.
+const TAB_NAMES: Array[String] = ["ITEMS", "CRAFT", "SKILLS", "JOURNAL", "PEOPLE", "BUILD", "SETTLERS", "CONTROLS"]
 const TAB_INVENTORY := 0
 const TAB_CRAFT := 1
 const TAB_SKILLS := 2
-const TAB_BUILD := 3
-const TAB_ASSIGNMENTS := 4
-const TAB_CONTROLS := 5
+const TAB_JOURNAL := 3
+const TAB_PEOPLE := 4
+const TAB_BUILD := 5
+const TAB_ASSIGNMENTS := 6
+const TAB_CONTROLS := 7
 
 ## Same modal palette as store_ui.gd/title_screen.gd's lists.
 const TAB_ACTIVE_COLOR := Color("#c5520f")     # rust red — the established highlight
@@ -79,7 +92,7 @@ const CONTROLS_REFERENCE := [
 		"actions": ["move_up", "move_down", "move_left", "move_right"]},
 	{"keys": "Space, C, Left click, X", "does": "Use the held item; swing or fire a weapon",
 		"actions": ["use_tool"]},
-	{"keys": "E, F, Right click, A", "does": "Interact, harvest, talk, pick up",
+	{"keys": "E, F, Right click, A", "does": "Interact, harvest, talk (hold a gift to give it)",
 		"actions": ["interact"]},
 	{"keys": "1-9, LB/RB", "does": "Select hotbar slot",
 		"actions": ["hotbar_slot_1", "hotbar_slot_9", "hotbar_prev", "hotbar_next"]},
@@ -129,6 +142,15 @@ var _craft_detail: Dictionary = {}
 var _craft_status: Label = null
 var _skills_tab: Control = null
 var _skills_rows: VBoxContainer = null
+## Milestone B: assigned by main.gd for the JOURNAL and PEOPLE tabs.
+var quests: Node = null
+var expedition: Node = null
+var _journal_tab: Control = null
+var _people_tab: Control = null
+var _note_index := 0
+## The JOURNAL's note reader: E opens the highlighted note full-width; E or Esc goes back.
+var _note_open := false
+var _people_index := 0
 const CRAFT_ROWS_VISIBLE := 7
 const DIM_COLOR := Color("#8a7a63")
 const LOCKED_COLOR := Color("#a8988a")
@@ -148,6 +170,8 @@ func _ready() -> void:
 		_build_row_labels.append(label)
 	_build_craft_tab()
 	_build_skills_tab()
+	_journal_tab = _new_tab_root("JournalTab")
+	_people_tab = _new_tab_root("PeopleTab")
 	_build_gear_row()
 	var hint := get_node_or_null("Root/Box/HintLabel") as Label
 	if hint != null:
@@ -182,15 +206,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			open_menu()
 	elif not active:
 		return
+	elif event.is_action_pressed("ui_cancel") and tab_index == TAB_JOURNAL and _note_open:
+		_note_open = false
+		_refresh_journal()
 	elif event.is_action_pressed("ui_cancel"):
 		close()
+	elif tab_index == TAB_JOURNAL and event.is_action_pressed("interact") \
+			and expedition != null and not expedition.notes_read.is_empty():
+		_note_open = not _note_open
+		Audio.play_sfx("ui_open" if _note_open else "ui_close", -8.0)
+		_refresh_journal()
 	elif event.is_action_pressed("build_cycle") or event.is_action_pressed("move_right") \
 			or event.is_action_pressed("hotbar_next"):
 		tab_index = next_tab(tab_index)
+		_note_open = false
 		_quit_armed = false  # navigating away disarms, like the title screen's delete guard
 		_refresh()
 	elif event.is_action_pressed("move_left") or event.is_action_pressed("hotbar_prev"):
 		tab_index = prev_tab(tab_index)
+		_note_open = false
 		_quit_armed = false
 		_refresh()
 	elif tab_index == TAB_CRAFT and event.is_action_pressed("move_down"):
@@ -200,6 +234,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif tab_index == TAB_CRAFT and (event.is_action_pressed("use_tool") \
 			or event.is_action_pressed("interact")):
 		_craft_selected()
+	elif tab_index == TAB_JOURNAL and not _note_open \
+			and (event.is_action_pressed("move_down") or event.is_action_pressed("move_up")):
+		_note_index += 1 if event.is_action_pressed("move_down") else -1
+		Audio.play_sfx("ui_hover", -10.0)
+		_refresh_journal()
+	elif tab_index == TAB_PEOPLE and (event.is_action_pressed("move_down") or event.is_action_pressed("move_up")):
+		_people_index = posmod(_people_index + (1 if event.is_action_pressed("move_down") else -1),
+			AffinityScript.NAMED_NPC_IDS.size())
+		Audio.play_sfx("ui_hover", -10.0)
+		_refresh_people()
 	elif event.is_action_pressed("use_tool"):
 		if tab_index == TAB_ASSIGNMENTS:
 			_refresh_assignments()
@@ -225,6 +269,7 @@ func open_menu() -> void:
 func close() -> void:
 	active = false
 	_quit_armed = false
+	_note_open = false
 	box.visible = false
 
 
@@ -264,6 +309,8 @@ func _refresh() -> void:
 		_refresh_gear()
 	_craft_tab.visible = tab_index == TAB_CRAFT
 	_skills_tab.visible = tab_index == TAB_SKILLS
+	_journal_tab.visible = tab_index == TAB_JOURNAL
+	_people_tab.visible = tab_index == TAB_PEOPLE
 	build_tab.visible = tab_index == TAB_BUILD
 	assignments_tab.visible = tab_index == TAB_ASSIGNMENTS
 	controls_tab.visible = tab_index == TAB_CONTROLS
@@ -275,6 +322,10 @@ func _refresh() -> void:
 		_refresh_craft()
 	elif tab_index == TAB_SKILLS:
 		_refresh_skills()
+	elif tab_index == TAB_JOURNAL:
+		_refresh_journal()
+	elif tab_index == TAB_PEOPLE:
+		_refresh_people()
 	quit_label.text = "Space / E — Craft" if tab_index == TAB_CRAFT else quit_hint(_quit_armed)
 	quit_label.add_theme_color_override("font_color",
 		QUIT_ARMED_COLOR if _quit_armed else QUIT_IDLE_COLOR)
@@ -751,3 +802,160 @@ func _refresh_gear() -> void:
 	_gear_stats.text = "HP %d/%d  Armour %d  Rad resist %d%%  Rads %d" % [int(_player.hp),
 		int(_player.effective_max_hp()), int(_player.armor()), int(round(_player.rad_resist() * 100.0)),
 		int(_player.rads)]
+
+
+## -- Milestone B: JOURNAL --
+
+const ACCENT_COLOR := Color("#c5520f")
+const HEART_COLOR := Color("#c5372f")
+
+
+func _refresh_journal() -> void:
+	for child in _journal_tab.get_children():
+		child.queue_free()
+	if _note_open and expedition != null and not expedition.notes_read.is_empty():
+		_show_note()
+		return
+	var w := 296.0
+	var day: int = DayManager.day
+	var y := 0.0
+	y += _wrap_put(_journal_tab, "%s. %s today; tomorrow, %s." % [Calendar.date_text(day),
+		Weather.display_name(DayManager.weather_today), Weather.display_name(DayManager.weather_tomorrow).to_lower()],
+		Vector2(0, y), w, ROW_COLOR) + 4
+	_put(_journal_tab, "REQUEST", Vector2(0, y), w, ACCENT_COLOR)
+	y += 10
+	var request_text := "None. The notice board in the square posts one each morning."
+	if quests != null and not quests.active.is_empty():
+		var req: Dictionary = quests.active
+		request_text = "%s: %s" % [QuestDB.title_of(req), _request_progress(req, day)]
+	y += _wrap_put(_journal_tab, request_text, Vector2(0, y), w, DIM_COLOR) + 4
+	_put(_journal_tab, "TOWN WORKS", Vector2(0, y), w, ACCENT_COLOR)
+	y += 10
+	var ids := QuestDB.project_ids()
+	for i in ids.size():
+		var id: String = ids[i]
+		var status := "%d%%" % int(round(QuestDB.progress(id, quests.given_to(id)) * 100.0)) if quests != null else ""
+		if quests != null and quests.is_finished(id):
+			status = "Done"
+		elif quests != null and quests.is_funded(id):
+			status = "Tonight"
+		var at := Vector2(float(i % 2) * 150.0, y + float(i / 2) * 10.0)
+		_put(_journal_tab, String(QuestDB.project(id).get("name", id)), at, 110, ROW_COLOR)
+		_put(_journal_tab, status, at + Vector2(112, 0), 34, GOOD_COLOR if status == "Done" else DIM_COLOR)
+	y += 24
+	var read: Array = expedition.notes_read if expedition != null else []
+	_put(_journal_tab, "NOTES  (%d of %d found)" % [read.size(), LoreDB.notes().size()], Vector2(0, y), w, ACCENT_COLOR)
+	y += 10
+	if read.is_empty():
+		_note_open = false
+		_wrap_put(_journal_tab, "Old notes turn up in the ruins. Read one and it's kept here.", Vector2(0, y), w, DIM_COLOR)
+		return
+	_note_index = posmod(_note_index, read.size())
+	var rows := maxi(1, int((116.0 - y) / 10.0))
+	var first := clampi(_note_index - rows / 2, 0, maxi(read.size() - rows, 0))
+	for row in range(first, mini(first + rows, read.size())):
+		var note := LoreDB.note(String(read[row]))
+		_put(_journal_tab, ("> " if row == _note_index else "  ") + String(note.get("title", "")),
+			Vector2(0, y + (row - first) * 10), 180, ACCENT_COLOR if row == _note_index else ROW_COLOR)
+	_put(_journal_tab, "E: read", Vector2(200, y), 96, DIM_COLOR)
+
+
+## The highlighted note, full-width over the journal (E or Esc goes back).
+func _show_note() -> void:
+	var read: Array = expedition.notes_read
+	var note := LoreDB.note(String(read[posmod(_note_index, read.size())]))
+	_put(_journal_tab, String(note.get("title", "")), Vector2(0, 0), 296, ACCENT_COLOR)
+	_wrap_put(_journal_tab, String(note.get("text", "")), Vector2(0, 14), 296, ROW_COLOR)
+	_put(_journal_tab, "E / Esc: back to the journal", Vector2(0, 110), 296, DIM_COLOR)
+
+
+func _request_progress(req: Dictionary, day: int) -> String:
+	var left: int = quests.days_left(day)
+	var when := "due today" if left <= 0 else ("1 day left" if left == 1 else "%d days left" % left)
+	var who := DialogueDB.display_name(String(req.get("npc", "")))
+	if String(req.get("kind", "")) == "hunt":
+		return "%s for %s, %d of %d done, %s." % [QuestDB.enemy_name(String(req.get("enemy", "any")), 2),
+			who, int(req.get("progress", 0)), int(req["count"]), when]
+	var have: int = int(_player.inventory.count_of(String(req["item"]))) if _player != null else 0
+	return "%s for %s (you have %d), %s." % [QuestDB.amount_text(String(req["item"]), int(req["count"])),
+		who, have, when]
+
+
+## -- Milestone B: PEOPLE --
+
+func _refresh_people() -> void:
+	for child in _people_tab.get_children():
+		child.queue_free()
+	var affinity: Node = _player.affinity if _player != null else null
+	var day: int = DayManager.day
+	var ids := AffinityScript.NAMED_NPC_IDS
+	for i in ids.size():
+		var id: String = ids[i]
+		var y := float(i) * 14.0
+		if i == _people_index:
+			var bar := ColorRect.new()
+			bar.color = Color("#e8d29a")
+			bar.position = Vector2(-2, y - 1)
+			bar.size = Vector2(300, 14)
+			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_people_tab.add_child(bar)
+		var frames := NpcScript.frames_for(id)
+		if frames != null and frames.has_animation("idle_south"):
+			var face := TextureRect.new()
+			var atlas := AtlasTexture.new()
+			atlas.atlas = frames.get_frame_texture("idle_south", 0)
+			atlas.region = Rect2(4, 1, 16, 12)
+			face.texture = atlas
+			face.position = Vector2(0, y)
+			face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_people_tab.add_child(face)
+		_put(_people_tab, DialogueDB.display_name(id), Vector2(20, y + 2), 64, ROW_COLOR)
+		var hearts: int = int(affinity.value_for(id)) if affinity != null else 0
+		_put(_people_tab, "♥".repeat(hearts), Vector2(86, y + 2), 60, HEART_COLOR)
+		_put(_people_tab, "♡".repeat(10 - hearts), Vector2(86 + hearts * 6, y + 2), 60, DIM_COLOR)
+		var b := DialogueDB.birthday(id)
+		if not b.is_empty():
+			_put(_people_tab, "%s %d" % [Calendar.SEASON_SHORT.get(String(b["season"]), ""), int(b["day"])],
+				Vector2(152, y + 2), 60, DIM_COLOR)
+		if affinity != null:
+			_put(_people_tab, "talked" if affinity.talked_today(id, day) else "", Vector2(214, y + 2), 40, GOOD_COLOR)
+			_put(_people_tab, "gift" if affinity.gifted_today(id, day) else "", Vector2(256, y + 2), 40, GOOD_COLOR)
+	_people_index = posmod(_people_index, ids.size())
+	var picked: String = ids[_people_index]
+	var known: Dictionary = affinity.known_gifts(picked) if affinity != null else {}
+	var parts: Array[String] = []
+	for reaction in ["loved", "liked", "neutral", "disliked", "hated"]:
+		var names: Array[String] = []
+		for item_id in known:
+			if String(known[item_id]) == reaction:
+				names.append(ItemDB.display_name(String(item_id)))
+		if not names.is_empty():
+			names.sort()
+			parts.append("%s %s" % [String(reaction).capitalize(), ", ".join(names)])
+	var detail := "Gifts you've tried on %s: %s." % [DialogueDB.display_name(picked), "; ".join(parts)] \
+		if not parts.is_empty() else "Give %s something to learn what they like. One gift a day, two a week." \
+		% DialogueDB.display_name(picked)
+	_wrap_put(_people_tab, detail, Vector2(0, float(ids.size()) * 14.0 + 2.0), 296, DIM_COLOR)
+
+
+## -- Small layout helpers for the code-built tabs --
+
+func _put(parent: Control, text: String, at: Vector2, width: float, color: Color) -> Label:
+	var label := _label(text, color)
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS  # before the size: see notice_ui.gd
+	label.position = at
+	parent.add_child(label)
+	label.size = Vector2(width, 10)
+	return label
+
+
+## A wrapped paragraph; returns its height (measured with the font: see ui_text.gd).
+func _wrap_put(parent: Control, text: String, at: Vector2, width: float, color: Color) -> float:
+	var label := _label(text, color)
+	label.position = at
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(label)
+	var h := UIText.wrapped_height(label, text, width)
+	label.size = Vector2(width, h)
+	return h
+

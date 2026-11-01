@@ -1,93 +1,95 @@
 extends Node
-## Phase 7 Stage 3: per-NPC relationship/affinity state (ROADMAP.md Phase 7's "Relationship/
-## affinity system — 0-10 per NPC, up via talk/gifts/quests ... gates dialogue and story events").
+## Per-NPC friendship (Phase 7 Stage 3, reworked for Milestone B 2026-10-08 — see
+## docs/SOCIAL_AND_QUESTS.md §2). One instance lives directly under Main, settlement-wide, like
+## settlers.gd and animals.gd. It ticks nothing: friendship only moves because the player did
+## something (talked, gave a gift, finished a request).
 ##
-## One instance lives directly under Main (scenes/main.tscn), NOT per-zone — relationships are a
-## settlement-wide concept, exactly like scripts/settlers.gd's roster and scripts/animals.gd's
-## livestock, and the same "owned by Main, save-state lives here" shape as both. Unlike those two
-## it connects to nothing and ticks nothing: affinity only ever changes because the player did
-## something (talked this stage; gifts are Stage 4), so there is no _ready() day hook here.
+## ## Points and hearts
+## Friendship is stored as POINTS, 0-2500, 250 to a heart (Stardew's scale): a day's first chat is
+## +20, a loved gift +80, a finished request +150. value_for() reports whole HEARTS (0-10), and
+## the dialogue tiers bucket hearts, so everything that reads value_for/tier_for is unchanged by
+## the switch. (The first version stored hearts directly and gave a whole heart per chat, which
+## maxed an NPC out in ten days of small talk.) No decay: the cozy contract (GDD §4).
 ##
-## ## Stored state
-##   _affinity:        {npc_id: int}  — the relationship value itself, always clamped 0-10.
-##   _last_talked_day: {npc_id: int}  — the in-game day each NPC last awarded a talk tick, so
-##                                      re-opening the same conversation five times in one day
-##                                      can't farm points. Exactly the shape/purpose of
-##                                      animals.gd's per-animal `last_care_day` (store the day,
-##                                      compare against the current one — no per-day reset pass
-##                                      to forget, and it survives a save/load unchanged).
-## Both round-trip through the additive "affinity" save section (save_data.gd's encode_affinity/
-## decode_affinity). An NPC absent from either dict reads as 0 / "never talked", so no entry has
-## to be pre-created and an old save decodes into an empty, valid state.
+## ## Gifts
+## One gift per NPC per day, two per NPC per week (Mon-Sun; day 1 is a Monday), and a birthday
+## gift ignores the weekly two and counts five times. The reaction comes from scripts/gift_db.gd.
+## What an NPC thought of an item is remembered once it's been given (the PEOPLE tab shows it).
 ##
-## ## Scope: only the 4 named NPCs earn affinity
-## Same scope decision Stage 1 (personality tags) and Stage 2 (schedules) made: Mayor Harlan,
-## Marta, Scout Kael and Rancher Silas are authored characters; settlers (procedurally named,
-## player-recruited via Phase 8's arrival system) are interchangeable by design and deliberately
-## have no relationship track. The gate lives in the AWARD path (try_award_talk below, and
-## Stage 4's gift award) rather than in adjust()/value_for(), which stay raw, unopinionated
-## accessors — a quest or story beat that ever needs to move a non-named NPC's number can, but no
-## routine player action will.
+## ## Once-only lines
+## Dialogue lines marked "once" are recorded in seen_lines after they play (dialogue_ui.gd), so
+## they never repeat; that memory is saved with the rest of this section.
+##
+## ## Who earns friendship
+## Only the named NPCs (NAMED_NPC_IDS, pinned against layout_common.gd's TOWN_NPCS + RANCH_NPCS by
+## tests/test_affinity.gd). Settlers are interchangeable by design and have no track. The gate is
+## in the award paths (talk, gift); adjust()/adjust_points() stay raw so a story beat can move any
+## number deliberately.
 
-## Emitted whenever a stored value actually changes (never on a no-op clamp at 0 or 10, so a
-## listener can treat every emission as a real relationship change). Nothing consumes this yet;
-## Stage 5's context-sensitive dialogue and any future "hearts" HUD widget are its intended
-## readers, and it exists now so those don't have to poll.
+## Emitted whenever an NPC's points actually change, with the new HEART count (an emission is
+## always a real change; a no-op clamp at either end emits nothing).
 signal affinity_changed(npc_id: String, value: int)
+## A gift was given (dialogue_ui reacts with a line; the HUD floats the hearts).
+signal gift_given(npc_id: String, item_id: String, reaction: String, points: int)
 
 const SaveData := preload("res://scripts/save_data.gd")
+const GiftDB := preload("res://scripts/gift_db.gd")
 
+const POINTS_PER_HEART := SaveData.POINTS_PER_HEART
 const MIN_AFFINITY := 0
 const MAX_AFFINITY := 10
+const MAX_POINTS := MAX_AFFINITY * POINTS_PER_HEART
 
-## One point per NPC per day for a real conversation. Deliberately small: 0-10 over a cozy
-## multi-season game is a slow-build track (Stardew's own hearts take in-game months), and gifts
-## (Stage 4) are meant to be the faster lever, so talking alone must not saturate it in a fortnight.
-const TALK_AFFINITY_DELTA := 1
+## A day's first real conversation.
+const TALK_POINTS := 20
+## Finishing that NPC's notice-board request (scripts/quests.gd).
+const REQUEST_POINTS := 150
+## Per reaction (GiftDB's names).
+const GIFT_POINTS := {"loved": 80, "liked": 45, "neutral": 20, "disliked": -20, "hated": -40}
+const BIRTHDAY_MULTIPLIER := 5
+const GIFTS_PER_WEEK := 2
+const DAYS_PER_WEEK := 7
 
-## The 4 authored, named NPCs — the exact id set layout_common.gd's TOWN_NPCS + RANCH_NPCS
-## declares (pinned against those arrays by tests/test_affinity.gd so this copy can't drift).
-## Held as a plain const here rather than derived from the layout data at runtime because this
-## node has no other reason to depend on map layouts, and because Stage 4's gift award needs the
-## same list.
+## The authored, named NPCs (Milestone B added Brask, Wren and Doc Ama).
 const NAMED_NPC_IDS: Array[String] = [
 	"mayor_harlan",
 	"marta",
 	"scout_kael",
 	"rancher_silas",
+	"brask",
+	"wren",
+	"doc_ama",
 ]
 
-## Tier thresholds (inclusive lower bounds on the 0-10 value). Stage 5 selects dialogue by TIER,
-## never by the raw int, so these buckets — not the numbers — are the authoring contract:
-##   0-1  "stranger"      — first meeting / barely spoken
-##   2-4  "acquaintance"  — a familiar face
-##   5-7  "friend"        — the tier Stage 5 gates its warmer greetings + gated choices on
-##   8-10 "close"         — the top of the track, reachable only with sustained talk AND gifts
-## Four tiers rather than Stardew's ten hearts because 11 discrete values don't support ten
-## meaningfully distinct authored voices; four give each tier real content room.
+## Tiers by hearts (inclusive lower bounds): 0-1 stranger, 2-4 acquaintance, 5-7 friend, 8-10
+## close. Dialogue gates on these names, never on raw numbers.
 const TIER_STRANGER := "stranger"
 const TIER_ACQUAINTANCE := "acquaintance"
 const TIER_FRIEND := "friend"
 const TIER_CLOSE := "close"
+const TIERS: Array[String] = [TIER_STRANGER, TIER_ACQUAINTANCE, TIER_FRIEND, TIER_CLOSE]
 
 const TIER_ACQUAINTANCE_MIN := 2
 const TIER_FRIEND_MIN := 5
 const TIER_CLOSE_MIN := 8
 
-var _affinity: Dictionary = {}
+var _points: Dictionary = {}
 var _last_talked_day: Dictionary = {}
+var _last_gift_day: Dictionary = {}
+## npc -> [week index, gifts given that week]
+var _gift_week: Dictionary = {}
+## npc -> {item_id: reaction}
+var _known_gifts: Dictionary = {}
+var _seen_lines: Dictionary = {}
 
 
-## -- Pure helpers (static: headless-testable with no node, same convention as settlers.gd's
-## roll rules) --
+## -- Pure helpers --
 
-## Whether `npc_id` is one of the 4 authored NPCs that can earn affinity at all (see class doc).
 static func is_named_npc(npc_id: String) -> bool:
 	return npc_id in NAMED_NPC_IDS
 
 
-## The tier name for a raw value — pure bucketing, see the threshold table in the class doc.
-## Out-of-range input is clamped rather than rejected, so this is total over every int.
+## The tier for a heart count (clamped, so total over every int).
 static func tier_for_value(value: int) -> String:
 	var clamped := clampi(value, MIN_AFFINITY, MAX_AFFINITY)
 	if clamped >= TIER_CLOSE_MIN:
@@ -99,71 +101,157 @@ static func tier_for_value(value: int) -> String:
 	return TIER_STRANGER
 
 
+## 0 stranger .. 3 close; -1 for an unknown name.
+static func tier_rank(tier: String) -> int:
+	return TIERS.find(tier)
+
+
+static func hearts_for_points(points: int) -> int:
+	return clampi(points, 0, MAX_POINTS) / POINTS_PER_HEART
+
+
+## Mon-Sun weeks, day 1 being a Monday (calendar.gd).
+static func week_of(day: int) -> int:
+	return (maxi(day, 1) - 1) / DAYS_PER_WEEK
+
+
+## Points a gift is worth: the reaction's value, x5 on a birthday.
+static func gift_points(reaction: String, birthday: bool) -> int:
+	var base := int(GIFT_POINTS.get(reaction, GIFT_POINTS["neutral"]))
+	return base * (BIRTHDAY_MULTIPLIER if birthday else 1)
+
+
 ## -- Live state --
 
-## The stored relationship value, 0 for any NPC never interacted with (and for unknown ids).
+## Whole hearts, 0-10.
 func value_for(npc_id: String) -> int:
-	return int(_affinity.get(npc_id, 0))
+	return hearts_for_points(points_for(npc_id))
+
+
+func points_for(npc_id: String) -> int:
+	return int(_points.get(npc_id, 0))
 
 
 func tier_for(npc_id: String) -> String:
 	return tier_for_value(value_for(npc_id))
 
 
-## Moves an NPC's value by `delta`, clamped into 0-10. A no-op delta (0, or a push against a
-## boundary the value already sits on) writes nothing at all — it neither emits affinity_changed
-## nor creates a 0 entry that would then be serialised for an NPC nothing ever happened with.
-## Intentionally NOT gated to the named NPCs — see the class doc's scope note; the gate lives in
-## the award paths (try_award_talk here, Stage 4's gift award), so a future quest or story beat
-## can still move any NPC's number deliberately.
+## Moves an NPC by whole HEARTS (kept for story beats and tests written against hearts).
 func adjust(npc_id: String, delta: int) -> void:
-	var before := value_for(npc_id)
-	var after := clampi(before + delta, MIN_AFFINITY, MAX_AFFINITY)
+	adjust_points(npc_id, delta * POINTS_PER_HEART)
+
+
+## Moves an NPC by points, clamped to 0-2500. A no-op writes nothing and emits nothing.
+func adjust_points(npc_id: String, delta: int) -> void:
+	var before := points_for(npc_id)
+	var after := clampi(before + delta, 0, MAX_POINTS)
 	if after == before:
 		return
-	_affinity[npc_id] = after
-	affinity_changed.emit(npc_id, after)
+	_points[npc_id] = after
+	affinity_changed.emit(npc_id, hearts_for_points(after))
 
 
-## The in-game day `npc_id` last awarded a talk tick, or -1 if it never has (never 0: day 0 is
-## not a real day, but -1 makes "never" unambiguous against any legitimate day value).
 func last_talked_day(npc_id: String) -> int:
 	return int(_last_talked_day.get(npc_id, -1))
 
 
-## The talk tick: called by scripts/dialogue_ui.gd when a REAL conversation opens (its
-## _open_dialogue_at's award_affinity path — scripted beats like the Day-28 food shortage and
-## Silas's "not_yet" store branch deliberately don't award). Returns true only when a point was
-## actually granted, so a caller/test can tell "awarded" from "already talked today".
-##
-## Two gates, both required: the NPC must be one of the 4 named ones, and must not already have
-## talked today (the last_talked_day dict — see class doc). The day stamp is only written when
-## the award actually happens, so a non-named NPC never accumulates bookkeeping either.
+## The day's first real conversation (dialogue_ui.gd): +TALK_POINTS once per NPC per day, named
+## NPCs only. True when points were actually granted.
 func try_award_talk(npc_id: String, day: int) -> bool:
 	if not is_named_npc(npc_id):
 		return false
 	if last_talked_day(npc_id) == day:
 		return false
 	_last_talked_day[npc_id] = day
-	adjust(npc_id, TALK_AFFINITY_DELTA)
+	adjust_points(npc_id, TALK_POINTS)
 	return true
+
+
+func talked_today(npc_id: String, day: int) -> bool:
+	return last_talked_day(npc_id) == day
+
+
+## -- Gifts --
+
+func gifted_today(npc_id: String, day: int) -> bool:
+	return int(_last_gift_day.get(npc_id, -1)) == day
+
+
+func gifts_this_week(npc_id: String, day: int) -> int:
+	var entry: Array = _gift_week.get(npc_id, [-1, 0])
+	return int(entry[1]) if int(entry[0]) == week_of(day) else 0
+
+
+## Why a gift can't be given right now: "" (it can), "not_named", "not_giftable", "today" (one
+## already given today) or "week" (two already this week, and it isn't their birthday).
+func gift_refusal(npc_id: String, item_id: String, day: int, birthday: bool) -> String:
+	if not is_named_npc(npc_id):
+		return "not_named"
+	if not GiftDB.is_giftable(item_id):
+		return "not_giftable"
+	if gifted_today(npc_id, day):
+		return "today"
+	if not birthday and gifts_this_week(npc_id, day) >= GIFTS_PER_WEEK:
+		return "week"
+	return ""
+
+
+## Gives `item_id` to `npc_id` (the caller has already checked gift_refusal and takes the item out
+## of the inventory). Returns {"reaction", "points"}. A birthday gift doesn't use up one of the
+## week's two.
+func give_gift(npc_id: String, item_id: String, day: int, birthday: bool) -> Dictionary:
+	var reaction := GiftDB.reaction(npc_id, item_id)
+	var points := gift_points(reaction, birthday)
+	_last_gift_day[npc_id] = day
+	if not birthday:
+		_gift_week[npc_id] = [week_of(day), gifts_this_week(npc_id, day) + 1]
+	var tastes: Dictionary = _known_gifts.get(npc_id, {})
+	tastes[item_id] = reaction
+	_known_gifts[npc_id] = tastes
+	adjust_points(npc_id, points)
+	gift_given.emit(npc_id, item_id, reaction, points)
+	return {"reaction": reaction, "points": points}
+
+
+## {item_id: reaction} the player has discovered for `npc_id`.
+func known_gifts(npc_id: String) -> Dictionary:
+	return _known_gifts.get(npc_id, {})
+
+
+## -- Once-only dialogue lines --
+
+func has_seen_line(line_id: String) -> bool:
+	return _seen_lines.has(line_id)
+
+
+func mark_line_seen(line_id: String) -> void:
+	if line_id != "":
+		_seen_lines[line_id] = true
 
 
 ## -- Save/load (scripts/save_data.gd's encode_affinity/decode_affinity) --
 
 func save_state() -> Dictionary:
-	return SaveData.encode_affinity(_affinity, _last_talked_day)
+	var seen: Array = _seen_lines.keys()
+	seen.sort()
+	return SaveData.encode_affinity(_points, _last_talked_day, {
+		"last_gift_day": _last_gift_day, "gift_week": _gift_week,
+		"known_gifts": _known_gifts, "seen_lines": seen})
 
 
-## Restores both dicts from the additive "affinity" save section. An old save with no such
-## section decodes to two empty dicts (decode_affinity's .get() defaults), i.e. a fresh
-## relationship track — the same backward-compatible shape every other additive section here uses.
-## Values are re-clamped into 0-10 on the way in: save_data.gd is the pure serialisation layer and
-## deliberately knows nothing about this system's range, so the invariant is re-established here
-## (a hand-edited or future-format save can never leave a stored value outside the tier table).
+## Restores everything from the "affinity" save section. An old save without the section (or
+## from before points) decodes to a valid state; points are re-clamped on the way in.
 func load_state(data: Dictionary) -> void:
 	var decoded := SaveData.decode_affinity(data)
-	_affinity = {}
-	for npc_id in decoded["values"]:
-		_affinity[npc_id] = clampi(int(decoded["values"][npc_id]), MIN_AFFINITY, MAX_AFFINITY)
+	_points = {}
+	for npc_id in decoded["points"]:
+		var value := clampi(int(decoded["points"][npc_id]), 0, MAX_POINTS)
+		if value > 0:
+			_points[npc_id] = value
 	_last_talked_day = decoded["last_talked_day"]
+	_last_gift_day = decoded["last_gift_day"]
+	_gift_week = decoded["gift_week"]
+	_known_gifts = decoded["known_gifts"]
+	_seen_lines = {}
+	for line_id in decoded["seen_lines"]:
+		_seen_lines[String(line_id)] = true

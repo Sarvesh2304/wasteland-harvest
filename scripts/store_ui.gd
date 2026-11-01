@@ -81,7 +81,10 @@ func bind(player: Node) -> void:
 ## Opens the store, bound to `target_npc` (accepted for parity with dialogue_ui.gd's
 ## open_dialogue(npc) signature and to leave room for a future multi-shopkeeper roster — this
 ## stage there is only one store, so the catalog itself doesn't vary by npc).
-func open_store(_target_npc: Node) -> void:
+##
+## Milestone B (2026-10-08): `stock` and `title` open a different shelf in the same UI (Doc Ama's
+## medical supplies once the clinic is rebuilt); left empty, it's Marta's seasonal shelf.
+func open_store(_target_npc: Node, stock: Array = [], title: String = "") -> void:
 	if active or _player == null:
 		return
 	if modal_gate != null and modal_gate.is_any_open_except(self):
@@ -90,8 +93,17 @@ func open_store(_target_npc: Node) -> void:
 	box.visible = true
 	_index = 0
 	status_label.text = ""
+	var title_label: Label = box.get_node_or_null("TitleLabel")
+	if title_label != null:
+		title_label.text = title if title != "" else "MARTA'S STORE"
 	# The shelf follows the season (scripts/shop_db.gd), so rebuild it every time the store opens.
-	_row_ids = ShopDB.stock_ids(DayManager.season()).duplicate()
+	_row_ids = []
+	if stock.is_empty():
+		_row_ids = ShopDB.stock_ids(DayManager.season()).duplicate()
+	else:
+		for item in stock:
+			if ItemDB.has_item(String(item)):
+				_row_ids.append(String(item))
 	_row_ids.append("")
 	Audio.play_sfx("ui_open", -4.0)
 	_refresh()

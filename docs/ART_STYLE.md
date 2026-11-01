@@ -102,3 +102,40 @@ the "Ruined city kit" block at the end of `tools/art/palette.py`.
   frame's left-middle so code can rotate it. Ground decals (blood/ichor splats) stay opaque.
 - **HUD icons**: `art/ui/hp_icon.png` (warm outline, settlement UI) and `rad_icon.png`
   (rad-glow trefoil, cold outline: it is a hazard sign).
+
+## 8. Townsfolk and Town Works (`tools/art/townsfolk/`, Milestone B)
+`python3 tools/art/townsfolk/build.py [characters buildings ui preview]` (or
+`python3 tools/art/build_all.py townsfolk`; an output allowlist in `build.py` stops it from writing
+anything but its own files, and it asserts the size / anchoring contracts below). Colours: the
+"Townsfolk and Town Works" block at the end of `tools/art/palette.py`.
+- **Townsfolk** (`art/characters/{brask,wren,doc_ama}/`) use the PixelLab NPC layout
+  (`{idle,walk}/{south,north,east,west}/{0..3}.png` + `rotations/`, 24x24) so
+  `tools/build_player_frames.py` wires them like the others. They must sit beside the PixelLab four,
+  not the enemies: an 8 px body (6 px torso + 1 px arms) about 17 px tall, centred between columns
+  11 and 12, boot soles on row 19, so with the 1 px warm selective outline the figure is ~10 x 19
+  and its lowest opaque row is 20 (the PixelLab feet row). Faces are two eye pixels with 2 skin
+  pixels between; peach skin ramps match the PixelLab townsfolk. Paper doll in `tf_doll.py`: ASCII
+  heads / torsos per facing, procedural legs and arm columns. Idle = the upper body settles 1 px on
+  frames 1-2; walk = contact / passing (body up 1 px) / contact / passing, legs alternating, arms
+  counter-swinging, a 3 px stride facing sideways (long coats flare 1 px fore and aft).
+  The camera sees a character's RIGHT side facing east and LEFT side facing west, so one-sided gear
+  (Doc's armband, the satchels, Brask's club and scarred brow) is drawn per side ("W" parts), never
+  just mirrored.
+- **Town Works buildings** (`art/buildings/`) are exactly as wide as their footprint and stand on
+  its bottom edge (roofs / towers rise above it): `town_clinic_ruined` / `town_clinic` 64x56 (4x3),
+  `store_expanded` 48x48 (3x2), `watchtower` 32x64 (2x2), `doc_tent` 32x32 (2x2). A before / after
+  pair is one parametric drawing (`clinic(ruined)`, the greenhouse walls), so wall, door, windows,
+  sign and roof line never drift apart; "after" keeps the "before" building's materials (the
+  expanded store keeps store.png's wine-brown boards, tan bar band and coral roof cap).
+- **Greenhouse** (8x6 footprint, separate pieces so the game depth-sorts them): `greenhouse_back`
+  128x32 (row 0), `greenhouse_side` 16x64 (west wall rows 1-4; the game mirrors it for the east wall
+  and draws it as one 16x16 slice per row, so every slice carries its own post), `greenhouse_front`
+  128x24 (row 5, doorway x 48-63 left transparent), plus `_ruined` variants with identical geometry.
+  The wall line runs down the middle of the edge cells: the side band is x 4-10 of its column and
+  the back / front walls end in 7 px corner posts on exactly those columns. Glass is translucent
+  (alpha ~140-170, white streaks ~200); the ruined frame is steel mottled with rust, the panes
+  reduced to a few shards.
+- **Social icons** (`art/ui/heart_full`, `heart_empty` 7x6, `quest_marker` 9x12, `gift_icon` 8x8,
+  `talk_icon` 8x7): native size, warm outline, flat fill + one shade + one highlight, fully opaque,
+  the same reds as `hp_icon.png` and the same cream as `ready_bubble.png`.
+- Review images: `art/characters/townsfolk_preview.png`, `art/buildings/_works_preview.png`.

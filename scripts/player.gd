@@ -45,6 +45,8 @@ signal equipment_changed
 signal died
 ## A lore note or blueprint from the pack wants reading (main.gd shows it): `item_id` is which.
 signal note_read_requested(item_id: String)
+## Milestone B: the town square's notice board was used (main.gd opens scripts/notice_ui.gd).
+signal notice_board_requested
 
 ## ~3.5 tiles/second at 16 px tiles — Stardew's walk feel.
 const SPEED := 56.0
@@ -146,6 +148,8 @@ var menu_screen: Node = null
 var storage_ui: Node = null
 ## Milestone C: the yes/no prompt and note reader (scripts/confirm_ui.gd).
 var confirm_ui: Node = null
+## Milestone B: the notice board (scripts/notice_ui.gd).
+var notice_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -323,7 +327,7 @@ func _now() -> float:
 
 func _in_any_modal() -> bool:
 	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage() \
-		or _in_confirm()
+		or _in_confirm() or (notice_ui != null and bool(notice_ui.active))
 
 
 func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
@@ -499,6 +503,8 @@ func _instant_target(cell: Vector2i, for_use: bool = true) -> String:
 			return "Sleep"
 		if structures.is_shipping_box_at(cell):
 			return "Ship"
+		if structures.has_method("is_board_at") and structures.is_board_at(cell):
+			return "Read"
 	if npcs != null and npcs.npc_at(cell) != null:
 		return "Talk"
 	# Milestone B: crafted chests and machines. The Use button with an axe or pickaxe in hand
@@ -580,6 +586,9 @@ func _do_instant(cell: Vector2i) -> void:
 	if structures != null and structures.is_shipping_box_at(cell):
 		Audio.play_sfx("chest_open", -6.0)
 		shipping_box_requested.emit()
+		return
+	if structures != null and structures.has_method("is_board_at") and structures.is_board_at(cell):
+		notice_board_requested.emit()
 		return
 	if npcs != null:
 		var npc: Node = npcs.npc_at(cell)

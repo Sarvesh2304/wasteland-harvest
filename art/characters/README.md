@@ -156,3 +156,29 @@ rad-hound coils low with hackles up and fangs bared, then lunges.
 
 Review aids: `enemies/_preview.png` (all sheets at 3x beside the player) and
 `enemies/_preview_anim/<id>.gif` (walk S, attack S, death; Godot-ignored).
+
+## Townsfolk (code-generated) — `brask/`, `wren/`, `doc_ama/` (Milestone B)
+
+The three new named NPCs from `docs/SOCIAL_AND_QUESTS.md` §1 are drawn by code, not PixelLab
+(its API host is blocked in this environment): `python3 tools/art/townsfolk/build.py characters`
+(package `tools/art/townsfolk/`, also run by `tools/art/build_all.py townsfolk`; deterministic,
+re-running gives byte-identical PNGs). Colours: the "Townsfolk and Town Works" block in
+`tools/art/palette.py`. House rules: `docs/ART_STYLE.md` §8.
+
+- **Brask** (`tf_brask.py`) — grey crew cut, scar through his left eyebrow (shows facing south and
+  west), olive-drab long coat with square shoulders and a belt, dark trousers, tall boots, a short
+  cudgel on his right hip.
+- **Wren** (`tf_wren.py`) — patched brown hood over auburn hair, brass goggles pushed up on her
+  forehead, muted teal scarf, faded plum jacket, satchel strap from her left shoulder to the bag on
+  her right hip, fingerless gloves, patched khaki trousers.
+- **Doc Ama** (`tf_doc_ama.py`) — dark hair greying at the temples in a bun, round glasses that
+  catch the light, long off-white coat, red armband on her left sleeve, satchel on her right hip.
+
+Same layout and anchoring as the PixelLab NPCs above, so nothing downstream differs:
+`<id>/rotations/{dir}.png` (= idle frame 0), `<id>/idle/{dir}/{0-3}.png` (a 1 px breath),
+`<id>/walk/{dir}/{0-3}.png` (4-frame stride with a 1 px bob), 24x24, figure centred, lowest opaque
+row 20. West frames are mirrored east frames except for one-sided gear, which is redrawn for the
+left flank. `<id>/<id>_frames.tres` comes from `tools/build_player_frames.py` (idle 5 fps, walk
+6 fps, like the other NPCs; its provenance comment says "code-generated (tools/art/townsfolk)").
+Review sheet: `townsfolk_preview.png` (Marta and Harlan above the three, idle in four directions
+plus the walk south / east cycles, x5).

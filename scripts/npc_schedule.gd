@@ -77,13 +77,27 @@ extends RefCounted
 ##       22:00 home (17,9)      : home past the shuttered store.
 ##   - scout_kael, home (18,13) — the plaza's southern edge (see TOWN_NPCS' doc).
 ##       06:00 home (18,13)     : dawn, before he walks his watch.
-##       07:00 (3,3)            : two cells inside the WEST gate (the gate-break at x0, rows
-##                                4-5) — the town's only road connection, where everyone who
-##                                arrives arrives. His written dialogue is entirely about
-##                                watching the road so the road doesn't watch the town; the
-##                                expedition road east is Phase 9 content with no authored cells
-##                                yet, so the real gate is the honest place to stand watch.
+##       07:00 (26,14)          : the pond dock on the east side, looking out over the water at
+##                                the road east he scouts. (Until Milestone B he stood two cells
+##                                inside the west gate at (3,3); that's Brask's ground now.)
 ##       19:00 home (18,13)     : off watch, back to the south plaza edge.
+##   - brask, home (4,2) — the wall warden's corner by the west gate and the watchtower site.
+##       06:00 home (4,2)       : first light, the north-west corner of the wall.
+##       09:00 (2,10)           : walking the west wall south, past the market stall.
+##       13:00 (21,14)          : the south fence, below the plaza.
+##       19:00 home (4,2)       : back to his corner for the night watch.
+##   - wren, home (29,2) — up by the fire pit on the east side, away from everyone.
+##       06:00 home (29,2)      : asleep by the embers, as far as anyone can tell.
+##       11:00 (33,4)           : the north-east corner of the fence, looking at the city.
+##       17:00 (25,6)           : behind the shacks, where the trading gets done quietly.
+##       23:00 home (29,2)      : back to the fire pit; a night owl.
+##   - doc_ama, home (10,13) — beside her tent and the ruined clinic in the south-west.
+##       06:00 home (10,13)     : the tent, morning surgery.
+##       09:00 (8,11)           : out front of the clinic site, between the tent and the stall.
+##       13:00 (13,3)           : house calls along the plaza's north side.
+##       18:00 home (10,13)     : back to the tent.
+## Every waypoint keeps its radius-1 box clear of every other NPC's and the settler slots
+## (tests/test_npc_schedule.gd checks it).
 ## RANCH (ranch_layout_standard.gd + ranch_layout_riverside.gd — same 36x18 grid, same
 ## BUILDINGS, differing only in the west column):
 ##   - rancher_silas, home (17,9) — the open yard inside the fenced compound.
@@ -109,8 +123,26 @@ const SCHEDULES: Dictionary = {
 	],
 	"scout_kael": [
 		{"start_minutes": 6 * 60, "cell": Vector2i(18, 13)},
-		{"start_minutes": 7 * 60, "cell": Vector2i(3, 3)},
+		{"start_minutes": 7 * 60, "cell": Vector2i(26, 14)},
 		{"start_minutes": 19 * 60, "cell": Vector2i(18, 13)},
+	],
+	"brask": [
+		{"start_minutes": 6 * 60, "cell": Vector2i(4, 2)},
+		{"start_minutes": 9 * 60, "cell": Vector2i(2, 10)},
+		{"start_minutes": 13 * 60, "cell": Vector2i(21, 14)},
+		{"start_minutes": 19 * 60, "cell": Vector2i(4, 2)},
+	],
+	"wren": [
+		{"start_minutes": 6 * 60, "cell": Vector2i(29, 2)},
+		{"start_minutes": 11 * 60, "cell": Vector2i(33, 4)},
+		{"start_minutes": 17 * 60, "cell": Vector2i(25, 6)},
+		{"start_minutes": 23 * 60, "cell": Vector2i(29, 2)},
+	],
+	"doc_ama": [
+		{"start_minutes": 6 * 60, "cell": Vector2i(10, 13)},
+		{"start_minutes": 9 * 60, "cell": Vector2i(8, 11)},
+		{"start_minutes": 13 * 60, "cell": Vector2i(13, 3)},
+		{"start_minutes": 18 * 60, "cell": Vector2i(10, 13)},
 	],
 	"rancher_silas": [
 		{"start_minutes": 6 * 60, "cell": Vector2i(17, 9)},

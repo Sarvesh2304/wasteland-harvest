@@ -475,14 +475,14 @@ func test_town_layouts_expose_the_town_npc_roster() -> void:
 				"%s npc '%s' home cell %s isn't blocked" % [TOWN_NAMES[i], entry["id"], home])
 
 
-func test_npc_roster_has_three_unique_ids_and_positive_radius() -> void:
+func test_npc_roster_has_unique_ids_and_positive_radius() -> void:
 	var ids := {}
 	for entry in LayoutCommon.TOWN_NPCS:
 		var id := String(entry["id"])
 		assert_false(ids.has(id), "npc id '%s' is unique in the roster" % id)
 		ids[id] = true
 		assert_true(int(entry["wander_radius"]) > 0, "%s has a positive wander radius" % id)
-	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs")
+	assert_eq(ids.size(), 6, "6 town NPCs (Milestone B added Brask, Wren and Doc Ama)")
 
 
 ## -- Ranch-zone checks (MAPS.md §3) --

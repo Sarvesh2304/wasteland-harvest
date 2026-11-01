@@ -6,12 +6,12 @@ extends "res://tests/test_case.gd"
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
-const ROSTER_IDS := ["mayor_harlan", "marta", "scout_kael"]
+const ROSTER_IDS := ["mayor_harlan", "marta", "scout_kael", "brask", "wren", "doc_ama"]
 
 ## Phase 7 Stage 1: the 4 authored, named NPCs (the 3 town-core roster ids plus the Ranch keeper)
 ## — the only NPCs that carry a personality tag. Settlers are deliberately excluded (they're
 ## registered in memory via DialogueDB.register_runtime and are interchangeable by design).
-const NAMED_NPC_IDS := ["mayor_harlan", "marta", "scout_kael", "rancher_silas"]
+const NAMED_NPC_IDS := ["mayor_harlan", "marta", "scout_kael", "rancher_silas", "brask", "wren", "doc_ama"]
 
 ## The 6 frozen archetypes from the original roadmap HTML — the exact, complete valid set.
 const VALID_PERSONALITIES := [
@@ -29,6 +29,9 @@ const EXPECTED_PERSONALITIES := {
 	"marta": "Pragmatic Trader",
 	"scout_kael": "Paranoid Survivor",
 	"rancher_silas": "Gentle Medic",
+	"brask": "Gruff Soldier",
+	"wren": "Secretive Scavenger",
+	"doc_ama": "Gentle Medic",
 }
 
 
@@ -41,13 +44,13 @@ func test_all_town_core_npcs_have_dialogue_entries() -> void:
 		assert_true(DialogueDB.has_dialogue(id), "roster npc '%s' has a dialogue.json entry" % id)
 
 
-func test_roster_ids_match_expected_three_npcs() -> void:
+func test_roster_ids_match_expected_town_npcs() -> void:
 	var ids: Array[String] = []
 	for entry in LayoutCommon.TOWN_NPCS:
 		ids.append(String(entry["id"]))
 	for expected in ROSTER_IDS:
 		assert_true(expected in ids, "roster includes '%s'" % expected)
-	assert_eq(ids.size(), 3, "exactly 3 town-core NPCs this stage")
+	assert_eq(ids.size(), 6, "6 town NPCs (Milestone B added Brask, Wren and Doc Ama)")
 
 
 func test_display_name_and_start_node_resolve_for_every_npc() -> void:

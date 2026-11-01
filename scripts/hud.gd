@@ -1031,8 +1031,11 @@ func _tick_expedition_widgets() -> void:
 		return
 	var scale := minf((center.x - margin) / maxf(absf(dir.x), 0.01), (center.y - margin) / maxf(absf(dir.y), 0.01))
 	var at := center + dir * scale
-	var arrow := "<" if absf(dir.x) >= absf(dir.y) and dir.x < 0.0 else (">" if absf(dir.x) >= absf(dir.y) else ("^" if dir.y < 0.0 else "v"))
-	_truck_marker.text = arrow + " Truck" if arrow == "<" else ("Truck " + arrow if arrow == ">" else "Truck " + arrow)
+	# The UI font has its own arrow glyphs (tools/font_add_glyphs.py); < > ^ would fall back to a
+	# blurry system font.
+	var horizontal := absf(dir.x) >= absf(dir.y)
+	var arrow := ("←" if dir.x < 0.0 else "→") if horizontal else ("↑" if dir.y < 0.0 else "↓")
+	_truck_marker.text = arrow + " Truck" if arrow == "←" else "Truck " + arrow
 	_truck_marker.reset_size()
 	var size := _truck_marker.get_combined_minimum_size()
 	# Keep it in the play area: below the date sign, above the hotbar, clear of the HP/energy bars.

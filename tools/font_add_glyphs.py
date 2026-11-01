@@ -11,6 +11,10 @@ pixel, baseline at y=0, caps from y=0..768. New glyphs are hand-designed on the 
 the same stroke weight, one rectangle contour per horizontal pixel run. If the font is ever
 regenerated from PixelLab, this script MUST be re-run on the fresh TTF or all digits vanish
 from the HUD. Requires fontTools (pip install fonttools).
+
+Idempotent (2026-10-08): a glyph that already exists is redrawn in place rather than appended a
+second time, so the script can be re-run on the shipped TTF to add new glyphs (it was re-run
+then to add the left/right arrows and the percent sign).
 """
 import sys
 
@@ -36,6 +40,11 @@ GLYPHS = {
     0x2193: "..#..|..#..|..#..|#####|.###.|..#..",  # down arrow
     0x2014: "......|......|......|......|######|......",  # em dash (bar on row 4, like hyphen)
     0x2026: ".....|.....|.....|.....|.....|#.#.#",  # ellipsis
+    0x2190: "......|..#...|.##...|######|.##...|..#...",  # left arrow (HUD truck marker)
+    0x2192: "......|...#..|...##.|######|...##.|...#..",  # right arrow
+    0x25: "#..#|...#|..#.|.#..|#...|#..#",  # percent (Town Works rewards: "10% more")
+    0x2665: ".....|.#.#.|#####|#####|.###.|..#..",  # filled heart (friendship, PEOPLE tab)
+    0x2661: ".....|.#.#.|#.#.#|#...#|.#.#.|..#..",  # empty heart
 }
 
 # Typographic chars that appear in lore/dialogue text, mapped onto existing glyphs so they
@@ -78,7 +87,8 @@ for code, art in sorted(GLYPHS.items()):
                 x += 1
     glyph = pen.glyph()
     glyph.recalcBounds(glyf)
-    order.append(name)
+    if name not in order:
+        order.append(name)
     glyf[name] = glyph
     hmtx[name] = ((width_px + 1) * PX, glyph.xMin)  # glyph width + 1px spacing, like base glyphs
     for table in cmaps:

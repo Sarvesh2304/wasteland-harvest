@@ -115,6 +115,7 @@ extends SceneTree
 ## refused while build mode is active, and Tab re-opens/re-closes it once nothing else is open.
 
 const Calendar := preload("res://scripts/calendar.gd")
+const DialogueDB := preload("res://scripts/dialogue_db.gd")
 const CropDB := preload("res://scripts/crop_db.gd")
 const NpcSchedule := preload("res://scripts/npc_schedule.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
@@ -455,8 +456,12 @@ func _physics_process(_delta: float) -> bool:
 			for required in ["mayor_house", "store", "bulletin_board"]:
 				_check(town_kinds.get(required, 0) == 1, "exactly one %s (town zone)" % required)
 			_check(town_kinds.get("shack", 0) == 4, "4 settler shacks (town zone)")
-			_check(main.zones["town"]["structures"].get_child_count() == TownLayout.buildings().size(),
-				"town Structures spawned one body per town building")
+			# Milestone B: plus the Town Works buildings (Doc's tent until the clinic is rebuilt).
+			_check(main.zones["town"]["structures"].get_child_count()
+					== TownLayout.buildings().size() + main.zones["town"]["structures"]._works.size(),
+				"town Structures spawned one body per town building (and per Town Works building)")
+			_check(main.zones["town"]["structures"].has_works_building("doc_tent"),
+				"Doc's tent stands by the ruined clinic on a new game")
 			var mayor: Dictionary = TownLayout.building_at(8, 1)
 			_check(String(mayor.get("kind", "")) == "mayor_house",
 				"mayor's house sits in the town core (town-local frame)")
@@ -773,10 +778,17 @@ func _physics_process(_delta: float) -> bool:
 				# (a real held-input walk) rather than here; this stage focuses on re-opening.
 				player.use_tool()
 				_check(dialogue_ui.active, "re-opening Harlan's dialogue works after a prior close")
-				_drive_dialogue_action("use_tool")  # reveal greet
-				_drive_dialogue_action("use_tool")  # advance -> founding
-				_drive_dialogue_action("use_tool")  # reveal founding
-				_drive_dialogue_action("use_tool")  # advance -> offer
+				# Milestone B (v2 dialogue): the intro tree plays once; a second chat the same day is
+				# one of his short repeat lines, and (Harlan having no service menu) then closes.
+				_check(dialogue_ui._node_id == "_line", "a second visit opens on today's line, not the intro")
+				_check(DialogueDB.repeat_lines("mayor_harlan").has(dialogue_ui._full_text),
+					"the same day, it's one of Harlan's repeat lines")
+				_drive_dialogue_action("use_tool")  # reveal
+				_drive_dialogue_action("use_tool")  # close
+				_check(not dialogue_ui.active, "the repeat line closes the conversation")
+				# The intro's other branch, through the scripted entry point (a fresh open, so the
+				# highlighted choice must reset).
+				dialogue_ui.open_dialogue_at(_npc_by_id("mayor_harlan"), "offer")
 				_drive_dialogue_action("use_tool")  # reveal offer
 				_check(dialogue_ui._choice_index == 0, "choice resets to the first option on a fresh visit")
 				_drive_dialogue_action("use_tool")  # confirm choice 0 -> offer_yes
@@ -1352,9 +1364,18 @@ func _physics_process(_delta: float) -> bool:
 					"Q cycles Craft -> Skills")
 				_check(menu_screen._skills_tab.visible, "the Skills tab is showing")
 				_check(menu_screen._skills_rows.get_child_count() == 5, "one row per skill")
+				# Milestone B (2026-10-08): JOURNAL and PEOPLE sit between Skills and Build.
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_JOURNAL, "Q cycles Skills -> Journal")
+				_check(menu_screen._journal_tab.visible and menu_screen._journal_tab.get_child_count() > 0,
+					"the Journal tab is showing and filled in")
+				_drive_menu_action("build_cycle")
+				_check(menu_screen.tab_index == menu_screen.TAB_PEOPLE, "Q cycles Journal -> People")
+				_check(menu_screen._people_tab.visible and menu_screen._people_tab.get_child_count() > 0,
+					"the People tab is showing and filled in")
 				_drive_menu_action("build_cycle")
 				_check(menu_screen.tab_index == menu_screen.TAB_BUILD,
-					"Q cycles Skills -> Build")
+					"Q cycles People -> Build")
 				_check(menu_screen.build_tab.visible and not menu_screen.inventory_tab.visible,
 					"only the Build tab's content is showing")
 				# Phase 8 Stage 1 grew the catalog to the full 12-building library; Stage 2's 4

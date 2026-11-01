@@ -80,10 +80,18 @@ const SOLID_TERRAIN_CHARS := ["F", "W", "#"]
 ## picked up the WRONG NPC at a shared boundary cell when this was 2, an intermittent failure
 ## that traced back to here); radius 1 keeps every zone strictly disjoint while still reading as
 ## "stands near home and ambles a little."
+## Milestone B (2026-10-08) added three townsfolk (docs/SOCIAL_AND_QUESTS.md §1), each home on open
+## grass in both town variants, at least 3 cells from every other home and settler slot:
+##   - brask (4,2): the wall warden, by the west gate and the watchtower site at (1,1);
+##   - wren (29,2): up by the fire pit on the east side, away from everyone, as she likes it;
+##   - doc_ama (10,13): beside her tent and the ruined clinic in the south-west.
 const TOWN_NPCS: Array[Dictionary] = [
 	{"id": "mayor_harlan", "home": Vector2i(10, 4), "wander_radius": 1},
 	{"id": "marta", "home": Vector2i(17, 9), "wander_radius": 1},
 	{"id": "scout_kael", "home": Vector2i(18, 13), "wander_radius": 1},
+	{"id": "brask", "home": Vector2i(4, 2), "wander_radius": 1},
+	{"id": "wren", "home": Vector2i(29, 2), "wander_radius": 1},
+	{"id": "doc_ama", "home": Vector2i(10, 13), "wander_radius": 1},
 ]
 
 ## 2026-10-07 town dressing, shared by both town variants (identical town-core coordinates). Each

@@ -154,3 +154,42 @@ PAPER_RAMP = ["#6e6754", "#8e866e", "#b5a98c", "#cfc5a8"]  # old paper / files (
 BONE_RAMP = ["#3e3a31", "#5c5649", "#7f7764", "#9e957d", "#b5a98c"]  # weathered bone, somber ([4] = SIGNAGE_CREAM)
 TRUCK_PAINT_RAMP = ["#3a2a1a", "#574026", "#765834", "#937044", "#ad8957", "#c4a26c"]  # Kael's pickup: faded, cared-for sand-amber
 TRANSIT_SIGN_RAMP = ["#1d2531", "#283446", "#36465c", "#4a5d74"]  # faded enamel transit-blue (subway sign)
+
+
+# -- Townsfolk and Town Works (added by tools/art/townsfolk/, Milestone B) ------------------------
+# Settlement side: warm outline, warm shadows, never seasonally modulated. Ramps run darkest ->
+# lightest. The three code-drawn townsfolk (Brask, Wren, Doc Ama) stand next to the PixelLab
+# four (art/characters/), so skin and cloth sit in the same peach / dusty band as theirs.
+SKIN_RUDDY_RAMP = ["#6a3a2e", "#9a5a48", "#c47a64", "#dc957c", "#eeb299"]   # Brask: weathered, sun-reddened peach
+SKIN_FAIR_RAMP = ["#6e4034", "#a0604e", "#cf8a72", "#eaab92", "#f8c9b0"]    # Wren: fair peach
+SKIN_DEEP_RAMP = ["#3c231a", "#5a3524", "#7a4a31", "#9a6242", "#b67d57"]    # Doc Ama: deep brown
+STEEL_HAIR_RAMP = ["#3e3b37", "#5f5b55", "#827d75", "#a6a197", "#c6c1b5"]   # Brask's grey crew cut (darker than Harlan's white)
+AUBURN_RAMP = ["#4a1c12", "#76301c", "#a24526", "#c45f32", "#dd8048"]       # Wren's auburn hair
+INK_HAIR_RAMP = ["#1d1613", "#2d231e", "#3f322b", "#54463d"]                 # Doc Ama's near-black hair
+GREY_STREAK_RAMP = ["#8f8a82", "#b9b4aa"]                                    # grey streaks in Doc Ama's hair
+OLIVE_DRAB_RAMP = ["#24271a", "#363b25", "#4a5131", "#5f673d", "#77804c", "#929a62"]  # Brask's ex-militia long coat
+CHARCOAL_RAMP = ["#1f1c1a", "#2f2b28", "#423d38", "#57514a"]                 # Brask's trousers
+SLATE_CLOTH_RAMP = ["#22252c", "#33373f", "#464b55", "#5b616b"]              # Doc Ama's trousers
+KHAKI_RAMP = ["#3e3628", "#5a4f3a", "#7a6c4f", "#998a66", "#b5a780"]         # Wren's patched trousers
+HOOD_BROWN_RAMP = ["#2e1f16", "#46301f", "#62442b", "#7d5a39", "#987249"]    # Wren's patched hood / jacket
+WREN_JACKET_RAMP = ["#2a1820", "#3f2431", "#573443", "#704657", "#8a5c6c"]  # Wren's faded plum jacket (teal scarf sits on it as a complement)
+SCARF_TEAL_RAMP = ["#20393a", "#2f5452", "#43726c", "#5f9288", "#84b3a4"]    # Wren's muted teal scarf (her accent)
+COAT_WHITE_RAMP = ["#5e574c", "#8c8474", "#b4ab98", "#d6ceb9", "#ece5d2", "#f7f2e4"]  # Doc's off-white coat (warm, never pure white)
+MEDIC_RED_RAMP = ["#5c1612", "#8e221c", "#bb3226", "#d84a36", "#ec7058"]     # red cross: armband, clinic sign, tent flag
+LEATHER_RAMP = ["#2e1c12", "#4a2e1c", "#6a4428", "#8a5c36", "#a87648"]       # belts, straps, satchels, gloves
+BOOT_RAMP = ["#1c1410", "#2e2119", "#433126", "#5c4535"]                     # townsfolk boots
+BRASS_RAMP = ["#4a3614", "#7a5a20", "#ad8530", "#d4aa48", "#f0d07a"]         # buckles, goggles, lantern and sign fittings
+LENS_GLINT = "#e4f0ea"         # spectacle / goggle lens catching the light (pale, cool)
+EYE_DARK = "#24160c"           # townsfolk eyes (warm near-black, a hair lighter than OUTLINE_WARM)
+SCAR_PALE = "#f2c4ae"          # Brask's old eyebrow scar
+# Town Works buildings (clinic, expanded store, watchtower, greenhouse) and Doc's tent
+WHITEWASH_RAMP = ["#62523f", "#94806a", "#bfae92", "#ddcfb2", "#f0e6cc"]     # clinic's whitewashed boards (wood shows where worn)
+STORE_WOOD_RAMP = ["#1e0810", "#30151c", "#43201f", "#5b2a22", "#723526", "#8c4630"]  # Marta's store: dark wine-brown boards (sampled from store.png)
+STORE_TAN_RAMP = ["#7c5040", "#9b6950", "#b98058", "#d6985f", "#ebae6e"]     # Marta's store: tan trim band (sampled from store.png)
+WINDOW_GLOW_RAMP = ["#a8601c", "#e1982a", "#ffc948", "#ffe48a", "#fff4c8"]   # lit window glass: amber edge -> lamplight -> hot core
+WINDOW_DARK_RAMP = ["#1c1a1e", "#2a2a30", "#3c4048", "#5a6670"]              # unlit / boarded-behind window glass
+GREENHOUSE_GLASS_RAMP = ["#4f7f7a", "#76a8a0", "#a3cfc4", "#cfeee6"]         # greenhouse panes (drawn at alpha ~120-170)
+GLASS_STREAK = "#f6fffb"       # white highlight streaks on glass (drawn at alpha ~190-220)
+TENT_CANVAS_RAMP = ["#5a5038", "#7e7252", "#a39470", "#c4b68e", "#ddd0a8"]   # Doc's field tent: sun-faded army canvas
+GH_FRAME_RAMP = ["#4a463e", "#6e695e", "#a39d8d", "#cfc9b6", "#ebe6d4"]    # greenhouse frame: light painted steel
+GH_BRICK_RAMP = ["#4a2a1e", "#6e3c2a", "#8e5038", "#ab6748", "#c4825e"]    # greenhouse brick plinth (warm settlement brick)

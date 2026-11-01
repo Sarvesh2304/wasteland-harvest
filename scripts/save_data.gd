@@ -431,22 +431,65 @@ static func decode_animals(data: Dictionary) -> Dictionary:
 ## bookkeeping that produced it), and splitting them would let a partial restore resurrect a
 ## value whose daily cap had been forgotten — allowing a second same-day tick after a reload.
 
-static func encode_affinity(values: Dictionary, last_talked_day: Dictionary) -> Dictionary:
-	var values_out := {}
-	for npc_id in values:
-		values_out[String(npc_id)] = int(values[npc_id])
+## 2026-10-08 (Milestone B, social): the section now holds friendship POINTS (0-2500, 250 to a
+## heart, under "points") instead of whole hearts (the old "values"), plus the gift bookkeeping
+## (last gift day, this week's gift count), the gift reactions the player has discovered, and the
+## ids of once-only dialogue lines already seen. A save from before has only "values": its hearts
+## decode as hearts x POINTS_PER_HEART, so nobody's friendship is lost.
+const POINTS_PER_HEART := 250
+
+static func encode_affinity(points: Dictionary, last_talked_day: Dictionary,
+		extra: Dictionary = {}) -> Dictionary:
+	var points_out := {}
+	for npc_id in points:
+		points_out[String(npc_id)] = int(points[npc_id])
 	var talked_out := {}
 	for npc_id in last_talked_day:
 		talked_out[String(npc_id)] = int(last_talked_day[npc_id])
-	return {"values": values_out, "last_talked_day": talked_out}
+	var gift_day_out := {}
+	var raw_gift_day = extra.get("last_gift_day", {})
+	if raw_gift_day is Dictionary:
+		for npc_id in raw_gift_day:
+			gift_day_out[String(npc_id)] = int(raw_gift_day[npc_id])
+	var week_out := {}
+	var raw_week = extra.get("gift_week", {})
+	if raw_week is Dictionary:
+		for npc_id in raw_week:
+			var pair = raw_week[npc_id]
+			if pair is Array and (pair as Array).size() == 2:
+				week_out[String(npc_id)] = [int(pair[0]), int(pair[1])]
+	var known_out := {}
+	var raw_known = extra.get("known_gifts", {})
+	if raw_known is Dictionary:
+		for npc_id in raw_known:
+			var tastes = raw_known[npc_id]
+			if not (tastes is Dictionary):
+				continue
+			var entry := {}
+			for item_id in tastes:
+				entry[String(item_id)] = String(tastes[item_id])
+			known_out[String(npc_id)] = entry
+	var seen_out: Array = []
+	var raw_seen = extra.get("seen_lines", [])
+	if raw_seen is Array:
+		for line_id in raw_seen:
+			seen_out.append(String(line_id))
+	return {"points": points_out, "last_talked_day": talked_out, "last_gift_day": gift_day_out,
+		"gift_week": week_out, "known_gifts": known_out, "seen_lines": seen_out}
 
 
 static func decode_affinity(data: Dictionary) -> Dictionary:
-	var raw_values = data.get("values", {})
+	var raw_points = data.get("points", null)
+	var points := {}
+	if raw_points is Dictionary:
+		points = raw_points
+	else:
+		var legacy = data.get("values", {})
+		if legacy is Dictionary:
+			for npc_id in legacy:
+				points[npc_id] = int(legacy[npc_id]) * POINTS_PER_HEART
 	var raw_talked = data.get("last_talked_day", {})
-	return encode_affinity(
-		raw_values if raw_values is Dictionary else {},
-		raw_talked if raw_talked is Dictionary else {})
+	return encode_affinity(points, raw_talked if raw_talked is Dictionary else {}, data)
 
 
 ## -- Top-level assembly / parsing --

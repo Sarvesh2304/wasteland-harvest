@@ -44,6 +44,10 @@ var kills := 0
 ## Saved progress: deepest level ever reached, expeditions run, Kael's loan given, notes read.
 var max_depth := 0
 var runs := 0
+## Milestone B (dialogue flags): the day the last run ended, and the last time Kael carried the
+## player home (-1 = never).
+var last_run_day := -1
+var last_death_day := -1
 var gift_given := false
 var notes_read: Array[String] = []
 ## The raider faction's view of the player (scripts/faction.gd), saved.
@@ -105,8 +109,9 @@ static func ledger_total(book: Dictionary) -> int:
 
 ## -- The flow --
 
-## Called when the player has agreed to ride out (main.gd shows the prompt).
-func depart() -> void:
+## Called when the player has agreed to ride out (main.gd shows the prompt). `start_depth` above 1
+## is the watchtower's reward: Kael drives straight to a district already reached.
+func depart(start_depth: int = 1) -> void:
 	if active:
 		return
 	active = true
@@ -122,7 +127,7 @@ func depart() -> void:
 			player.inventory.add_item(item_id, int(FIRST_RIDE_GIFT[item_id]))
 		Events.message.emit("Kael tossed you a pipe and some bandages. \"Bring them back.\"")
 	DayManager.advance_minutes(DEPART_MINUTES)
-	enter_level(1)
+	enter_level(clampi(start_depth, 1, maxi(max_depth, 1)))
 
 
 ## Generates and enters level `level_depth` (the first, or the next one down the stairs).
@@ -151,6 +156,7 @@ func extract() -> void:
 	var summary := _summary()
 	if not _raider_blood:
 		_shift_rep("peaceful_run")
+	last_run_day = DayManager.day
 	_finish()
 	DayManager.advance_minutes(RETURN_MINUTES)
 	main.leave_ruins(HOME_TRUCK_ZONE, HOME_RETURN_CELL)
@@ -165,6 +171,8 @@ func fail() -> Dictionary:
 		player.inventory.remove_item(String(item_id), int(lost[item_id]))
 	var summary := _summary()
 	summary["lost"] = lost
+	last_run_day = DayManager.day
+	last_death_day = DayManager.day
 	_finish()
 	ended.emit(false, summary)
 	return summary
@@ -312,12 +320,14 @@ func populate(lvl: Dictionary) -> void:
 
 func save_state() -> Dictionary:
 	return {"max_depth": max_depth, "runs": runs, "gift_given": gift_given, "notes_read": notes_read.duplicate(),
-		"raider_rep": raider_rep}
+		"raider_rep": raider_rep, "last_run_day": last_run_day, "last_death_day": last_death_day}
 
 
 func load_state(data: Dictionary) -> void:
 	max_depth = int(data.get("max_depth", 0))
 	runs = int(data.get("runs", 0))
+	last_run_day = int(data.get("last_run_day", -1))
+	last_death_day = int(data.get("last_death_day", -1))
 	gift_given = bool(data.get("gift_given", false))
 	raider_rep = Faction.clamp_rep(int(data.get("raider_rep", 0)))
 	notes_read.clear()

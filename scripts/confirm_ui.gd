@@ -138,7 +138,10 @@ func _layout() -> void:
 	_body.size.x = WIDTH - 16.0
 	var body_h := maxf(_body.get_combined_minimum_size().y, 10.0)
 	var choices_y := 18.0 + body_h + 4.0
-	var height := choices_y + 16.0
+	# More than two choices stack (a list of districts reads better than five squeezed buttons).
+	var n := _choice_nodes.size()
+	var stacked := n > 2
+	var height := choices_y + (14.0 * float(n) + 2.0 if stacked else 16.0)
 	_box.size = Vector2(WIDTH, height)
 	_box.position = Vector2((320.0 - WIDTH) / 2.0, (192.0 - height) / 2.0 - 8.0)
 	for child in _box.get_children():
@@ -146,12 +149,15 @@ func _layout() -> void:
 			(child as ColorRect).size = _box.size
 		elif child.name == "Bg":
 			(child as ColorRect).size = _box.size - Vector2(4, 4)
-	var n := _choice_nodes.size()
 	var w := (WIDTH - 16.0 - 4.0 * float(n - 1)) / float(maxi(n, 1))
 	for i in n:
 		var c: ColorRect = _choice_nodes[i]
-		c.position = Vector2(8.0 + i * (w + 4.0), choices_y)
-		c.size = Vector2(w, 12)
+		if stacked:
+			c.position = Vector2(8.0, choices_y + 14.0 * float(i))
+			c.size = Vector2(WIDTH - 16.0, 12)
+		else:
+			c.position = Vector2(8.0 + i * (w + 4.0), choices_y)
+			c.size = Vector2(w, 12)
 		var label: Label = c.get_child(0)
 		label.size = c.size
 	_refresh_choices()

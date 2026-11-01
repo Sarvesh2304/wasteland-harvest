@@ -1,0 +1,53 @@
+{
+  "_comment": "Gift preferences (Milestone B, 2026-10-08). The contract is docs/SOCIAL_AND_QUESTS.md section 4; loaded by scripts/gift_db.gd. An NPC's own lists win, then the universal lists, else the gift is neutral. Every id is a real data/items.json item of a giftable type (crop, food, forage, medicine, resource; never fertilizer or quality_fertilizer), and appears in at most one list per block. Per NPC: 3-5 loved, 5-8 liked, 2-4 disliked, 1-3 hated. Some NPC entries deliberately override a universal one (Doc loves the bio samples everyone else hates; Wren loves rad crystals; Marta loves bottle caps, ironically, and likes rad crystals because they sell; Brask and Kael like the mystery jerky everyone else avoids). The reaction lines live in data/dialogue.json under each NPC's gift block. tools/validate_social_data.py checks this file.",
+  "universal": {
+    "loved": ["prewar_relic", "choco_bar", "pumpkin_soup"],
+    "liked": ["berry_jam", "pickled_veg", "cheese", "honey", "glow_wine", "cooked_meal", "potato_hash", "pepper_chili", "corn_bread", "coffee", "sunbloom", "egg", "milk"],
+    "disliked": ["fiber", "stone", "wood", "plastic", "tree_sap", "bottle_caps", "mystery_jerky"],
+    "hated": ["bio_sample", "rad_crystal"]
+  },
+  "npcs": {
+    "mayor_harlan": {
+      "loved": ["sunbloom", "circuit_board", "coffee", "ironroot"],
+      "liked": ["copper_wire", "battery", "corn_bread", "ember_pumpkin", "mutant_potato", "canned_beans"],
+      "disliked": ["scorch_pepper", "pepper_chili", "glowcap"],
+      "hated": ["bottle_caps", "rotgut"]
+    },
+    "marta": {
+      "loved": ["bottle_caps", "glow_wine", "coffee", "pickled_veg"],
+      "liked": ["ironroot", "glow_melon", "ember_pumpkin", "battery", "canned_beans", "preserved_food", "rad_crystal"],
+      "disliked": ["mutant_egg", "wild_greens", "dustdelion"],
+      "hated": ["mystery_jerky", "plastic"]
+    },
+    "scout_kael": {
+      "loved": ["battery", "purified_water", "coffee", "corn_bread"],
+      "liked": ["medkit", "bandage", "purifier", "canned_beans", "preserved_food", "mystery_jerky", "rubber"],
+      "disliked": ["glow_melon", "glowcap", "sunbloom"],
+      "hated": ["rotgut", "glow_wine"]
+    },
+    "rancher_silas": {
+      "loved": ["mutant_goat_milk", "ash_apple", "honey", "cheese"],
+      "liked": ["dustwheat_grain", "dust_corn", "sweet_reed", "wild_greens", "rain_radish", "wasteland_walnut", "bandage"],
+      "disliked": ["rotgut", "scrap_metal"],
+      "hated": ["mystery_jerky", "chemicals"]
+    },
+    "brask": {
+      "loved": ["mystery_jerky", "hardwood", "pepper_chili", "ironroot"],
+      "liked": ["scorch_pepper", "potato_hash", "canned_beans", "preserved_food", "purified_water", "wood", "scrap_metal", "rotgut"],
+      "disliked": ["sunbloom", "berry_jam", "honey"],
+      "hated": ["adrenal_shot", "glow_wine"]
+    },
+    "wren": {
+      "loved": ["circuit_board", "rad_crystal", "glowcap", "crystal_moss"],
+      "liked": ["copper_wire", "battery", "chemicals", "sweet_reed", "sun_berries", "cactus_pear", "glow_melon"],
+      "disliked": ["cleanleaf_kale", "pickled_veg"],
+      "hated": ["purifier"]
+    },
+    "doc_ama": {
+      "loved": ["cleanleaf_kale", "glowcap", "chemicals", "bio_sample"],
+      "liked": ["purified_water", "bandage", "rain_radish", "ash_beet", "frostroot", "wild_greens", "snow_yam"],
+      "disliked": ["coffee", "choco_bar", "glow_wine"],
+      "hated": ["rotgut", "rad_crystal"]
+    }
+  }
+}

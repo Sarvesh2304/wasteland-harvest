@@ -23,6 +23,14 @@ const ConfirmUIScript := preload("res://scripts/confirm_ui.gd")
 const EnemiesScript := preload("res://scripts/enemies.gd")
 const MapScene := preload("res://scenes/test_map.tscn")
 const LoreDB := preload("res://scripts/lore_db.gd")
+const QuestsScript := preload("res://scripts/quests.gd")
+const QuestDB := preload("res://scripts/quest_db.gd")
+const TownWorksScript := preload("res://scripts/town_works.gd")
+const NoticeUIScript := preload("res://scripts/notice_ui.gd")
+const Faction := preload("res://scripts/faction.gd")
+const Weather := preload("res://scripts/weather.gd")
+const DialogueDB := preload("res://scripts/dialogue_db.gd")
+const ItemDB := preload("res://scripts/item_db.gd")
 
 ## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
 ## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
@@ -60,6 +68,13 @@ var ruins: Dictionary = {}
 var expedition: Node = null
 ## Milestone C: the yes/no prompt (ride out, go deeper, head home) and the lore-note reader.
 var confirm_ui: CanvasLayer = null
+## Milestone B (2026-10-08, docs/SOCIAL_AND_QUESTS.md): the notice board's state (requests, Town
+## Works), what finished projects change in the world, and the board's screen.
+var quests: Node = null
+var town_works: Node = null
+var notice_ui: CanvasLayer = null
+## Morning notices waiting for the screen to be free ([title, body]): finished Town Works.
+var _notices: Array = []
 
 ## The build/placement-mode node, kept as a field so _process's time-pause poll below can exempt
 ## it from the "any modal open" check (see that poll's comment for the judgment call), and so
@@ -142,6 +157,35 @@ func _ready() -> void:
 	# min_affinity-gated choices, so it needs the relationship track (see dialogue_ui.gd's class
 	# doc) — a plain field assignment, same shape as the modal_gate wiring further down.
 	dialogue_ui.affinity = affinity
+	# Milestone B: requests, Town Works and the social layer of conversations (daily lines, gifts,
+	# handing in requests, Doc's clinic).
+	quests = QuestsScript.new()
+	quests.name = "Quests"
+	add_child(quests)
+	quests.affinity = affinity
+	quests.request_completed.connect(_on_request_completed)
+	quests.request_expired.connect(_on_request_expired)
+	quests.changed.connect(_refresh_npc_markers)
+	GameState.register_save_section("quests", func() -> Dictionary: return quests.save_state())
+	ruins["enemies"].enemy_killed.connect(func(enemy_type: String) -> void:
+		quests.on_enemy_killed(enemy_type, player))
+	town_works = TownWorksScript.new()
+	town_works.name = "TownWorks"
+	add_child(town_works)
+	town_works.setup(zones, quests)
+	dialogue_ui.player = player
+	dialogue_ui.context_provider = Callable(self, "dialogue_context")
+	dialogue_ui.delivery_hook = func(npc_id: String) -> Dictionary: return quests.try_deliver(npc_id, player)
+	dialogue_ui.gift_reacted.connect(_on_gift_reacted)
+	dialogue_ui.gift_refused.connect(_on_gift_refused)
+	dialogue_ui.clinic_heal_requested.connect(_on_clinic_heal)
+	dialogue_ui.clinic_store_requested.connect(_on_clinic_store)
+	notice_ui = NoticeUIScript.new()
+	notice_ui.name = "NoticeUI"
+	add_child(notice_ui)
+	notice_ui.bind(player, quests)
+	player.notice_ui = notice_ui
+	player.notice_board_requested.connect(notice_ui.open)
 	DayManager.day_started.connect(_on_day_started)
 	# Phase 8 Stage 3: a visiting settler's accept/reject choice (reached via the same dialogue
 	# box every NPC uses — see dialogue_ui.gd's SETTLER_ACCEPT/REJECT sentinels) hands off to
@@ -178,13 +222,15 @@ func _ready() -> void:
 	var menu_screen: Node = $MenuScreen
 	menu_screen.bind(player, hud.inventory_grid)
 	menu_screen.skills = skills
+	menu_screen.quests = quests
+	menu_screen.expedition = expedition
 	player.menu_screen = menu_screen
 	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
 	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
 	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
 	# modal UIs like quest journals or pause menus — the recipe the menu above just followed).
 	for surface in [builder, dialogue_ui, store_ui, ranch_store_ui, shipping_ui, menu_screen,
-			storage_ui, confirm_ui]:
+			storage_ui, confirm_ui, notice_ui]:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
@@ -201,8 +247,11 @@ func _ready() -> void:
 		# here (rather than assuming "zero bonuses") keeps this the one call site new-game boot
 		# ever needs, symmetric with _apply_save's own call below.
 		_recompute_capacity_unlocks()
+		quests.new_game(randi(), DayManager.day, DayManager.season())
 	else:
 		_apply_save(save_data)
+	town_works.apply()
+	_refresh_npc_markers()
 	_ensure_home_truck()
 	_try_start_day_28_food_shortage()
 
@@ -218,6 +267,10 @@ func _ready() -> void:
 ## player would be a free-time exploit, not a convenience.
 func _process(_delta: float) -> void:
 	DayManager.time_paused = modal_gate.is_any_open_except(_builder)
+	# Morning notices (finished Town Works) wait for a free screen, e.g. after Harlan's Day-28 talk.
+	if not _notices.is_empty() and not modal_gate.is_any_open() and not player.dead:
+		var notice: Array = _notices.pop_front()
+		confirm_ui.show_text(String(notice[0]), String(notice[1]))
 	# The day-start signal is the normal path. Retrying here also covers a loaded Day 28 save
 	# whose scene has only just finished wiring the NPC/dialogue nodes.
 	_try_start_day_28_food_shortage()
@@ -313,6 +366,15 @@ func _apply_save(data: Dictionary) -> void:
 	# Phase 7 Stage 3: additive "affinity" section — an old save with no such key restores an
 	# empty relationship track (see affinity.gd's load_state), never an error.
 	affinity.load_state(data.get("affinity", {}))
+	# Milestone B: the notice board. A save from before has none: start the board fresh. Then catch
+	# the board up to the loaded morning (idempotent for a day it has already seen).
+	var quest_data: Dictionary = data.get("quests", {})
+	if quest_data.is_empty():
+		quests.new_game(hash([data.get("settlement_id", ""), data.get("saved_unix", 0), "board"]),
+			DayManager.day, DayManager.season())
+	else:
+		quests.load_state(quest_data)
+	quests.on_day_started(DayManager.day, DayManager.season(), expedition.runs, expedition.max_depth)
 	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
 	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
 	if not zones.has(player.current_zone_id):
@@ -354,8 +416,17 @@ func _recompute_capacity_unlocks() -> void:
 	_builder.build_energy_discount = clampf(float(bonuses.get("build_energy_discount", 0.0)), 0.0, 1.0)
 
 
-func _on_day_started(_day: int) -> void:
+func _on_day_started(day: int) -> void:
 	_try_start_day_28_food_shortage()
+	var done: Array[String] = quests.on_day_started(day, DayManager.season(), expedition.runs, expedition.max_depth)
+	if not done.is_empty():
+		town_works.apply()
+		Audio.play_sfx("build_complete", -2.0)
+	for id in done:
+		var project := QuestDB.project(id)
+		_notices.append([String(project.get("name", id)),
+			"%s\n\n%s" % [String(project.get("done", "")), String(project.get("reward", ""))]])
+	Events.message.emit("Kael's weather call for tomorrow: %s." % Weather.display_name(DayManager.weather_tomorrow))
 
 
 func _on_ranch_store_requested(target_npc: Node) -> void:
@@ -477,6 +548,18 @@ func _on_vehicle_used(zone: String) -> void:
 	if DayManager.minutes_into_day >= 22.0 * 60.0:
 		confirm_ui.show_text("Too late", "Kael shakes his head. \"Not at this hour. Come back in the morning.\"")
 		return
+	# Milestone B: with the watchtower rebuilt, Kael drives straight to any district reached.
+	if quests.is_finished("watchtower") and expedition.max_depth >= 2:
+		var districts: Array = []
+		for d in range(1, expedition.max_depth + 1):
+			districts.append(ExpeditionScript.district_name(d))
+		districts.append("Not yet")
+		confirm_ui.ask("Ride out with Kael?", "Brask has the roads marked from the watchtower. Kael can drop you anywhere you've been. Where to?",
+			districts, func(choice: int) -> void:
+				if choice < districts.size() - 1:
+					player.begin_zone_transition()
+					zone_fade.play(func() -> void: expedition.depart(choice + 1)))
+		return
 	confirm_ui.ask("Ride out with Kael?", "Kael can run you out to the ruined city. What you scavenge is yours if you make it back to the truck. Go down out there and you lose it all.",
 		["Ride out", "Not yet"], func(choice: int) -> void:
 			if choice == 0:
@@ -581,3 +664,102 @@ func _read_blueprint() -> void:
 	if confirm_ui.show_text(title, body):
 		player.inventory.remove_item("blueprint", 1)
 		Audio.play_sfx("achievement", -4.0)
+
+
+## -- Milestone B: the social layer (docs/SOCIAL_AND_QUESTS.md) --
+
+const GIFT_FLOATS := {
+	"loved": ["Loved it!", "#ff8a8a"], "liked": ["Liked it", "#ffd27f"],
+	"neutral": ["Thanks", "#ffedb1"], "disliked": ["Not keen", "#c9b27a"], "hated": ["Hated it", "#9d9180"],
+}
+
+
+## The world flags daily lines match against (the spec's flag table); dialogue_ui.gd adds the
+## season, weather, time, weekday, tier and the NPC's birthday.
+func dialogue_context() -> Dictionary:
+	var day: int = DayManager.day
+	var flags: Dictionary = quests.flags(day)
+	if day <= 7:
+		flags["first_week"] = true
+	if GameState.day_28_food_shortage_seen:
+		flags["after_day_28"] = true
+	if expedition.last_run_day >= 0 and day - expedition.last_run_day <= 1:
+		flags["expedition_today"] = true
+	if expedition.last_death_day >= 0 and day - expedition.last_death_day <= 2:
+		flags["died_recently"] = true
+	if expedition.runs >= 5:
+		flags["veteran"] = true
+	for step in [[2, "reached_downtown"], [3, "reached_industrial"], [4, "reached_core"]]:
+		if expedition.max_depth >= int(step[0]):
+			flags[String(step[1])] = true
+	match Faction.standing(expedition.raider_rep):
+		"Hostile":
+			flags["raiders_hostile"] = true
+		"Trusted":
+			flags["raiders_trusted"] = true
+	if player.hp < 0.4 * player.effective_max_hp():
+		flags["player_hurt"] = true
+	if player.rads >= 100.0:
+		flags["player_irradiated"] = true
+	if int(player.credits) >= 3000:
+		flags["rich"] = true
+	if animals.animal_count() > 0:
+		flags["has_animals"] = true
+	if not settlers.roster.is_empty():
+		flags["has_settlers"] = true
+	return {"flags": flags}
+
+
+func _on_gift_reacted(npc: Node, _item_id: String, reaction: String) -> void:
+	var spec: Array = GIFT_FLOATS.get(reaction, GIFT_FLOATS["neutral"])
+	Fx.float_text(npc.global_position + Vector2(0, -26), String(spec[0]), Color(String(spec[1])))
+	Audio.play_sfx("achievement" if reaction == "loved" else "ui_confirm", -6.0)
+
+
+func _on_gift_refused(npc: Node, reason: String) -> void:
+	var name := DialogueDB.display_name(String(npc.npc_id))
+	if reason == "today":
+		Events.message.emit("You've already given %s a gift today." % name)
+	else:
+		Events.message.emit("%s has had two gifts from you this week." % name)
+
+
+## Doc Ama's "patch me up" (after the clinic is rebuilt): full health and no rads, for a fee.
+func _on_clinic_heal(_npc: Node) -> void:
+	var price := TownWorksScript.CLINIC_HEAL_PRICE
+	if player.hp >= player.effective_max_hp() - 0.5 and player.rads < 1.0:
+		Events.message.emit("Doc looks you over. \"Nothing to fix. Go on, then.\"")
+		return
+	if int(player.credits) < price:
+		Events.message.emit("Doc: \"It's %d Credits, love. Come back when you have it.\"" % price)
+		return
+	player.set_credits(int(player.credits) - price)
+	player.set_rads(0.0)
+	player.set_hp(player.effective_max_hp())
+	Audio.play_sfx("drink", -4.0)
+	Events.message.emit("Doc patched you up. (-%d Cr)" % price)
+
+
+func _on_clinic_store(npc: Node) -> void:
+	$StoreUI.open_store(npc, TownWorksScript.CLINIC_STOCK, "DOC'S SHELF")
+
+
+func _on_request_completed(req: Dictionary, reward: int, thanks: String) -> void:
+	Audio.play_sfx("coins", -2.0)
+	Events.message.emit("Request done: %s (+%d Cr)" % [QuestDB.title_of(req), reward])
+	if String(req.get("kind", "")) == "hunt":
+		# Out in the ruins there's no one to thank you in person; their word reaches you anyway.
+		Events.message.emit("%s: \"%s\"" % [DialogueDB.display_name(String(req.get("npc", ""))), thanks])
+
+
+func _on_request_expired(req: Dictionary) -> void:
+	Events.message.emit("Request expired: %s" % QuestDB.title_of(req))
+
+
+## The "!" over whoever is waiting on the request you hold.
+func _refresh_npc_markers() -> void:
+	for zone_id in zones:
+		for npc in zones[zone_id]["npcs"].npcs():
+			if npc.has_method("set_quest_marker"):
+				npc.set_quest_marker(quests.is_requester(String(npc.npc_id)))
+

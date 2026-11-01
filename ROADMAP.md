@@ -28,8 +28,12 @@ drivers green) — not when code merely exists.
       water, real fences), trees/rocks/debris sprites, icons for every item
 
 ### Milestone B — "A reason to come back tomorrow"
-- [ ] Calendar: 4 seasons × 28 days, years; weather (clear/rain/storm/radstorm) with forecast;
+- [x] Calendar: 4 seasons × 28 days, years; weather (clear/rain/storm/radstorm) with forecast;
       seasonal crop roster (12+ crops); seasonal tint
+      *(2026-10-08: seasons, years, weekdays, weather and seasonal art already ran. The missing
+      piece was a visible forecast. Now "Kael's weather call" is pinned on the notice board, the
+      JOURNAL tab opens on today and tomorrow, and a morning toast gives tomorrow's weather.
+      15 crops.)*
 - [x] Crafting: recipes + crafting menu (sprinklers, fertiliser, chests, fences, lamps, food,
       medicine, smelted metal) *(2026-10-07: 41 recipes in `data/recipes.json` on the menu's CRAFT
       tab. Crafted objects are placed in the world and picked back up with the axe or pickaxe:
@@ -42,10 +46,37 @@ drivers green) — not when code merely exists.
       upgrade tiers *(2026-10-07: ten levels each on a Stardew-shaped curve. Each level cuts that
       skill's tool energy by 5% and unlocks recipes. Tools upgrade through tiers 2-4 at the
       crafting menu, paid in metal bars from the kiln → smelter chain.)*
-- [ ] Quests: journal, daily bulletin-board requests, and the main "Rebuild the Settlement"
+- [x] Quests: journal, daily bulletin-board requests, and the main "Rebuild the Settlement"
       project line whose completions visibly change the town
-- [ ] NPCs: context dialogue (season/weather/time/affinity), gifts with preferences (Phase 7
+      *(2026-10-08, `docs/SOCIAL_AND_QUESTS.md`):*
+      - *The notice board in the square opens on Interact. It posts a request each morning (22
+        templates in `data/requests.json`: deliveries, ruins salvage, hunts gated by runs, depth
+        and season).*
+      - *You take one request at a time, due in two days. The requester shows a "!" and is
+        handed the goods by talking to them. Hunts finish on the last kill. Each pays 3x sell
+        value or 35 Cr a kill, plus friendship.*
+      - *Town Works (`data/projects.json`, contributions at the board) changes the town:*
+        - *Marta's bigger shopfront: shipping pays 10% more.*
+        - *The clinic rebuilt: Doc's tent comes down and she heals you and sells medicine.*
+        - *A lit watchtower by the west gate: Kael drives straight to any district reached.*
+        - *The farm's ruined glasshouse restored: any crop, any season.*
+      - *The JOURNAL tab covers today and tomorrow, your request, Town Works and the lore notes
+        you've found (re-readable).*
+      - *Tested by `tools/social_smoke.gd`.)*
+- [x] NPCs: context dialogue (season/weather/time/affinity), gifts with preferences (Phase 7
       Stages 4-5), more named NPCs
+      *(2026-10-08):*
+      - *Three new named townsfolk with code-drawn sprites and daily schedules: Brask the wall
+        warden, Wren the scavenger and Doc Ama the doctor.*
+      - *Seven NPCs now speak v2 dialogue (`data/dialogue.json`). A first meeting plays their
+        intro; after that, one context line a day (season, weather, time, weekday, hearts, world
+        flags like projects, expeditions, injury and birthdays), short repeats, then their
+        service menu.*
+      - *The intros no longer treat the player as a stranger (GDD §3).*
+      - *Gifts: hold something giftable and talk, and "Give the ..." appears. Tastes come from
+        `data/gifts.json`. One gift a day, two a week, five times on birthdays. Discovered
+        tastes show on the PEOPLE tab with hearts and birthdays.*
+      - *Friendship moved to Stardew's points scale (250 a heart); old saves keep their hearts.)*
 
 ### Milestone C — "The wasteland outside the fence"
 - [x] Combat: player HP, melee + ranged weapons, ammo, knockback/hit-flash/i-frames
@@ -706,7 +737,7 @@ inventing that from scratch); only the **4 named NPCs** (Harlan/Marta/Kael/Silas
 schedule/gifts/affinity — settlers stay generic by design. Gift-giving is a **new dedicated
 input verb**, not a dialogue-choice picker.
 
-- [ ] NPC personality system — personality tags shape dialogue/behaviour: Paranoid Survivor,
+- [x] NPC personality system — personality tags shape dialogue/behaviour: Paranoid Survivor,
       Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger, Pragmatic Trader.
       **Stage 1 landed (2026-09-22)**: each of the 4 named NPCs carries an authored
       `"personality"` field in `data/dialogue.json` (Harlan: Optimistic Builder; Marta: Pragmatic
@@ -714,6 +745,10 @@ input verb**, not a dialogue-choice picker.
       written lines, not guessed from role alone), readable via `DialogueDB.personality()`.
       Left unchecked deliberately: the tag exists but nothing yet *shapes* dialogue or behaviour
       with it — that's Stages 2 (schedule flavor) and 5 (context-varied dialogue tone).
+      **Done in Milestone B (2026-10-08):** all seven named NPCs carry a tag (Brask Gruff
+      Soldier, Wren Secretive Scavenger, Doc Ama Gentle Medic join the four). Their 33-42 context
+      lines each, gift reactions and schedules are written in that voice. The tag is a writing
+      contract, not a generator.
 - [x] Daily schedules — wake, tasks (garden/store/water walk), eat, sleep; location changes by
       time of day
       **Stage 2 landed (2026-09-22)**: `scripts/npc_schedule.gd` (pure/static, the `npc_grid.gd`
@@ -732,7 +767,7 @@ input verb**, not a dialogue-choice picker.
       honest version of "sleep" today), and **cross-zone travel** (the locked scope decision
       above). Every waypoint cell is verified open ground in BOTH variants of its zone by
       `tests/test_npc_schedule.gd`, through the layouts' own `is_solid()`.
-- [ ] Relationship/affinity system — 0–10 affinity per NPC; up via daily talk/gifts
+- [x] Relationship/affinity system — 0–10 affinity per NPC; up via daily talk/gifts
       preferred/quests, down via disliked gifts/neglect; gates dialogue and story events
       **Stage 3 landed (2026-09-22)**: `scripts/affinity.gd` — a `Node` owned directly by `Main`
       (the settlement-wide shape `settlers.gd`/`animals.gd` use, since a relationship belongs to
@@ -763,9 +798,22 @@ input verb**, not a dialogue-choice picker.
       scope decision above); the talk tick also deliberately ignores the scripted Day-28 beat and
       Silas's "not_yet" ranch-store branch — a beat the game fires at you is not the player
       choosing to talk.
-- [ ] Gift preference database — liked/loved/neutral/hated items per NPC
-- [ ] Context-sensitive dialogue — NPCs comment on weather, time of day, affinity, recent world
+      **Done in Milestone B (2026-10-08):**
+      - Points under the hood (0-2500, 250 a heart): talk +20 a day, gifts +80/+45/+20/-20/-40,
+        birthdays x5, requests +150. Hearts and tiers read the same as before.
+      - Old saves convert.
+      - Tier-gated lines (acquaintance, friend, close) are authored for every NPC.
+- [x] Gift preference database — liked/loved/neutral/hated items per NPC
+      **Done in Milestone B (2026-10-08):** `data/gifts.json` + `scripts/gift_db.gd`, with
+      universal and per-NPC lists. Deviation from this phase's plan: giving is a "Give the ..."
+      dialogue choice offered when you talk while holding something giftable, not a new input
+      verb. It needs no new binding and can't hand an item over by accident.
+- [x] Context-sensitive dialogue — NPCs comment on weather, time of day, affinity, recent world
       events; stored in expandable JSON trees
+      **Done in Milestone B (2026-10-08):** `DialogueDB.pick_line` matches lines on season,
+      weather, time band, weekday, tier and world flags, with priorities and once-only lines.
+      Lines are deterministic per day; `tests/test_dialogue_content.gd` proves nobody is ever lost
+      for words.
 
 **Milestone:** Town feels alive — NPCs move around, have schedules, react to you based on your
 relationship with them.

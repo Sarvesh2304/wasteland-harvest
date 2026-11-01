@@ -22,6 +22,9 @@ func _initialize() -> void:
 			var failures_before: int = case.get_failures().size()
 			case.begin_test("%s.%s" % [basename, method_name])
 			case.call(method_name)
+			# Optional per-test teardown (2026-10-08), e.g. restoring a static DB a test swapped.
+			if case.has_method("after_each"):
+				case.call("after_each")
 			if case.did_current_test_fail():
 				failed += 1
 				var failures: Array[String] = case.get_failures()

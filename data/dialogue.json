@@ -1,115 +1,525 @@
 {
-	"_comment": "Phase 5 Stage 1 NPC dialogue (ROADMAP 'dialogue stored in JSON for easy editing'), extended by Phase 5 Stage 2 with a store-opening trigger and Phase 8 with Silas's OPEN_RANCH_STORE trigger. One entry per npc id (matching map_layouts' npcs() ids): name = the dialogue box's speaker plate, personality = the Phase 7 Stage 1 archetype tag (one of the 6 frozen roadmap archetypes: Paranoid Survivor, Optimistic Builder, Gruff Soldier, Gentle Medic, Secretive Scavenger, Pragmatic Trader), authored ONLY for the 4 named NPCs and read via dialogue_db.gd's personality() — settlers (registered in memory via register_runtime) deliberately have none, start = the node shown on interact, nodes = id -> {text, next?} for linear beats, {text, choices: [{text, next}]} for a branch point, or {text} alone for a terminal node (advancing closes the box). A choice's \"next\" can also be the literal sentinel string \"OPEN_STORE\" or \"OPEN_RANCH_STORE\", recognized by scripts/dialogue_ui.gd's _advance() (NOT scripts/dialogue_db.gd, which stays domain-agnostic pure traversal) — landing on one closes the dialogue box and opens the matching modal. Loaded via scripts/dialogue_db.gd only — see its header for the traversal rules. Tone contract: GDD.md section 9 ('people who have chosen hope and are a little funny about it'); every character's dialogue is static flavor this stage — no quest hooks, affinity, or schedule reactivity until Phases 7/13. Writing note: the pixel font's glyph set has no > < [ ] $ % & * = etc. (see art/ui/README.md) — stick to letters, digits, and basic punctuation in all text below.",
+	"_comment": "NPC dialogue v2 (Milestone B, 2026-10-08). The data contract is docs/SOCIAL_AND_QUESTS.md section 3; loaded by scripts/dialogue_db.gd, played by scripts/dialogue_ui.gd. One entry per named NPC id (the map_layouts roster ids): name (the speaker plate), personality (one of the 6 frozen archetype tags), birthday {season, day}, start (the intro tree, played on the FIRST conversation ever), optional service (a node shown after the daily line in every later talk) with optional service_when, lines (daily context lines: text plus optional when {season, weather, time, weekday, tier, tier_max, flag, not_flag}, priority, and once + a globally unique id), repeat (a second chat the same day), gift (reaction lines per reaction; {item} is the gift's name; birthday/birthday_loved replace them on the NPC's birthday; already_today is reserved), and nodes (the intro and service trees: {text, next} is a linear beat, {text, choices: [{text, next}]} a branch, {text} alone a terminal line). {season} in a daily or repeat line becomes e.g. Spring Rains. A choice's next can be a sentinel that dialogue_ui.gd handles: OPEN_STORE (Marta), OPEN_RANCH_STORE (Silas; main.gd redirects it to his not_yet node until the player has a barn or coop), CLINIC_HEAL and OPEN_CLINIC_STORE (Doc Ama, once the clinic project is built). Silas's service node is pens, not stock: stock is a linear beat in his intro tree, which tools/runtime_smoke.gd drives by id, as it does Harlan's greet/founding/offer and day_28 nodes, Marta's greet/stocktake, Kael's greet/city/ask and Silas's greet/stock/offer/not_yet. Player-visible text uses only the UI font's glyphs (no ampersand, hash, asterisk, equals, angle or square brackets, dollar, at sign or underscore) and is at most 200 characters; tools/validate_social_data.py checks all of this. Tone: GDD.md sections 3 and 9. The player was born here and everyone knew their late parents, so nobody ever treats them as a stranger.",
 	"mayor_harlan": {
 		"name": "Mayor Harlan",
 		"personality": "Optimistic Builder",
+		"birthday": {"season": "spring", "day": 21},
 		"start": "greet",
+		"lines": [
+			{"text": "I've drafted a form for requesting new forms. It'll save us a mountain of paperwork, once it's approved."},
+			{"text": "The notice board is the beating heart of this town. Don't tell Marta. She thinks it's her till."},
+			{"text": "Every plank in this town was argued over at a meeting. Most of them won. A few are still under review."},
+			{"text": "I own a pre-war rubber stamp that says APPROVED. It works perfectly. It may be the most powerful object in the settlement."},
+			{"text": "Somebody keeps adding 'more pie' to the Town Works list. I can't prove it's Marta. I can't prove it isn't."},
+			{"text": "A town is just people who agreed to keep agreeing. That, and a good fence. Mostly the agreeing."},
+			{"text": "Ah, {season}. My favourite season. Don't tell the other three. They have feelings, and they vote."},
+			{"text": "Caravans come through twice as often as they did five years back. Mark my words, farmer: this valley is waking up."},
+			{"text": "Spring Rains! The season of mud, seedlings and town meetings about the mud. I've scheduled three.", "when": {"season": "spring"}},
+			{"text": "Scorched Summer. I've moved my desk into the shade and declared the shade an official office.", "when": {"season": "summer"}},
+			{"text": "Amber Autumn always makes me want to count things. Bushels, bins, blessings. Mostly bins.", "when": {"season": "autumn"}},
+			{"text": "Grey Winter is for planning. By spring I'll have a list so long it needs its own fence.", "when": {"season": "winter"}},
+			{"text": "Rain on the roof, ink in the well and minutes to write. This is my natural habitat.", "when": {"weather": "rain"}},
+			{"text": "A storm! Check your shutters. I've drafted a notice about shutters. Read it once the wind drops.", "when": {"weather": "storm"}},
+			{"text": "Snow on the plaza. It hides every pothole, which I'm counting as a civic improvement.", "when": {"weather": "snow"}},
+			{"text": "Green sky again. Stay inside the fence and you'll be fine. That's not optimism, farmer. That's policy.", "when": {"weather": "radstorm"}},
+			{"text": "Up early! I've already read the board, re-read the board and corrected the board's spelling.", "when": {"time": "morning"}},
+			{"text": "Evening rounds. I walk the plaza and count the lit windows. Every one is a small vote of confidence.", "when": {"time": "evening"}},
+			{"text": "Monday. The week's notices go up. Some people read them. I read them twice, to make up the numbers.", "when": {"weekday": "Mon"}},
+			{"text": "The Town Works list is on the notice board, whenever you're ready for it. It's very long. I'm very proud of it.", "when": {"tier_max": "stranger"}},
+			{"text": "I wrote your name in the town register the day you were born. Best handwriting I ever did. I'd practised for a week.", "when": {"tier": "acquaintance"}},
+			{"text": "Nobody elected me, you know. I just kept turning up to meetings with a pencil. Eventually that's a mandate.", "when": {"tier": "acquaintance"}},
+			{"text": "I dug the town well with your folks. Three days, one shovel, a great many opinions. Best week of my life.", "when": {"tier": "friend"}},
+			{"text": "I tinker with the old radio at night. Mostly static. I like static. It means the world's still out there, making noise.", "when": {"tier": "friend"}},
+			{"text": "There were two Harlan kids on the walk west. Only one of us made it here. I've kept a radio on every night since, just in case.", "when": {"tier": "close"}},
+			{"text": "If I could get the old radio tower working, my voice would carry three valleys. Somebody out there might still know a June Harlan.", "when": {"tier": "close"}},
+			{"text": "My birthday! You remembered! I'd have declared a public holiday, but that seemed vain. I've declared a small, private one.", "when": {"flag": "birthday"}, "priority": 10},
+			{"text": "Have you seen it? Glass and light and green in any season! I've commissioned a plaque. It's mostly adjectives.", "when": {"flag": "project_greenhouse_new"}, "priority": 5},
+			{"text": "Tomatoes in Grey Winter! I'll believe it when I eat one. Then I'll write a report about eating it.", "when": {"flag": "project_greenhouse_new"}, "priority": 5},
+			{"text": "I stop by your greenhouse most mornings to admire the light. I've been asked to stop by less. I'm appealing.", "when": {"flag": "project_greenhouse"}},
+			{"text": "Your folks' old glasshouse is still out on your farm. Well, leaning. Fixed up, it'd grow straight through Grey Winter. I've drawn the plans. One has a fountain.", "when": {"not_flag": "project_greenhouse"}},
+			{"id": "harlan_shopfront", "text": "Marta's new shopfront is open! I cut the ribbon myself. The ribbon was a shoelace, but the spirit was there.", "when": {"flag": "project_shop_expansion_new"}, "priority": 3, "once": true},
+			{"id": "harlan_clinic", "text": "The clinic has a roof again! Doc said 'about time', which is how Doc says thank you. I'm counting it.", "when": {"flag": "project_clinic_new"}, "priority": 3, "once": true},
+			{"id": "harlan_watchtower", "text": "A lamp on the west tower, burning all night. Brask hasn't said a word about it. For Brask, that's a speech.", "when": {"flag": "project_watchtower_new"}, "priority": 3, "once": true},
+			{"text": "The reserve bins are filling again, crate by crate. Every crate you ship is a line in my good ledger.", "when": {"flag": "after_day_28"}},
+			{"text": "New neighbours! I gave them the welcome speech. The short version. Forty minutes.", "when": {"flag": "has_settlers"}},
+			{"text": "My, you're doing well. Have you considered a voluntary civic contribution? Strictly voluntary. Strongly voluntary.", "when": {"flag": "rich"}},
+			{"text": "Kael brought you home over his shoulder, I hear. I've drafted a policy about that. The policy is: please don't.", "when": {"flag": "died_recently"}},
+			{"id": "harlan_first_week", "text": "How are you holding up? Your folks would want you to take it slow. Well, your mother would. Your father would want the fence painted.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"text": "About that notice-board request: no pressure. A little pressure. Civic pressure. The good kind.", "when": {"flag": "has_request_mayor_harlan"}, "priority": 1}
+		],
+		"repeat": [
+			"Back again? Persistence is the main qualification for mayor. Careful, or I'll nominate you.",
+			"Twice in one day! I'm recording that as community engagement.",
+			"Still here? Splendid. The board doesn't read itself. Well, it does. I just like to help.",
+			"Ah, my favourite constituent! Don't tell the others. I tell them all that."
+		],
+		"gift": {
+			"loved": ["{item}! For me? This is going in the minutes, under 'triumphs'.", "Oh, {item}! I'd hold a ceremony, if Marta didn't charge for the bunting."],
+			"liked": ["{item}, how thoughtful. It'll have a place of honour, right beside the stamp.", "Thank you, farmer. {item} is exactly the sort of thing a town runs on."],
+			"neutral": ["Ah. {item}. Well, it's the thought that counts, and I do count everything."],
+			"disliked": ["Hm. {item}. I'll accept it on behalf of the town. The town can decide what to do with it."],
+			"hated": ["{item}? Let's agree this never happened. Officially, it didn't. I'll amend the minutes."],
+			"birthday": ["A birthday present! You remembered! Whatever it is, the remembering is the real gift. I'll write that down."],
+			"birthday_loved": ["{item}, on my birthday? I may need to sit down. Then stand up and give a short speech. Very short. Medium."],
+			"already_today": ["One gift a day, farmer. There are rules. I wrote most of them."]
+		},
 		"nodes": {
-			"greet": {
-				"text": "Ah — the new farmer. Harlan. Mayor, more or less, since nobody else wanted the paperwork.",
-				"next": "founding"
-			},
-			"founding": {
-				"text": "Twenty-five years ago this town was a fence post and an argument. Now look at it. A whole town's worth of arguments.",
-				"next": "offer"
-			},
-			"offer": {
-				"text": "You look like you could use work, and I keep a list. Interested?",
-				"choices": [
-					{"text": "Happy to help.", "next": "offer_yes"},
-					{"text": "Just looking around.", "next": "offer_no"}
-				]
-			},
-			"offer_yes": {
-				"text": "Good answer. For now, grow things — a town runs on its stomach. I'll have proper work for you soon enough."
-			},
-			"offer_no": {
-				"text": "Look all you like. The fence keeps the wasteland out, not the neighbors. When you're ready to be useful, mine's the ugly house with the good roof."
-			},
-			"day_28_food_shortage": {
-				"text": "The reserve bins are running low. Lower than I am comfortable admitting in a town meeting.",
-				"next": "day_28_food_shortage_farm"
-			},
-			"day_28_food_shortage_farm": {
-				"text": "The settlement is counting on the farm again, same as when this place was founded. Keep the soil working and we will keep the lights on."
-			}
+			"greet": {"text": "There you are, farmer! I've filed the deed to the farm in your name. In ink, in triplicate. It's official, and I have the stamp to prove it.", "next": "founding"},
+			"founding": {"text": "Twenty-odd years ago your parents and I stood on this spot with one fence post and an argument. Now look at it. A whole town's worth of arguments.", "next": "offer"},
+			"offer": {"text": "The town keeps a list of what needs doing, and I keep the list. It's a very good list. Care to be on it?", "choices": [
+				{"text": "Happy to help.", "next": "offer_yes"},
+				{"text": "Still finding my feet.", "next": "offer_no"}
+			]},
+			"offer_yes": {"text": "Good answer. For now, grow things. A town runs on its stomach, and that farm has fed this one before. I'll pin the real work on the notice board."},
+			"offer_no": {"text": "Take all the time you need. When you feel like being useful, mine's the ugly house with the good roof. The door's always open. Well, it sticks. Push."},
+			"day_28_food_shortage": {"text": "Farmer, a word. The reserve bins are running low. Lower than I'd admit at a town meeting, and I admit everything at town meetings. It's in the bylaws.", "next": "day_28_food_shortage_farm"},
+			"day_28_food_shortage_farm": {"text": "In the early years this farm fed half the town. The settlement is counting on it again. Keep the soil working, ship what you can, and we'll keep the lights on."}
 		}
 	},
 	"marta": {
 		"name": "Marta",
 		"personality": "Pragmatic Trader",
+		"birthday": {"season": "summer", "day": 9},
 		"start": "greet",
+		"service": "shop",
+		"lines": [
+			{"text": "Everything on my shelves has a price, a history and an opinion. Only the price is negotiable. Barely."},
+			{"text": "Profit and Loss are fighting again. The chicken, not the ledger. Well. Also the ledger."},
+			{"text": "Rule one of trade: never fall in love with your stock. Rule two: I love my stock. Rule one is for other people."},
+			{"text": "If you hear shouting from the store, I'm haggling with a caravan driver. Or the chicken. Same tone, honestly."},
+			{"text": "I round every price fairly. Upwards, mostly. But fairly."},
+			{"text": "The bottle-cap man came through again. Says caps will catch on. I said so does rust. He laughed. He always laughs. Infuriating."},
+			{"text": "Credits are trust you can count. That's my whole philosophy. That, and count them twice."},
+			{"text": "You'd be amazed what people try to sell me. Yesterday it was a door. Just the door. I bought it, obviously."},
+			{"text": "Spring seed is flying off the shelf. Radishes, potatoes, kale. Everyone's an optimist in the Spring Rains, and optimists buy.", "when": {"season": "spring"}},
+			{"text": "Scorched Summer! Peppers, tomatoes, melons. And will somebody please buy the sunbloom seeds? The packet keeps staring at me.", "when": {"season": "summer"}},
+			{"text": "Amber Autumn is my busy season. Pumpkins, beets, grapes, and every caravan in the valley wants a deal before the snow.", "when": {"season": "autumn"}},
+			{"text": "Grey Winter. Slow trade, long inventories. I count everything twice, and the chicken counts it once, badly.", "when": {"season": "winter"}},
+			{"text": "Rain's good for your crops and bad for my awning. There's a bucket under the leak and a price on the bucket.", "when": {"weather": "rain"}},
+			{"text": "Storm's rattling the crates. If a jar of pickles hits you, that's a gift. If you keep it, that's a sale.", "when": {"weather": "storm"}},
+			{"text": "Snow day. Nobody shops on a snow day, so I've sorted the beans by expiry date. Riveting. Truly.", "when": {"weather": "snow"}},
+			{"text": "Green sky. Profit hid under the counter and Loss went after him, because Loss always follows Profit. That's economics.", "when": {"weather": "radstorm"}},
+			{"text": "Morning count: a hundred and four tins, sixty seed packets, one chicken, two heads. All present.", "when": {"time": "morning"}},
+			{"text": "I like the shop this time of day. Just me, the ledger and the sound of numbers adding up.", "when": {"time": "evening"}},
+			{"text": "Friday. End-of-week books. If the numbers balance, I treat myself to looking at the numbers again.", "when": {"weekday": "Fri"}},
+			{"text": "You've got your father's haggling face. It never worked for him either, but I admired the effort.", "when": {"tier_max": "stranger"}},
+			{"text": "You used to come in here and try to buy sweets with pebbles. I took the pebbles. Business is business.", "when": {"tier": "acquaintance"}},
+			{"text": "I was a road trader before this. Twenty settlements, twenty ideas of what a credit's worth. Here a credit's a credit. I like that.", "when": {"tier": "acquaintance"}},
+			{"text": "Profit and Loss hatched in my cart on the road, the very night I decided to stay. I took it as a sign. A loud, two-headed sign.", "when": {"tier": "friend"}},
+			{"text": "That jar of bottle caps behind the counter? It's for the day the bottle-cap man turns out right. I'll be rich, and I'll never tell him.", "when": {"tier": "friend"}},
+			{"text": "The bottle-cap man and I ran the east road together for nine years. He picked caps. I picked a counter. Neither of us picked right.", "when": {"tier": "close"}},
+			{"text": "I haven't been past the gate in eleven years. Inventory, I tell people. Truth is, if I walked out, I'm not sure I'd turn back.", "when": {"tier": "close"}},
+			{"text": "My birthday, and you remembered! That's worth more than credits. Don't repeat that. It's bad for business.", "when": {"flag": "birthday"}, "priority": 10},
+			{"text": "Look at it! A real shopfront, room for twice the stock and a perch for Profit and Loss. And I'm paying ten percent more for what you ship.", "when": {"flag": "project_shop_expansion_new"}, "priority": 5},
+			{"text": "Customers keep walking in, looking up and saying 'ooh'. I've started charging for the 'ooh'. Kidding. Mostly.", "when": {"flag": "project_shop_expansion_new"}, "priority": 5},
+			{"text": "Business is up since the new shopfront. Profit is thrilled. Loss is sulking. Balance restored.", "when": {"flag": "project_shop_expansion"}},
+			{"text": "This shop was built for half the town we've got now. I stack crates on crates. If the bottom one sneezes, we all go.", "when": {"not_flag": "project_shop_expansion"}},
+			{"id": "marta_clinic", "text": "Doc bought every bar of soap I had for the new clinic. I gave her a discount. Don't spread that around.", "when": {"flag": "project_clinic_new"}, "priority": 3, "once": true},
+			{"text": "You're carrying a small fortune like it's lunch. Spend some here, before something with teeth spends it for you.", "when": {"flag": "rich"}},
+			{"text": "Eggs, milk, the odd fizzy goat product. If your animals are working, you've got something to sell me.", "when": {"flag": "has_animals"}},
+			{"text": "Harlan told you about the reserve bins? I sell food for a living, and even I think he's right. Ship what you can spare.", "when": {"flag": "after_day_28"}},
+			{"text": "Back from the ruins? Anything shiny? I don't buy junk. I buy junk with potential.", "when": {"flag": "expedition_today"}},
+			{"id": "marta_first_week", "text": "I've written off your folks' tab. Eleven years of it. Don't argue. I've already torn out the page.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"text": "My shelf still has that gap you promised to fill. I've been staring at it. It's been staring back.", "when": {"flag": "has_request_marta"}, "priority": 1}
+		],
+		"repeat": [
+			"Back so soon? I haven't even recounted.",
+			"Twice in one day. Careful, people will think you're a regular.",
+			"Still browsing? Browsing's free. Leaning on the counter costs a credit.",
+			"If you're waiting for a sale, I don't do sales. I do prices."
+		],
+		"gift": {
+			"loved": ["{item}? You've done your homework. I'm touched, and I'm also calculating.", "Oh! {item}! This goes straight under the counter, where the good things live."],
+			"liked": ["{item}. Good margins on these. I mean, how thoughtful.", "Thank you! {item} always sells. I'm keeping this one, though. Probably."],
+			"neutral": ["{item}. Fair market value: one thank you. Here's your thank you."],
+			"disliked": ["{item}. Well. I've been given worse, but I wrote those down too."],
+			"hated": ["{item}. To me. In my own shop. I'm going to need a minute, and possibly a chair."],
+			"birthday": ["You remembered my birthday! That's the gift. This is just packaging. I'll still count it, mind."],
+			"birthday_loved": ["{item}, on my birthday? You're an excellent customer and a terrible influence. Thank you, truly."],
+			"already_today": ["One gift a day, farmer. Any more and I'd have to declare it as income."]
+		},
 		"nodes": {
-			"greet": {
-				"text": "Morning! Marta. If it's worth trading, it comes through here — seeds, tools, gossip. The gossip's free.",
-				"next": "stocktake"
-			},
-			"stocktake": {
-				"text": "Just finished the morning count — seeds, tools, tinned rations, all present and only mildly suspicious. Credits only, mind — I don't care what the bottle-cap man says, that is not money.",
-				"choices": [
-					{"text": "Let's see what you've got.", "next": "OPEN_STORE"},
-					{"text": "Counts back?", "next": "chicken"}
-				]
-			},
-			"chicken": {
-				"text": "The two-headed chicken got into the seed bins again. Both heads deny it. I've recounted twice just to be sure it didn't eat the profits."
-			}
+			"greet": {"text": "Well, look at you. All grown up and owning land. I've been stocking seeds against the day you'd walk in. Don't make me regret the inventory.", "next": "stocktake"},
+			"stocktake": {"text": "Count's done: seeds, fertilizer, tinned rations, all present and only mildly suspicious. Credits only, mind. Whatever the bottle-cap man says, caps are not money.", "choices": [
+				{"text": "Let's see what you've got.", "next": "OPEN_STORE"},
+				{"text": "Mildly suspicious?", "next": "chicken"}
+			]},
+			"chicken": {"text": "The two-headed chicken got into the seed bins again. Both heads deny it. I named them Profit and Loss, and lately Loss is winning."},
+			"shop": {"text": "Need anything? The shelves are counted and the chicken's been warned.", "choices": [
+				{"text": "Let's see what you've got.", "next": "OPEN_STORE"},
+				{"text": "Just saying hi.", "next": "shop_bye"}
+			]},
+			"shop_bye": {"text": "Hi received and logged. A pleasure doing no business with you."}
 		}
 	},
 	"scout_kael": {
 		"name": "Scout Kael",
 		"personality": "Paranoid Survivor",
+		"birthday": {"season": "summer", "day": 24},
 		"start": "greet",
+		"lines": [
+			{"text": "Truck's fueled, tires are patched and I checked the brakes twice. Three times. Look, I like brakes."},
+			{"text": "Rule one out there: know where the exit is. Rule two: know where the other exit is. Rule three is running."},
+			{"text": "I pin the weather on the board every night. Harlan thinks I read the barometer in the truck. I read my left knee."},
+			{"text": "Nothing out there is worth more than you coming back. Not salvage, not relics. Write that somewhere you'll see it."},
+			{"text": "Road's busier than last year. Caravans, traders, folk on foot. Good sign. Makes me nervous anyway."},
+			{"text": "I count the people who go out and the people who come back. Every day. Same number so far. Let's keep it that way."},
+			{"text": "Shamblers are slow, runners are fast, and bloaters are everybody's problem. Hit those from a distance."},
+			{"text": "Your friend Wren went out alone again. Her footprints were right on top of my notes. She thinks I don't check."},
+			{"text": "Spring Rains turn the ruins to soup. Watch your footing on the subway stairs. They're slick, and they're deep.", "when": {"season": "spring"}},
+			{"text": "Scorched Summer. Carry water. More than that. No, more than that. The ruins bake, kid.", "when": {"season": "summer"}},
+			{"text": "Leaves pile up in the ruins and hide what's under them. Amber Autumn's pretty. Pretty's how they get you.", "when": {"season": "autumn"}},
+			{"text": "Snow shows tracks. Grey Winter's the one season I can see who's been walking where. I like winter. Don't spread it around.", "when": {"season": "winter"}},
+			{"text": "Rain. Good. Covers our noise in the ruins. Covers theirs too. Call it even.", "when": {"weather": "rain"}},
+			{"text": "Storm's up. Lightning likes tall metal, and I've got a truck. I'll be sitting in a ditch if you need me.", "when": {"weather": "storm"}},
+			{"text": "Radstorm. Inside the fence you're fine. Out there the hot zones get hotter. If you go, go quick and pack purifiers.", "when": {"weather": "radstorm"}},
+			{"text": "Clear sky, long sightlines. On a day like this you can spot a shambler three blocks out. Good day for a run.", "when": {"weather": "clear"}},
+			{"text": "Dawn's the best time to head out. Things in the ruins are slow in the cold. Like me.", "when": {"time": "morning"}},
+			{"text": "Sun's going down. I'll still drive you out, kid, but I'd rather we both slept tonight.", "when": {"time": "evening"}},
+			{"text": "You're up late. Me too. Somebody has to listen to the road.", "when": {"time": "night"}},
+			{"text": "You've grown. I'm still deciding if that's good news.", "when": {"tier_max": "stranger"}},
+			{"text": "I tried to teach you kids to read the sky once. You were hopeless. Kept naming the clouds instead.", "when": {"tier": "acquaintance"}},
+			{"text": "Harlan says I see trouble everywhere. I do. That's why there's never any trouble when I'm around. You're welcome, Harlan.", "when": {"tier": "acquaintance"}},
+			{"text": "I park the truck facing out. Every night. Twenty years inside this fence and I still park facing out.", "when": {"tier": "friend"}},
+			{"text": "I leave notes in the ruins. 'Go home', mostly. If you find one, listen to it. I'm not usually wrong about stairs.", "when": {"tier": "friend"}},
+			{"text": "I wasn't always on this side of a fence. In the bad years you did what kept you breathing. Your folks let me in anyway.", "when": {"tier": "close"}},
+			{"text": "There's somebody in the city called Rook. If you ever meet them, don't mention me. Or do. I honestly don't know which is worse.", "when": {"tier": "close"}},
+			{"text": "Somebody told you it's my birthday. I'm going to find out who. Then I'm going to thank them. Quietly.", "when": {"flag": "birthday"}, "priority": 10},
+			{"text": "Good run. You're back, the truck's back, and nobody's bleeding on my seats. That's a perfect score.", "when": {"flag": "expedition_today"}, "priority": 2},
+			{"text": "You did fine out there. Next time, don't stop to read every note on every fridge. Fine. One note.", "when": {"flag": "expedition_today"}, "priority": 2},
+			{"text": "I hosed out the truck bed. Whatever was on your boots, it was not mud.", "when": {"flag": "expedition_today"}, "priority": 2},
+			{"text": "Carried you home myself. You're heavier than you look. Don't make me do it twice in one week.", "when": {"flag": "died_recently"}, "priority": 4},
+			{"text": "Everything you found out there stayed out there. That's the deal. You're here, though. That's the part that counts.", "when": {"flag": "died_recently"}, "priority": 4},
+			{"text": "You've got a few runs behind you now. You're getting good, kid. Don't get comfortable. Comfortable gets good people.", "when": {"flag": "veteran"}},
+			{"id": "kael_downtown", "text": "Downtown, huh? Tall buildings, long shadows. If you see Northgate markings, back off. Some of them still mean it.", "when": {"flag": "reached_downtown"}, "priority": 3, "once": true},
+			{"id": "kael_industrial", "text": "The Industrial Quarter. Hot zones, loud machines, quiet stairs. Pack purifiers, and leave before you want to.", "when": {"flag": "reached_industrial"}, "priority": 3, "once": true},
+			{"id": "kael_core", "text": "You went to the Core. I've stood at those stairs more times than I'll admit. Went down once. Once was plenty.", "when": {"flag": "reached_core"}, "priority": 3, "once": true},
+			{"text": "Rook's people are shooting on sight now. You made an impression. Not the good kind.", "when": {"flag": "raiders_hostile"}},
+			{"text": "The Northgate lot trust you now. Fine. Trust them back exactly as far as you can throw my truck.", "when": {"flag": "raiders_trusted"}},
+			{"id": "kael_watchtower", "text": "Tower's up. With eyes on every road in, I can drive you straight to any district you've reached. Just say where.", "when": {"flag": "project_watchtower_new"}, "priority": 3, "once": true},
+			{"text": "With the tower watching the roads, I can run you straight to any district you've reached. Saves fuel. Saves you.", "when": {"flag": "project_watchtower"}},
+			{"text": "You're limping. Go see Doc. That's not a suggestion.", "when": {"flag": "player_hurt"}},
+			{"text": "That job I posted still stands. I'll be at the gate. I'm always at the gate.", "when": {"flag": "has_request_scout_kael"}, "priority": 1}
+		],
+		"repeat": [
+			"Still here? Truck's not going anywhere without you. Unless something chases it.",
+			"I'm watching the road, kid. You can watch it with me. Quietly.",
+			"Back again. Need a ride, or just company? Both are free. One's quieter."
+		],
+		"gift": {
+			"loved": ["{item}. That's... actually useful. Thanks, kid. I mean it.", "{item}? You've been paying attention. That's my favourite thing about a person."],
+			"liked": ["{item}. That goes in the truck. Everything good goes in the truck.", "Good pick. {item} saved my life once. Short story. Long drive."],
+			"neutral": ["{item}. Huh. Thanks. I'll find a use for it. I always do."],
+			"disliked": ["{item}? I'll take it. It's riding in the back, though, not the cab."],
+			"hated": ["Get that {item} away from me. No offence. Lots of offence, actually. Away."],
+			"birthday": ["You remembered my birthday? Nobody remembers my birthday. I made sure of it. Thanks, kid."],
+			"birthday_loved": ["{item}, on my birthday. Now I have to be nicer to you. That's a real problem."],
+			"already_today": ["One's plenty, kid. The truck only has so much room."]
+		},
 		"nodes": {
-			"greet": {
-				"text": "Hold up — new face. Kael. I scout the road east so the road east doesn't scout us.",
-				"next": "city"
-			},
-			"city": {
-				"text": "Past this gate, half a day's walk, there's the old city. Towers taller than anything alive, streets that still remember cars.",
-				"next": "ask"
-			},
-			"ask": {
-				"text": "Everything the fence keeps out lives there. So of course everyone keeps asking me what's inside.",
-				"choices": [
-					{"text": "So what IS inside?", "next": "inside"},
-					{"text": "Sounds dangerous.", "next": "danger"}
-				]
-			},
-			"inside": {
-				"text": "Salvage. Medicine. Machines that hum if you're lucky, things that bite if you're not. My truck's parked at the old north checkpoint on the road. When you're ready, find it. I'll drive you in, and I'll drive you home."
-			},
-			"danger": {
-				"text": "Smart. It is. That's why I go careful and come home every time. Home's the whole trick. Anything you find out there only counts once it's in my truck. Go down in the rubble and it stays in the rubble."
-			}
+			"greet": {"text": "Hold up. Oh. It's you. Last time you rushed this gate you were six and armed with a stick. I scout the road so the road doesn't scout us.", "next": "city"},
+			"city": {"text": "Past the gate, half a day's drive, there's the old city. Towers taller than anything alive, streets that still remember cars. Your folks kept you kids well clear of it.", "next": "ask"},
+			"ask": {"text": "Everything the fence keeps out lives there. So of course every kid in town grows up asking me what's inside.", "choices": [
+				{"text": "So what IS inside?", "next": "inside"},
+				{"text": "Sounds dangerous.", "next": "danger"}
+			]},
+			"inside": {"text": "Salvage. Medicine. Machines that hum if you're lucky, things that bite if you're not. My truck's at the old north checkpoint. I'll drive you in, and I'll drive you home."},
+			"danger": {"text": "It is. That's why I go careful and come home every time. Anything you find only counts once it's in my truck. Go down in the rubble and it stays there."}
 		}
 	},
 	"rancher_silas": {
 		"name": "Silas",
 		"personality": "Gentle Medic",
+		"birthday": {"season": "spring", "day": 7},
 		"start": "greet",
+		"service": "pens",
+		"lines": [
+			{"text": "Dorothy's in a mood. Well, Dorothy is a mood. Today she's a slightly worse one."},
+			{"text": "An animal knows when you're nervous. A goat knows, and uses it against you."},
+			{"text": "Feed, water, kindness, patience. Then more patience. Then a good fence, because patience only gets you so far with goats."},
+			{"text": "The cows like to be sung to. I've a voice like a rusty gate, but they don't seem to mind."},
+			{"text": "Two-headed chickens are fine layers, so long as both heads agree to lay. They rarely agree."},
+			{"text": "Mutant stock's tough as boots. Clean stock's soft as butter. A smart herd keeps a bit of both, same as a town."},
+			{"text": "Every animal on the place has a name. Some have had three. Dorothy's had several I'll not repeat."},
+			{"text": "If you're ever feeling low, come and sit with the cows a while. They don't fix anything. They make it smaller."},
+			{"text": "Spring's for babies. Calves, kids, chicks. Everything's wobbly and loud and I don't sleep. Best season of the year.", "when": {"season": "spring"}},
+			{"text": "Scorched Summer's hard on the clean stock. I haul water twice a day. The goats just glow a bit brighter and carry on.", "when": {"season": "summer"}},
+			{"text": "The ash apples are dropping. Dorothy's eaten nine. She'll eat ten, regret the tenth, and then eat an eleventh.", "when": {"season": "autumn"}},
+			{"text": "Grey Winter. Everyone's in the barn, packed in close. Even Dorothy. She pretends it's for the warmth.", "when": {"season": "winter"}},
+			{"text": "Rain. The pasture's drinking, and the goats are sulking under the eaves like wet old men.", "when": {"weather": "rain"}},
+			{"text": "Thunder sets the cows off. I'll be in the barn tonight, singing to them. Badly. It helps, somehow.", "when": {"weather": "storm"}},
+			{"text": "Snow on the pens. The goats take it as a personal insult. Dorothy's headbutting a drift as we speak.", "when": {"weather": "snow"}},
+			{"text": "Green sky. The clean stock's shut in the barn, and the goats are out dancing in it. I can't stop them, so I watch.", "when": {"weather": "radstorm"}},
+			{"text": "Up with the cows, seedling? Good. Morning's the honest part of the day. Nobody's had time to get grumpy yet.", "when": {"time": "morning"}},
+			{"text": "Evening's for counting heads. Cows, goats, chickens. Then the chicken heads again, because two.", "when": {"time": "evening"}},
+			{"text": "You've grown, seedling. Last I looked you were knee-high to Dorothy. Now she's knee-high to you, and she resents it.", "when": {"tier_max": "stranger"}},
+			{"text": "You fed one of my goats a boot once. Your own boot. You were wearing it at the time. She's never forgotten the taste.", "when": {"tier": "acquaintance"}},
+			{"text": "Clean cows are gentle and precious. Mutant goats are tough and rude. I love them the same, and the goats know it, and abuse it.", "when": {"tier": "acquaintance"}},
+			{"text": "I was out here alone for years before the town came. Just me and the herd. I talked to them. They talked back, mostly rude.", "when": {"tier": "friend"}},
+			{"text": "Your mother named Dorothy, you know. Said she had the face of someone who'd outlive us all. She was right, bless her.", "when": {"tier": "friend"}},
+			{"text": "Every calf born here is cousin to every other. The clean line's running thin. It needs new blood, and there's none I can walk to.", "when": {"tier": "close"}},
+			{"text": "When I'm gone, who keeps Dorothy? She doesn't take to people. She took to me. That took eleven years.", "when": {"tier": "close"}},
+			{"text": "My birthday? Well, I'll be. Dorothy forgot, the cows forgot, and you didn't. Thank you, seedling.", "when": {"flag": "birthday"}, "priority": 10},
+			{"text": "How are your animals settling in? Talk to them every day. They won't follow a word, but they'll follow you.", "when": {"flag": "has_animals"}},
+			{"text": "Got a barn or a coop on your farm yet? Once you do, come and see me. I've a few animals who'd like a farm of their own.", "when": {"not_flag": "has_animals"}},
+			{"text": "You're walking like a lame ewe. Sit. No, sit. Doc's better at this than me, but I'll not have you fall over in my yard.", "when": {"flag": "player_hurt"}},
+			{"text": "Heard Kael brought you home over his shoulder. Rest up. Even a goat takes a day after a bad fall. Well. Half a day.", "when": {"flag": "died_recently"}},
+			{"text": "Back from the city? You've ruins dust on your boots. Wipe them before you go near the chicks.", "when": {"flag": "expedition_today"}},
+			{"id": "silas_first_week", "text": "I'm sorry about your folks, seedling. They were good to this place, and good to me. Come down any time. The animals don't ask questions.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"text": "No rush on that request, seedling. Well. Some rush. The goats are counting.", "when": {"flag": "has_request_rancher_silas"}, "priority": 1}
+		],
+		"repeat": [
+			"Still here? Dorothy's been watching you. That's either a compliment or a warning.",
+			"Back again, seedling? The cows don't mind. Neither do I.",
+			"Sit a spell if you like. The fence rail's the comfiest seat on the ranch."
+		],
+		"gift": {
+			"loved": ["{item}! Oh, seedling. That's a proper gift. Thank you, truly.", "{item}? You've a good heart. I'll share it with nobody, not even the goats."],
+			"liked": ["{item}, that's kind of you. The animals send their thanks too. Well, the polite ones.", "Thank you kindly. {item} will go to good use. I'll see to it."],
+			"neutral": ["{item}. Well, thank you. I'll find it a home. I always find things homes."],
+			"disliked": ["Oh. {item}. Thank you, seedling. I'll keep it well away from the goats."],
+			"hated": ["I'll not have {item} on the ranch, seedling. Not near the animals. Take it back, there's a dear."],
+			"birthday": ["A gift, on my birthday? You're a kind soul. The remembering's the gift, and you've done that fine."],
+			"birthday_loved": ["{item}, and on my birthday? I don't know what to say. Dorothy, look what we got."],
+			"already_today": ["Now then, one's plenty. Save the rest for the goats. They'll pretend they earned it."]
+		},
 		"nodes": {
-			"greet": {
-				"text": "Silas. This is the Sanctuary — what's left of it. Mind the grey goat, she bites what she can reach and she can reach further than you'd think.",
-				"next": "stock"
-			},
-			"stock": {
-				"text": "Every beast in these pens comes down from one stubborn line I kept breathing through the bad years. Pre-war stock's gone soft and precious; the mutant kind are ugly and near unkillable. Out here you keep both, or you keep neither long.",
-				"next": "offer"
-			},
-			"offer": {
-				"text": "You'll want animals of your own soon enough. Something with a pulse to put in a barn. That what walks you down here?",
-				"choices": [
-					{"text": "Can I buy some stock?", "next": "OPEN_RANCH_STORE"},
-					{"text": "Just came to look.", "next": "look"}
-				]
-			},
-			"not_yet": {
-				"text": "Not yet you can't. I'll not sell a living creature to somebody with nowhere to put it — build yourself a barn or a coop first, then we'll talk feed and fair prices. Come back when you've got walls and a roof for them, and I'll set you up proper."
-			},
-			"look": {
-				"text": "Look all you like — half the town wanders down just to. The one with the extra horn is Dorothy. She's meaner than the wasteland and twice as hard to kill, and she knows it."
-			}
+			"greet": {"text": "Well, look who's come down to the Sanctuary. You used to sneak in here to feed the kids. The goat kind. Mind the grey one. She bites what she can reach.", "next": "stock"},
+			"stock": {"text": "Every beast here comes down from one stubborn line I kept breathing through the bad years. Clean stock's soft and precious, mutant stock's ugly and near unkillable. Keep both.", "next": "offer"},
+			"offer": {"text": "You'll want animals of your own one day. Something with a pulse to put in a barn. That what walks you down here?", "choices": [
+				{"text": "Can I buy some stock?", "next": "OPEN_RANCH_STORE"},
+				{"text": "Just came to look.", "next": "look"}
+			]},
+			"not_yet": {"text": "Not yet you can't, seedling. I'll not sell a living creature to somebody with nowhere to put it. Build a barn or a coop first, then we'll talk feed and fair prices."},
+			"look": {"text": "Look all you like. Half the town wanders down just to. The one with the extra horn is Dorothy. She's meaner than the wasteland, twice as hard to kill, and she knows it."},
+			"pens": {"text": "Pens are fed and Dorothy's sulking. Here for stock today, seedling?", "choices": [
+				{"text": "Show me your animals.", "next": "OPEN_RANCH_STORE"},
+				{"text": "Just visiting.", "next": "pens_bye"}
+			]},
+			"pens_bye": {"text": "Visit as long as you like. Mind the grey one on your way out."}
+		}
+	},
+	"brask": {
+		"name": "Brask",
+		"personality": "Gruff Soldier",
+		"birthday": {"season": "winter", "day": 18},
+		"start": "greet",
+		"lines": [
+			{"text": "Walked the wall. Wall's fine. You're fine. Go."},
+			{"text": "A fox sniffed at the east posts last night. Didn't like the smell of me. Good."},
+			{"text": "Nobody comes through that gate I don't see. Including you. Twice yesterday."},
+			{"text": "Keep your tools sharp and your boots dry. That's the whole lesson. Took me forty years."},
+			{"text": "Harlan wants a report on the fence. Report: fence."},
+			{"text": "Don't run in town. Running means trouble. Walk. Like me."},
+			{"text": "Kael watches the road. I watch Kael. Somebody has to."},
+			{"text": "A wall's not a cage. It's a promise. You mend promises."},
+			{"text": "Spring. Mud on the wall walk. Mud in my boots. Mud in my soup, somehow.", "when": {"season": "spring"}},
+			{"text": "Summer. Heat splits the posts. I fix them. They split. I fix them.", "when": {"season": "summer"}},
+			{"text": "Autumn. Geese going south. Smart geese. Wall's mended. We're staying.", "when": {"season": "autumn"}},
+			{"text": "Winter. Tracks in the snow. I read them. Foxes, mostly. Mostly.", "when": {"season": "winter"}},
+			{"text": "Rain. Wall doesn't mind. I mind. Walked it anyway.", "when": {"weather": "rain"}},
+			{"text": "Storm. Don't like storms.", "when": {"weather": "storm"}},
+			{"text": "Snow. Quiet. Good quiet. Not the other kind.", "when": {"weather": "snow"}},
+			{"text": "Green sky. Animals go strange in it. Stay in. I'll stand out here.", "when": {"weather": "radstorm"}},
+			{"text": "Dawn. Walked the wall. Every post. You were asleep. Good.", "when": {"time": "morning"}},
+			{"text": "Lamps lit. Gate shut. That's a good day.", "when": {"time": "evening"}},
+			{"text": "Late. Go to bed. I've got the wall.", "when": {"time": "night"}},
+			{"text": "Sunday. Oil the gate hinges. Every Sunday. Twenty years.", "when": {"weekday": "Sun"}},
+			{"text": "You. Taller. Hm.", "when": {"tier_max": "stranger"}},
+			{"text": "Militia, before. Twenty years. Then this. Better job. Fewer people shouting.", "when": {"tier": "acquaintance"}},
+			{"text": "Harlan calls me Warden. Sounds official. I just walk. Somebody has to walk.", "when": {"tier": "acquaintance"}},
+			{"text": "Somebody leaves wooden animals on the kids' windowsills. Not me. Don't look at my hands.", "when": {"tier": "friend"}},
+			{"text": "Wooden dog. Gave it to you when you were five. Still have it? ...Hm. Good.", "when": {"tier": "friend"}},
+			{"text": "North tower burned in a storm, years back. My watch. Lightning, the report says. I wrote the report.", "when": {"tier": "close"}},
+			{"text": "I was asleep that night. Should've been up there. Nobody got hurt. Doesn't matter. Should've been up there.", "when": {"tier": "close"}},
+			{"text": "Birthday. Don't make a fuss. ...You made a fuss. Hm. Thanks.", "when": {"flag": "birthday"}, "priority": 10},
+			{"text": "Tower's up. West gate. Lit at night. ...Good. That's good.", "when": {"flag": "project_watchtower_new"}, "priority": 5},
+			{"text": "Climbed it at dawn. Saw every road in. Saw where the north tower stood. Different tower. Still. Thanks.", "when": {"flag": "project_watchtower_new"}, "priority": 5},
+			{"text": "New tower stands. Doesn't fix the old one. Helps.", "when": {"flag": "project_watchtower"}},
+			{"text": "No tower on this wall. So I walk it twice. Feet are cheaper than timber.", "when": {"not_flag": "project_watchtower"}},
+			{"text": "You're bleeding. Doc. Now.", "when": {"flag": "player_hurt"}},
+			{"text": "Kael carried you in. Saw it. Don't make him do it again.", "when": {"flag": "died_recently"}},
+			{"text": "Back. All your limbs. Good.", "when": {"flag": "expedition_today"}},
+			{"text": "You've got the walk now. Soldier's walk. Don't let it make you careless.", "when": {"flag": "veteran"}},
+			{"text": "Northgate's shooting at you on sight. Out there. Not in here. Never in here.", "when": {"flag": "raiders_hostile"}},
+			{"text": "Northgate trusts you. I don't trust Northgate. Doesn't mean you're wrong.", "when": {"flag": "raiders_trusted"}},
+			{"text": "More people inside the fence. More to guard. Good. That's the point.", "when": {"flag": "has_settlers"}},
+			{"id": "brask_first_week", "text": "Your father. Good man. Straight posts. ...That's all.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"text": "That job. Still open. Still mine. Get to it.", "when": {"flag": "has_request_brask"}, "priority": 1}
+		],
+		"repeat": [
+			"Still here. So am I.",
+			"Something else? Quick.",
+			"Wall's waiting."
+		],
+		"gift": {
+			"loved": ["{item}. ...Hm. Good. Very good.", "{item}. You remembered. Thanks."],
+			"liked": ["{item}. Useful. Thanks.", "Good. {item}. I'll use it."],
+			"neutral": ["{item}. Fine."],
+			"disliked": ["{item}. No. ...Thanks anyway."],
+			"hated": ["{item}. Take it back. Now."],
+			"birthday": ["Birthday gift. Didn't need one. ...Thanks."],
+			"birthday_loved": ["{item}. On my birthday. ...Don't tell anyone I smiled."],
+			"already_today": ["One's enough. Go."]
+		},
+		"nodes": {
+			"greet": {"text": "Hm. You. Your father's kid.", "next": "fence"},
+			"fence": {"text": "Built this fence with him. First post's by the gate. Still standing. So am I.", "next": "ask"},
+			"ask": {"text": "Wall's my job. Anything comes over it, I hear first. You need something?", "choices": [
+				{"text": "Just saying hello.", "next": "hello"},
+				{"text": "What do you watch for?", "next": "watch"}
+			]},
+			"hello": {"text": "Hello. Good. Go farm. Fence'll be here."},
+			"watch": {"text": "Weather. Hounds. Fools. Mostly fools. Fools I can talk to. Hounds I can't."}
+		}
+	},
+	"wren": {
+		"name": "Wren",
+		"personality": "Secretive Scavenger",
+		"birthday": {"season": "autumn", "day": 14},
+		"start": "greet",
+		"lines": [
+			{"text": "Found a pre-war doorknob today. Just the knob. Somewhere out there is a door that can't open, and it's furious."},
+			{"text": "You still hum when you're thinking. Since we were six. It's how I always found you at hide and seek."},
+			{"text": "I know a secret about everyone in this town. Don't worry. Yours is boring."},
+			{"text": "The ruins aren't empty, you know. They're full of people's things. That's what makes them sad."},
+			{"text": "Harlan thinks I'm out picking glowcaps. Doc thinks I'm out picking fights. Kael thinks I'm out. Kael's right."},
+			{"text": "Ask me where I was today. Go on. ...Somewhere. See? Fun game."},
+			{"text": "Every note out there is somebody's last word to somebody. I read them all. Somebody should."},
+			{"text": "The Northgate Company have the best handwriting in the city. Their posters are almost polite. Almost."},
+			{"text": "Spring Rains wash the dust off the old street signs. You'd be amazed what the streets used to be called.", "when": {"season": "spring"}},
+			{"text": "Summer nights, the ruins tick. Concrete cooling down. Or something tapping. I've decided it's concrete.", "when": {"season": "summer"}},
+			{"text": "Amber Autumn. Glowcaps everywhere. I pick them at night, they're easier to find. Obviously.", "when": {"season": "autumn"}},
+			{"text": "When it snows, the ruins go quiet. You can hear the whole city breathe. Creepy. Lovely. Both.", "when": {"season": "winter"}},
+			{"text": "Rain. Perfect. Nobody's out at the fence in the rain, which is exactly why I am.", "when": {"weather": "rain"}},
+			{"text": "Lightning lights up the whole skyline for a second. You see things. Then you don't.", "when": {"weather": "storm"}},
+			{"text": "Snow! Want to build a snow Harlan? Big belly, tiny stamp. I'll do the hat.", "when": {"weather": "snow"}},
+			{"text": "Radstorm. Everything out there glows a little brighter. Including the things you'd rather didn't.", "when": {"weather": "radstorm"}},
+			{"text": "You're up early. I'm up late. Let's meet in the middle and not tell anyone.", "when": {"time": "morning"}},
+			{"text": "Best seat in town, this fire pit. You can see the gate, the board, and who's sneaking where.", "when": {"time": "evening"}},
+			{"text": "Can't sleep? Me neither. Sit by the fire. I'll tell you a secret if you tell me one first.", "when": {"time": "night"}},
+			{"text": "It's strange, you owning land. Last time we really talked, you were eating dirt for a bet. I still owe you two credits.", "when": {"tier_max": "stranger"}},
+			{"text": "Remember the loose board in the fence, by the old well? Still loose. I check every spring. For old times' sake.", "when": {"tier": "acquaintance"}},
+			{"text": "Your folks caught us at the fence once. Your dad didn't yell. He just sat down and listened to the city with us.", "when": {"tier": "acquaintance"}},
+			{"text": "We swore we'd see the city together. Then I went, and you stayed. I'm not mad. I saved you the good bits.", "when": {"tier": "friend"}},
+			{"text": "Ever wonder who walked the Harlan kids out of the city? Somebody did. Somebody wrote it down. Just saying.", "when": {"tier": "friend"}},
+			{"text": "There's something under the city that could green this whole valley. I'm not crazy. I'm early. There's a difference.", "when": {"tier": "close"}},
+			{"text": "I go in alone so nobody has to come and get me. Kael's carried enough people home. I won't be one more.", "when": {"tier": "close"}},
+			{"text": "You remembered my birthday! Of course you did. You remember everything. Except where you left your hoe.", "when": {"flag": "birthday"}, "priority": 10},
+			{"id": "wren_downtown", "text": "Downtown! Did you see the old courthouse? Big steps, bigger egos. Don't knock unless you've brought manners.", "when": {"flag": "reached_downtown"}, "priority": 3, "once": true},
+			{"id": "wren_industrial", "text": "The Industrial Quarter! If you find a note about pumps, read it twice. Somebody really wanted it read.", "when": {"flag": "reached_industrial"}, "priority": 3, "once": true},
+			{"id": "wren_core", "text": "The Core? Nobody goes to the Core. Well. Nobody and me. Now nobody, me and you.", "when": {"flag": "reached_core"}, "priority": 3, "once": true},
+			{"text": "The Northgate lot are cross with you? They'll come round. Rook holds grudges like I hold cards. Loosely, and badly.", "when": {"flag": "raiders_hostile"}},
+			{"text": "Northgate likes you now? See? They're only bad at saying hello.", "when": {"flag": "raiders_trusted"}},
+			{"text": "You're humming. Not you. Your boots. Go and see Doc before you light up the fire pit.", "when": {"flag": "player_irradiated"}},
+			{"text": "Heard Kael carried you home. Welcome to the club. We meet never, and we don't talk about it.", "when": {"flag": "died_recently"}},
+			{"text": "Back from the ruins? Show me what you found. No, the weird stuff. Always show me the weird stuff.", "when": {"flag": "expedition_today"}},
+			{"text": "Look at you, a regular out there. Careful. The ruins learn your habits. I change mine every week.", "when": {"flag": "veteran"}},
+			{"text": "Still on my little errand? Don't tell anyone what it's for. Mostly because I haven't told you.", "when": {"flag": "has_request_wren"}, "priority": 1}
+		],
+		"repeat": [
+			"Again? You missed me. It's fine. I'm very missable.",
+			"Back so soon? I haven't even had time to get mysterious.",
+			"Still here, Mudfoot? Pull up a log. The fire's warm and the gossip's warmer."
+		],
+		"gift": {
+			"loved": ["{item}! Where did you find this? No, don't tell me. I like it better as a mystery.", "Oh, {item}. You know me too well. That's dangerous, you know."],
+			"liked": ["{item}? Nice. Into the satchel it goes, with the other secrets.", "Ooh, {item}. I know exactly what to do with this. Probably."],
+			"neutral": ["{item}. Huh. Okay. I'll find it a story."],
+			"disliked": ["{item}. You know I hate this. You've known since we were six."],
+			"hated": ["{item}? Did Doc put you up to this? Blink twice if Doc put you up to this."],
+			"birthday": ["A present! For me! I'm keeping it, whatever it is. Especially whatever it is."],
+			"birthday_loved": ["{item}? On my birthday? Now I have to get you something good. Watch your back, Mudfoot."],
+			"already_today": ["One's plenty. Any more and I'll start wondering what you want."]
+		},
+		"nodes": {
+			"greet": {"text": "Well, well. Look who finally came out to the fire pit. I was starting to think the farm had eaten you, Mudfoot.", "next": "fence"},
+			"fence": {"text": "Remember sneaking out to the fence to listen to the city? You swore you heard music. It was a loose sheet of tin. Probably.", "next": "ask"},
+			"ask": {"text": "I go out there now. Into the ruins. Alone. Don't tell Kael I said 'into'.", "choices": [
+				{"text": "Take me with you.", "next": "with_you"},
+				{"text": "Is that safe?", "next": "safe"}
+			]},
+			"with_you": {"text": "Ha! Get a ride with Kael first and come back in one piece. Then we'll see who's taking who."},
+			"safe": {"text": "Safe's a big word. I come back with all my fingers and most of my secrets. Good enough?"}
+		}
+	},
+	"doc_ama": {
+		"name": "Doc Ama",
+		"personality": "Gentle Medic",
+		"birthday": {"season": "autumn", "day": 3},
+		"start": "greet",
+		"service": "clinic",
+		"service_when": {"flag": "project_clinic"},
+		"lines": [
+			{"text": "Eat something green today. Not glowing green. Green green."},
+			{"text": "Sleep is medicine, the cheapest kind there is. You're not taking it. I can tell from here."},
+			{"text": "Radiation doesn't hurt until it's too late to stop it. Take the purifier early. That's the whole lecture. You're welcome."},
+			{"text": "Wash your hands. Yes, now. I don't care where they've been. That's the point."},
+			{"text": "I've diagnosed the whole town with stubbornness. There's no cure. I've stopped looking."},
+			{"text": "A bandage is cloth and good intentions. So is most medicine. Use clean cloth."},
+			{"text": "Two kinds of patient: the ones who listen and the ones I see again next week. Don't tell me which you are. I know."},
+			{"text": "Mutant potatoes are perfectly safe. I've eaten hundreds. I'm fine. Stop looking at me like that."},
+			{"text": "Spring Rains. Everyone gets a cold, everyone says it's nothing, and then everyone comes to me. Eat your radishes.", "when": {"season": "spring"}},
+			{"text": "Scorched Summer. Drink water. Wear a hat. Faint in a field and the crows win.", "when": {"season": "summer"}},
+			{"text": "Glowcap season. Bring me any you find and I'll make medicine. Eat any you find and I'll make faces.", "when": {"season": "autumn"}},
+			{"text": "Grey Winter. Coughs, chilblains and cabin fever. I treat the first two. Harlan treats the third with meetings.", "when": {"season": "winter"}},
+			{"text": "Rain. The tent leaks over the good cot, so the good cot is now the bad cot. Every cot is the bad cot.", "when": {"weather": "rain", "not_flag": "project_clinic"}},
+			{"text": "Storm. Stay indoors. Lightning is the one thing I can't stitch up after.", "when": {"weather": "storm"}},
+			{"text": "Snow. Wear the warm coat. No, the warm one. The one you're not wearing.", "when": {"weather": "snow"}},
+			{"text": "Radstorm. You're safe inside the fence, but humour me. Wash everything twice and drink clean water.", "when": {"weather": "radstorm"}},
+			{"text": "Did you eat breakfast? A real breakfast. Coffee isn't breakfast. Coffee is a cry for help.", "when": {"time": "morning"}},
+			{"text": "Afternoon rounds. Three coughs, one cut, and Brask, who insists he's fine. Brask is never fine.", "when": {"time": "afternoon"}},
+			{"text": "It's late. You should be asleep. So should I. We're both terrible patients.", "when": {"time": "night"}},
+			{"text": "You say 'I'm fine' exactly like your father did. He always had a splinter or a cold. Sit down. Let me look at you.", "when": {"tier_max": "stranger"}},
+			{"text": "Your mother walked to the clinic in labour. Refused a cart. Said walking was faster. It was not faster.", "when": {"tier": "acquaintance"}},
+			{"text": "The night the roof came down, I woke under a snowdrift holding a stethoscope. I'm still a little annoyed.", "when": {"tier": "acquaintance"}},
+			{"text": "My mother was a doctor in the city, before. Everyone called her Doc. I got the title with the bag. The bag's heavier.", "when": {"tier": "friend"}},
+			{"text": "I keep a list of everyone I've stitched up. It's long. Nobody on it is ever just a name. You're on it twice.", "when": {"tier": "friend"}},
+			{"text": "Bio samples, jarred and labelled. I think the sickness can be understood, and then maybe beaten. Don't tell Harlan. He'll want a form.", "when": {"tier": "close"}},
+			{"text": "My hands aren't as steady as they were. I need someone to teach before they stop. I haven't found anyone stubborn enough. Yet.", "when": {"tier": "close"}},
+			{"text": "My birthday. I'm fifty-something, and I've earned every something. Thanks for remembering. Sit. I'll take your pulse as a treat.", "when": {"flag": "birthday"}, "priority": 10},
+			{"text": "A roof! A real roof, with no sky in it! Patients can lie down without being rained on. I may lie down myself.", "when": {"flag": "project_clinic_new"}, "priority": 5},
+			{"text": "The clinic's open. I can patch you up properly now, rads and all, and I've stocked the good supplies. Thank you. Really.", "when": {"flag": "project_clinic_new"}, "priority": 5},
+			{"text": "The clinic's warm and dry. I'd forgotten what it's like to work without a bucket beside the patient.", "when": {"flag": "project_clinic"}},
+			{"text": "Still working from the tent. It's fine. It's a tent. The roof is mostly theoretical.", "when": {"not_flag": "project_clinic"}},
+			{"text": "You're hurt. Sit down. That's not advice, it's a diagnosis. Bandage first, stories after.", "when": {"flag": "player_hurt"}, "priority": 3},
+			{"text": "You're hot. Not a compliment. Radiation hot. Purifier, water, rest, in that order. Then come back and let me look at you.", "when": {"flag": "player_irradiated"}, "priority": 3},
+			{"text": "Kael carried you in and I patched you up. You were very brave and very unconscious. Let's not do that again.", "when": {"flag": "died_recently"}, "priority": 4},
+			{"text": "Back from the ruins. Show me your hands. Now your arms. Now your eyes. Fine. Go and eat something.", "when": {"flag": "expedition_today"}},
+			{"text": "You keep going into the ruins, and I keep seeing you after. Let's keep it in that order.", "when": {"flag": "veteran"}},
+			{"id": "doc_first_week", "text": "How are you sleeping? Grief makes everything heavier, even the hoe. Come and see me if it gets too heavy. That's an order.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"text": "My request still stands. It's medical. Well, it's vegetables. Vegetables are medical.", "when": {"flag": "has_request_doc_ama"}, "priority": 1}
+		],
+		"repeat": [
+			"Back again? Either you missed me or something hurts. Which?",
+			"Twice in a day. If this is a symptom, I'll need to see more of it.",
+			"Still here, still a doctor, still disappointed in your sleep schedule."
+		],
+		"gift": {
+			"loved": ["{item}! Now that's useful. You've made a tired doctor very happy, which is a rare condition.", "{item}. You know exactly what I like. I may have to stop calling you a bad patient."],
+			"liked": ["{item}. Sensible and thoughtful. You'd make a decent doctor. A terrible patient, but a decent doctor.", "Thank you. {item} will do somebody some good. Possibly even you."],
+			"neutral": ["{item}. Thank you. I'll find a medical use for it. I always do."],
+			"disliked": ["{item}. Hm. I'll accept it, and prescribe you a better idea next time."],
+			"hated": ["{item}? Absolutely not. Hand it over. No, I'm keeping it, so nobody else has it."],
+			"birthday": ["A birthday present. You remembered. I'm noting that in your file under 'improving'."],
+			"birthday_loved": ["{item}, for my birthday? I'm prescribing myself a day off. Doctor's orders."],
+			"already_today": ["One gift a day is the dose. Don't overdo it."]
+		},
+		"nodes": {
+			"greet": {"text": "There you are. Hold still, let me look at you. Taller. Tired. You came out yelling in my clinic, you know, and you haven't stopped since.", "next": "tent"},
+			"tent": {"text": "The clinic roof caved in two winters back, so I work out of a tent beside it until somebody fixes it. That's a hint.", "next": "ask"},
+			"ask": {"text": "So. Are you sleeping? Eating vegetables? Glowing at all?", "choices": [
+				{"text": "I'm fine, Doc.", "next": "fine"},
+				{"text": "Define glowing.", "next": "glowing"}
+			]},
+			"fine": {"text": "Fine is what people say right before I find something. Eat something green, and be in bed before midnight."},
+			"glowing": {"text": "If you have to ask, come back when you start to glow. I mean it. I'll want notes."},
+			"clinic": {"text": "The clinic's open, dry and stocked. What'll it be?", "choices": [
+				{"text": "Patch me up.", "next": "CLINIC_HEAL"},
+				{"text": "What have you got?", "next": "OPEN_CLINIC_STORE"},
+				{"text": "Just visiting.", "next": "clinic_bye"}
+			]},
+			"clinic_bye": {"text": "Visiting is good for you. Visiting with a vegetable is better."}
 		}
 	}
 }

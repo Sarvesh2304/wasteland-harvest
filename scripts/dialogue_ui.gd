@@ -45,6 +45,10 @@ extends CanvasLayer
 ##      reads that same filtered list, so the highlighted index can never address a hidden option.
 
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
+const GiftDB := preload("res://scripts/gift_db.gd")
+const ItemDB := preload("res://scripts/item_db.gd")
+const Calendar := preload("res://scripts/calendar.gd")
+const UIText := preload("res://scripts/ui_text.gd")
 
 ## Reveal rate for the character-by-character typewriter effect.
 const CHARS_PER_SECOND := 28.0
@@ -64,6 +68,23 @@ const OPEN_RANCH_STORE_SENTINEL := "OPEN_RANCH_STORE"
 const SETTLER_ACCEPT_SENTINEL := "SETTLER_ACCEPT"
 const SETTLER_REJECT_SENTINEL := "SETTLER_REJECT"
 
+## Milestone B (2026-10-08): Doc Ama's clinic service (after the clinic Town Works project), and
+## the gift hand-over choice this box synthesizes itself.
+const CLINIC_HEAL_SENTINEL := "CLINIC_HEAL"
+const OPEN_CLINIC_STORE_SENTINEL := "OPEN_CLINIC_STORE"
+const GIFT_SENTINEL := "_GIVE_GIFT"
+
+## Fallback reactions for an NPC without authored gift lines of that kind.
+const GENERIC_GIFT_LINES := {
+	"loved": "Oh! This is wonderful. Thank you!",
+	"liked": "Thank you. This is lovely.",
+	"neutral": "Thanks. That's kind of you.",
+	"disliked": "Oh. Um. Thanks, I suppose.",
+	"hated": "...Why would you give me this?",
+	"birthday": "You remembered my birthday? Thank you.",
+	"birthday_loved": "On my birthday, too? You're a treasure.",
+}
+
 const CHOICE_COLOR := Color("#7b5025")            # worn wood (dark) — unselected choice
 const CHOICE_SELECTED_COLOR := Color("#c5520f")   # rust red — reads as "this one's highlighted"
 
@@ -77,6 +98,13 @@ signal ranch_store_requested(npc: Node)
 ## SETTLER_REJECT_SENTINEL — main.gd wires this to scripts/settlers.gd's resolve_visitor(),
 ## the same one-level-deeper handoff shape as store_requested above.
 signal settler_decision_requested(npc: Node, accepted: bool)
+## Milestone B: Doc Ama's clinic choices (main.gd heals the player / opens the clinic shelf).
+signal clinic_heal_requested(npc: Node)
+signal clinic_store_requested(npc: Node)
+## A gift was handed over and reacted to (main.gd floats the reaction).
+signal gift_reacted(npc: Node, item_id: String, reaction: String)
+## A gift couldn't be given ("today"/"week") while the player held something giftable.
+signal gift_refused(npc: Node, reason: String)
 
 @onready var box: Control = %Box
 @onready var name_label: Label = %NameLabel
@@ -99,6 +127,19 @@ var modal_gate: RefCounted = null
 ## exactly today's behaviour, since no authored choice carries "min_affinity" yet.
 var affinity: Node = null
 var npc: Node = null
+## Milestone B (assigned by main.gd; all optional, so a bare DialogueUI still works v1-style):
+## the player (held item for gifts), a Callable returning the world context for daily lines
+## ({season, weather, time, weekday, flags}), and a Callable(npc_id) -> {"text"} that hands in a
+## finished notice-board request and returns the requester's thanks ({} if nothing to hand in).
+var player: Node = null
+var context_provider: Callable = Callable()
+var delivery_hook: Callable = Callable()
+
+## Nodes this conversation made up on the spot (today's line, the gift reaction), looked up
+## before the authored ones.
+var _dynamic: Dictionary = {}
+var _gift_item := ""
+var _after_line := ""
 
 var _node_id := ""
 var _full_text := ""
@@ -124,7 +165,106 @@ func _process(delta: float) -> void:
 ## player.gd's npc_dialogue_requested signal. A no-op if the npc has no dialogue.json entry
 ## (defensive — every roster NPC has one, see tests/test_dialogue_db.gd).
 func open_dialogue(target_npc: Node) -> bool:
-	return _open_dialogue_at(target_npc, DialogueDB.start_node_id(String(target_npc.npc_id)), true)
+	var id := String(target_npc.npc_id)
+	# The first conversation ever is the intro tree; so is every conversation with an NPC that has
+	# no daily lines (settlers), or when no affinity track is bound (bare tools/tests).
+	var met := affinity != null and int(affinity.last_talked_day(id)) != -1
+	if not met or not DialogueDB.has_daily_lines(id):
+		return _open_dialogue_at(target_npc, DialogueDB.start_node_id(id), true)
+	return _open_daily(target_npc)
+
+
+## A later conversation (docs/SOCIAL_AND_QUESTS.md §3): a handed-in request's thanks, else today's
+## line (or a repeat on a second chat), then a gift offer if the player holds something giftable,
+## then the NPC's service node (if its condition holds).
+func _open_daily(target_npc: Node) -> bool:
+	var id := String(target_npc.npc_id)
+	if active or (modal_gate != null and modal_gate.is_any_open_except(self)):
+		return false
+	var day: int = DayManager.day
+	var first_today := int(affinity.last_talked_day(id)) != day
+	var ctx := conversation_context(id)
+	var text := ""
+	var delivered: Dictionary = delivery_hook.call(id) if delivery_hook.is_valid() else {}
+	if not delivered.is_empty():
+		text = String(delivered.get("text", ""))
+	elif first_today:
+		var line := DialogueDB.pick_line(DialogueDB.daily_lines(id), ctx, _seen_lines(id),
+			DialogueDB.daily_seed(id, day))
+		text = String(line.get("text", ""))
+		if bool(line.get("once", false)):
+			affinity.mark_line_seen(String(line.get("id", "")))
+	else:
+		text = DialogueDB.pick_text(DialogueDB.repeat_lines(id), DialogueDB.daily_seed(id, day, "repeat"))
+	if text == "":
+		text = String(DialogueDB.dialogue_node(id, DialogueDB.start_node_id(id)).get("text", "..."))
+	text = DialogueDB.fill(text, {"season": Calendar.SEASON_NAMES.get(DayManager.season(), "")})
+	_after_line = ""
+	var service := DialogueDB.service_node_id(id)
+	if service != "" and DialogueDB.when_matches(DialogueDB.service_when(id), ctx):
+		_after_line = service
+	_gift_item = _offerable_gift(target_npc, bool(ctx["flags"].has("birthday")))
+	if _gift_item != "":
+		_dynamic = {"_line": {"text": text, "choices": [
+			{"text": "Give the %s" % ItemDB.display_name(_gift_item), "next": GIFT_SENTINEL},
+			{"text": "Not today", "next": _after_line}]}}
+	else:
+		_dynamic = {"_line": {"text": text, "next": _after_line}}
+	return _open_dialogue_at(target_npc, "_line", true, false)
+
+
+## The context daily lines are matched against: the world (main.gd's context_provider) plus this
+## NPC's tier and whether today is their birthday.
+func conversation_context(npc_id: String) -> Dictionary:
+	var ctx: Dictionary = {}
+	if context_provider.is_valid():
+		ctx = (context_provider.call() as Dictionary).duplicate(true)
+	if not ctx.has("season"):
+		ctx["season"] = DayManager.season()
+	if not ctx.has("weather"):
+		ctx["weather"] = DayManager.weather_today
+	if not ctx.has("time"):
+		ctx["time"] = DialogueDB.time_band(DayManager.minutes_into_day)
+	if not ctx.has("weekday"):
+		ctx["weekday"] = Calendar.weekday(DayManager.day)
+	var flags: Dictionary = ctx.get("flags", {})
+	if is_birthday(npc_id, DayManager.day):
+		flags["birthday"] = true
+	ctx["flags"] = flags
+	ctx["tier"] = String(affinity.tier_for(npc_id)) if affinity != null else "stranger"
+	return ctx
+
+
+static func is_birthday(npc_id: String, day: int) -> bool:
+	var b := DialogueDB.birthday(npc_id)
+	return not b.is_empty() and Calendar.season(day) == String(b["season"]) \
+		and Calendar.day_of_season(day) == int(b["day"])
+
+
+## The once-only lines of `npc_id` already seen (affinity.gd keeps that memory; pick_line only
+## needs a has() lookup). Takes the id: this runs before the conversation sets `npc`.
+func _seen_lines(npc_id: String) -> Dictionary:
+	var out := {}
+	if affinity != null:
+		for line in DialogueDB.daily_lines(npc_id):
+			var line_id := String((line as Dictionary).get("id", ""))
+			if line_id != "" and affinity.has_seen_line(line_id):
+				out[line_id] = true
+	return out
+
+
+## The held item if it can be given to `target_npc` right now, else "". Holding something giftable
+## when today's (or this week's) gift is already used tells the player why there's no offer.
+func _offerable_gift(target_npc: Node, birthday: bool) -> String:
+	if player == null or affinity == null:
+		return ""
+	var item := String(player.inventory.get_selected_slot().get("item_id", ""))
+	if item == "" or not GiftDB.is_giftable(item):
+		return ""
+	var refusal := String(affinity.gift_refusal(String(target_npc.npc_id), item, DayManager.day, birthday))
+	if refusal == "today" or refusal == "week":
+		gift_refused.emit(target_npc, refusal)
+	return item if refusal == "" else ""
 
 
 ## Opens an authored alternate entry point for a scripted beat while retaining the same NPC,
@@ -140,11 +280,15 @@ func open_dialogue_at(target_npc: Node, start_node_id: String) -> bool:
 ## from a scripted beat; the award itself only lands if the box ACTUALLY opened (an already-open
 ## box, a missing dialogue entry, or another modal holding the gate all return early before it),
 ## so a refused open can never hand out a point.
-func _open_dialogue_at(target_npc: Node, start_node_id: String, award_affinity: bool) -> bool:
+func _open_dialogue_at(target_npc: Node, start_node_id: String, award_affinity: bool,
+		clear_dynamic: bool = true) -> bool:
 	if active or not DialogueDB.has_dialogue(String(target_npc.npc_id)):
 		return false
 	if modal_gate != null and modal_gate.is_any_open_except(self):
 		return false
+	if clear_dynamic:
+		_dynamic = {}
+		_gift_item = ""
 	npc = target_npc
 	npc.set_talking(true)
 	active = true
@@ -209,6 +353,16 @@ func _advance() -> void:
 		_resolve_settler_decision(true)
 	elif next_id == SETTLER_REJECT_SENTINEL:
 		_resolve_settler_decision(false)
+	elif next_id == GIFT_SENTINEL:
+		_give_gift()
+	elif next_id == CLINIC_HEAL_SENTINEL:
+		var target_npc := npc
+		close()
+		clinic_heal_requested.emit(target_npc)
+	elif next_id == OPEN_CLINIC_STORE_SENTINEL:
+		var target_npc := npc
+		close()
+		clinic_store_requested.emit(target_npc)
 	elif next_id == "":
 		close()
 	else:
@@ -245,10 +399,59 @@ func _goto_node(node_id: String) -> void:
 	_full_text = String(_current_node().get("text", ""))
 	_refresh_body()
 	_refresh_choices()
+	_layout_box()
+
+
+## The box grows upward to fit a long line and its choices (2026-10-08: a two-line daily line plus
+## a gift offer used to put the choices over the text). Base 68 px tall and 4 px off the bottom
+## edge; the body starts 18 px down, the choices sit just under it, the hint keeps the bottom.
+const BOX_MIN_HEIGHT := 68.0
+const BODY_TOP := 18.0
+const BODY_WIDTH := 300.0
+const CHOICE_ROW := 9.0
+const HINT_SPACE := 12.0
+
+
+func _layout_box() -> void:
+	var body_h := UIText.wrapped_height(body_label, _full_text, BODY_WIDTH)
+	var n := _available_choices().size()
+	var needed := BODY_TOP + body_h + (3.0 + float(n) * CHOICE_ROW if n > 0 else 0.0) + HINT_SPACE
+	box.offset_top = -4.0 - maxf(BOX_MIN_HEIGHT, ceilf(needed))
+	choices_box.offset_top = BODY_TOP + body_h + 3.0
 
 
 func _current_node() -> Dictionary:
+	if _dynamic.has(_node_id):
+		return _dynamic[_node_id]
 	return DialogueDB.dialogue_node(String(npc.npc_id), _node_id)
+
+
+## Hands the held item over: affinity.gd scores it, the NPC reacts (their own line for that
+## reaction, a birthday line on their birthday), then the conversation carries on to the service.
+func _give_gift() -> void:
+	var id := String(npc.npc_id)
+	var birthday := is_birthday(id, DayManager.day)
+	if _gift_item == "" or player == null or int(player.inventory.remove_item(_gift_item, 1)) < 1:
+		if _after_line != "":
+			_goto_node(_after_line)
+		else:
+			close()
+		return
+	var result: Dictionary = affinity.give_gift(id, _gift_item, DayManager.day, birthday)
+	var reaction := String(result["reaction"])
+	var kind := reaction
+	if birthday:
+		kind = "birthday_loved" if reaction == "loved" else "birthday"
+	var text := DialogueDB.pick_text(DialogueDB.gift_lines(id, kind),
+		DialogueDB.daily_seed(id, DayManager.day, "gift"))
+	if text == "":
+		text = String(GENERIC_GIFT_LINES.get(kind, GENERIC_GIFT_LINES["neutral"]))
+	var item := _gift_item
+	_gift_item = ""
+	_dynamic["_gift_reply"] = {"text": DialogueDB.fill(text, {"item": ItemDB.display_name(item)}),
+		"next": _after_line}
+	gift_reacted.emit(npc, item, reaction)
+	_goto_node("_gift_reply")
 
 
 ## -- Phase 7 Stage 3: affinity-gated choices (see class doc item 2) --
