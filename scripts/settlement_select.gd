@@ -23,6 +23,7 @@ extends Control
 ## directly — a quicker path for players who already know which start they want.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
+const HintText := preload("res://scripts/hint_text.gd")
 
 const OPENING_SCENE := "res://scenes/opening.tscn"
 const MAIN_SCENE := "res://scenes/main.tscn"
@@ -53,6 +54,12 @@ func _ready() -> void:
 		dots.add_child(dot)
 		_dot_rects.append(dot)
 	_refresh_display()
+	_refresh_hint()
+	HintText.follow_device(self, _refresh_hint)
+
+
+func _refresh_hint() -> void:
+	($HintLabel as Label).text = HintText.fill(self, "{nav} choose   {use} confirm   1/2/3 quick-select")
 
 
 func _unhandled_input(event: InputEvent) -> void:

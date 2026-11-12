@@ -24,6 +24,7 @@ extends Control
 ## Reaching day 1 marks the opening as seen (GameState.mark_opening_seen()).
 
 const PlayerProfile := preload("res://scripts/player_profile.gd")
+const HintText := preload("res://scripts/hint_text.gd")
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const CreatorScript := preload("res://scripts/character_creator.gd")
 const PlayerLook := preload("res://scripts/player_look.gd")
@@ -175,11 +176,11 @@ func _show_page(m: Mode, index: int) -> void:
 	create_tween().tween_property(_picture_frame, "modulate:a", 1.0, FADE_SECONDS)
 	var last := index == pages_for(m).size() - 1
 	if m == Mode.INTRO:
-		_hint.text = "SPACE next   ESC skip intro"
+		_hint.text = HintText.fill(self, "{use} next   {back} skip intro")
 	elif last:
-		_hint.text = "SPACE begin day 1"
+		_hint.text = HintText.fill(self, "{use} begin day 1")
 	else:
-		_hint.text = "SPACE next   ESC skip to day 1"
+		_hint.text = HintText.fill(self, "{use} next   {back} skip to day 1")
 	_refresh_dots()
 
 
@@ -237,7 +238,7 @@ func _show_offer() -> void:
 	offer_index = 0
 	_set_page_ui_visible(false)
 	_hint.visible = true
-	_hint.text = "UP/DOWN choose   SPACE confirm"
+	_hint.text = HintText.fill(self, "{nav} choose   {use} confirm")
 	_offer_panel.visible = true
 	_refresh_offer()
 

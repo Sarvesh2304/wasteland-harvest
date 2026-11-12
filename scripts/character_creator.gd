@@ -25,6 +25,7 @@ extends Control
 signal finished(player_name: String, pronouns: String, appearance: Dictionary)
 
 const PlayerProfile := preload("res://scripts/player_profile.gd")
+const HintText := preload("res://scripts/hint_text.gd")
 const PlayerLook := preload("res://scripts/player_look.gd")
 const BASE_FRAMES := preload("res://art/characters/player/player_frames.tres")
 
@@ -414,7 +415,8 @@ func _refresh() -> void:
 	if _header == null:
 		return
 	var forms := PlayerProfile.pronoun_tokens(pronouns)
-	_header.text = "“Well, then,” said Doc Ama, “what are we calling %s?”" % String(forms["them"])
+	# Plain single quotes: the UI font draws its curly double quotes as flat bars.
+	_header.text = "'Well, then,' said Doc Ama, 'what are we calling %s?'" % String(forms["them"])
 	for i in ROW_LABELS.size():
 		var selected := i == row_index and not editing_name
 		_row_labels[i].add_theme_color_override("font_color",
@@ -425,11 +427,11 @@ func _refresh() -> void:
 	_marker.visible = not editing_name
 	_editor.visible = editing_name
 	if editing_name:
-		_hint.text = "↑↓←→ letters   SPACE pick   ESC done"
+		_hint.text = HintText.fill(self, "↑↓←→ letters   {use} pick   {back} done")
 	elif row_index == ROW_NAME:
-		_hint.text = "↑↓ choose   SPACE name your child"
+		_hint.text = HintText.fill(self, "↑↓ choose   {use} name your child")
 	elif row_index == ROW_BEGIN:
-		_hint.text = "↑↓ choose   SPACE begin"
+		_hint.text = HintText.fill(self, "↑↓ choose   {use} begin")
 	else:
 		_hint.text = "↑↓ choose   ←→ change"
 	_preview_caption.text = PlayerProfile.option_name("preset", int(appearance["preset"]))

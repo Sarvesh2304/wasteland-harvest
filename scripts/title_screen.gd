@@ -33,6 +33,7 @@ extends Control
 ## split settlement_select.gd's wrap_index established.
 
 const SaveSlots := preload("res://scripts/save_slots.gd")
+const HintText := preload("res://scripts/hint_text.gd")
 
 const MENU_NEW_GAME := "New Game"
 const MENU_LOAD_GAME := "Load Game"
@@ -78,7 +79,55 @@ func _ready() -> void:
 	# so the reported "stuck" playthrough appears on the Load screen from this build's very
 	# first boot (see save_slots.gd's migrate_legacy_save doc).
 	GameState.migrate_legacy_save()
+	_add_backdrop()
 	_show_menu()
+	_refresh_hints()
+	HintText.follow_device(self, _refresh_hints)
+
+
+## Milestone E: the dusk farm from the opening (art/opening/farm.png) framed across the top, the
+## title over its sky, and the menu below it. Skipped quietly if the art is missing.
+const BACKDROP := "res://art/opening/farm.png"
+const BACKDROP_FRAME := Color("#7b5025")
+
+
+func _add_backdrop() -> void:
+	if not ResourceLoader.exists(BACKDROP):
+		return
+	var texture: Texture2D = load(BACKDROP)
+	var size := texture.get_size()
+	var pos := Vector2(floor((320.0 - size.x) * 0.5), 6.0)
+	var frame := ColorRect.new()
+	frame.color = BACKDROP_FRAME
+	frame.position = pos - Vector2.ONE
+	frame.size = size + Vector2(2, 2)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var picture := TextureRect.new()
+	picture.texture = texture
+	picture.position = pos
+	picture.size = size
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	menu_panel.add_child(frame)
+	menu_panel.add_child(picture)
+	menu_panel.move_child(frame, 0)
+	menu_panel.move_child(picture, 1)
+	var tagline := menu_panel.get_node_or_null("Tagline") as Label
+	if tagline != null:
+		tagline.add_theme_color_override("font_color", Color("#ffedb1"))
+		tagline.add_theme_color_override("font_outline_color", Color("#281a0b"))
+		tagline.add_theme_constant_override("outline_size", 2)
+	# The menu sits under the picture.
+	# Four rows (New Game, Load Game, Options, Exit) at 10 px plus 4 px gaps fit between the
+	# picture and the hint line.
+	menu_rows.add_theme_constant_override("separation", 4)
+	menu_rows.offset_top = pos.y + size.y + 7.0
+	menu_rows.offset_bottom = menu_rows.offset_top + 52.0
+
+
+## The key hints, in what's bound on the device in use.
+func _refresh_hints() -> void:
+	($MenuPanel/MenuHint as Label).text = HintText.fill(self, "{nav} choose   {use} confirm")
+	($LoadPanel/LoadHint as Label).text = HintText.fill(self, "{nav} choose   {use} load   {delete} delete   {back} back")
 
 
 func _unhandled_input(event: InputEvent) -> void:

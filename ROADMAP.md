@@ -175,8 +175,36 @@ Spec: `docs/LIVING_SETTLEMENT.md`.
       - *Tested by `tests/test_player_profile.gd`, `tests/test_player_look.gd`,
         `tools/opening_smoke.gd`; screenshots: `tools/screenshot_opening.gd`.*
       - *Art: `tools/art/opening/`.*
-- [ ] Options (volumes, fullscreen, rebinding), controller support, accessibility
-- [ ] Balance pass, performance pass, exported builds
+      - *The title screen shows the dusk farm from the opening, and every screen outside the
+        world names the keys or pad buttons actually bound (`scripts/hint_text.gd`).*
+- [x] Options (volumes, fullscreen, rebinding), controller support, accessibility
+      *(2026-11-12, `scripts/settings.gd` (the Settings autoload) and
+      `scripts/options_menu.gd`):*
+      - *One options screen, from the title's Options entry and the in-game menu's OPTIONS
+        tab. It applies changes at once and saves them to `user://settings.cfg`.*
+      - *Settings: master/music/sound/ambience volumes on real buses, fullscreen, window size
+        x2-x5, vsync.*
+      - *Accessibility: screen shake off, reduce flashes (gentler hit flash and hurt vignette,
+        no muzzle flash), text speed from slow to instant, tap-or-hold for the use button,
+        pause when unfocused.*
+      - *Controls: all 21 actions rebindable on keyboard and pad. Conflicts swap; reset to
+        defaults; only changed bindings are saved.*
+      - *Controller: every action has a pad default. Right-stick aiming; A/B confirm and back
+        everywhere; hints switch between key and button names with the last device used.*
+      - *Not done: a larger-text mode (the bitmap font is only crisp at 8 or 16 px, and 16 px
+        doesn't fit the 320x192 layouts). Rearranging the backpack still needs a mouse.*
+      - *Tested by `tests/test_settings.gd` and `tools/options_smoke.gd` (78 checks, including
+        a controller-only pass).*
+- [x] Balance pass, performance pass, exported builds *(2026-11-12, `docs/BALANCE.md`,
+      `docs/RELEASE.md`):*
+      - *Balance: `tools/balance/` measures crops, loot and real generated levels. Crops and
+        loot curve as intended. Credits had too little to buy, so the bigger buildings now
+        charge a builder's fee (about 9,000 Cr across 11 buildings).*
+      - *Performance: `tools/perf_probe.gd`. Frame work is 1-2 ms in the heaviest scenes (a
+        fully planted farm, a festival, a depth-4 ruins level in full chase); there was no hot
+        spot to fix.*
+      - *Exports: Linux, Windows and macOS (universal, unsigned) presets, a real app icon, and
+        `tools/export_all.sh`, which exports all three and smoke-runs the Linux build.*
 
 ---
 
