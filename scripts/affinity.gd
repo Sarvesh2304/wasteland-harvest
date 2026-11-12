@@ -59,7 +59,12 @@ const NAMED_NPC_IDS: Array[String] = [
 	"brask",
 	"wren",
 	"doc_ama",
+	"caravan_trader",
 ]
+
+## Named NPCs who visit rather than live here (Milestone D: Tully). They have hearts and gifts
+## like anyone, but no home on the map, no schedule and no notice-board requests.
+const VISITOR_IDS: Array[String] = ["caravan_trader"]
 
 ## Tiers by hearts (inclusive lower bounds): 0-1 stranger, 2-4 acquaintance, 5-7 friend, 8-10
 ## close. Dialogue gates on these names, never on raw numbers.

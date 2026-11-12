@@ -68,6 +68,24 @@ func npcs() -> Array[Node]:
 ## a bool) since the dialogue trigger needs to know WHICH npc, not just that one is there.
 func npc_at(cell: Vector2i) -> Node:
 	for npc in _npcs:
-		if npc.occupies_cell(cell):
+		if npc.visible and npc.occupies_cell(cell):
 			return npc
 	return null
+
+
+func npc_by_id(id: String) -> Node:
+	for npc in _npcs:
+		if String(npc.npc_id) == id:
+			return npc
+	return null
+
+
+## Milestone D: takes an NPC off the map for the day without removing them (Silas goes to town
+## for a festival; a stand-in with his id is spawned there) and brings them back.
+func set_away(id: String, away: bool) -> void:
+	var npc := npc_by_id(id)
+	if npc == null:
+		return
+	npc.visible = not away
+	npc.process_mode = Node.PROCESS_MODE_DISABLED if away else Node.PROCESS_MODE_INHERIT
+	npc.collision_layer = 0 if away else 1

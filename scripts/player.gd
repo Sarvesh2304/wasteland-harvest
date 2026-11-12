@@ -47,6 +47,10 @@ signal died
 signal note_read_requested(item_id: String)
 ## Milestone B: the town square's notice board was used (main.gd opens scripts/notice_ui.gd).
 signal notice_board_requested
+## Milestone D: an interactable Town Works / festival building was used (the festival booth).
+signal works_used(id: String)
+## True while a festival's goat race is running (scripts/festivals.gd): the player watches.
+var watching := false
 
 ## ~3.5 tiles/second at 16 px tiles — Stardew's walk feel.
 const SPEED := 56.0
@@ -327,7 +331,7 @@ func _now() -> float:
 
 func _in_any_modal() -> bool:
 	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage() \
-		or _in_confirm() or (notice_ui != null and bool(notice_ui.active))
+		or _in_confirm() or (notice_ui != null and bool(notice_ui.active)) or watching
 
 
 func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
@@ -505,6 +509,8 @@ func _instant_target(cell: Vector2i, for_use: bool = true) -> String:
 			return "Ship"
 		if structures.has_method("is_board_at") and structures.is_board_at(cell):
 			return "Read"
+		if structures.has_method("works_id_at") and structures.USABLE_WORKS.has(structures.works_id_at(cell)):
+			return String(structures.USABLE_WORKS[structures.works_id_at(cell)])
 	if npcs != null and npcs.npc_at(cell) != null:
 		return "Talk"
 	# Milestone B: crafted chests and machines. The Use button with an axe or pickaxe in hand
@@ -589,6 +595,10 @@ func _do_instant(cell: Vector2i) -> void:
 		return
 	if structures != null and structures.has_method("is_board_at") and structures.is_board_at(cell):
 		notice_board_requested.emit()
+		return
+	if structures != null and structures.has_method("works_id_at") \
+			and structures.USABLE_WORKS.has(structures.works_id_at(cell)):
+		works_used.emit(String(structures.works_id_at(cell)))
 		return
 	if npcs != null:
 		var npc: Node = npcs.npc_at(cell)

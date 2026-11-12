@@ -103,8 +103,10 @@ func _spawn_env_prop(prop: Dictionary) -> void:
 	sprite.centered = false
 	sprite.position = Vector2((cell.x + size.x / 2.0) * CELL_SIZE, (cell.y + size.y) * CELL_SIZE)
 	sprite.offset = Vector2(-w / 2.0, -h)
+	sprite.set_meta("kind", String(prop["kind"]))
 	add_child(sprite)
 	_props.append(sprite)
+	_last_spawned = [sprite]
 	if frames > 1 and float(prop.get("fps", 0)) > 0.0:
 		_animated.append([sprite, frames, float(prop["fps"])])
 	if prop.has("night_frame"):
@@ -116,8 +118,58 @@ func _spawn_env_prop(prop: Dictionary) -> void:
 			float(spec[4]) if spec.size() > 4 else 0.0)
 		light.position = sprite.position + Vector2(0, -float(spec[3]))
 		add_child(light)
+		_last_spawned.append(light)
 	if bool(prop.get("solid", false)):
 		_block_footprint(cell, size)
+
+
+## -- Milestone D (2026-11-10): props that come and go --
+
+var _last_spawned: Array = []
+## tag -> the nodes of temporary props (festival dressing): see add_temp / clear_temp.
+var _temp: Dictionary = {}
+
+
+## Redraws every prop of `kind` with art/env/<art>.png (the market stall, stocked on caravan
+## days). The footprint and collision don't change; taller art rises above it.
+func set_art(kind: String, art: String) -> void:
+	var path := ENV_ART_DIR + art + ".png"
+	if not ResourceLoader.exists(path):
+		return
+	var texture: Texture2D = load(path)
+	for sprite in _props:
+		if String(sprite.get_meta("kind", "")) == kind:
+			sprite.texture = texture
+			sprite.offset = Vector2(-texture.get_width() / float(sprite.hframes) / 2.0, -texture.get_height())
+
+
+## Adds a temporary prop under `tag` (same entry shape as the layout's decor, never solid:
+## anything that should block goes through structures.add_works_building instead).
+func add_temp(tag: String, prop: Dictionary) -> void:
+	var entry := prop.duplicate()
+	entry["solid"] = false
+	_spawn_env_prop(entry)
+	var nodes: Array = _temp.get(tag, [])
+	nodes.append_array(_last_spawned)
+	_temp[tag] = nodes
+	# A zone with no night props of its own never hooked the clock in _ready.
+	if not DayManager.time_changed.is_connected(_on_time_changed):
+		DayManager.time_changed.connect(_on_time_changed)
+	set_process(not _animated.is_empty())
+	_on_time_changed(DayManager.day, DayManager.minutes_into_day)
+
+
+func clear_temp(tag: String) -> void:
+	for node in _temp.get(tag, []):
+		_props.erase(node)
+		_animated = _animated.filter(func(a): return a[0] != node)
+		_night_props = _night_props.filter(func(a): return a[0] != node)
+		(node as Node).queue_free()
+	_temp.erase(tag)
+
+
+func has_temp(tag: String) -> bool:
+	return _temp.has(tag)
 
 
 func _block_footprint(cell: Vector2i, size: Vector2i) -> void:

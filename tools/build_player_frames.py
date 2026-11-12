@@ -64,6 +64,10 @@ CHARACTERS = {
         [("idle", True, 5.0), ("walk", True, 6.0)],
         "code-generated (tools/art/townsfolk)",
     ),
+    "caravan_trader": (
+        [("idle", True, 5.0), ("walk", True, 6.0)],
+        "code-generated (tools/art/townsfolk)",
+    ),
 }
 
 

@@ -31,6 +31,7 @@ extends CanvasLayer
 ## _in_store()); close() unconditionally unfreezes, so the player can never be left stuck.
 
 const ShippingDB := preload("res://scripts/shipping_db.gd")
+const MarketRules := preload("res://scripts/market_rules.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
 
 const ROW_COLOR := Color("#7b5025")            # worn wood (dark) — unselected row
@@ -154,7 +155,10 @@ func _confirm() -> void:
 
 func _refresh() -> void:
 	var contents: Dictionary = _structures.shipping_contents
-	value_label.text = "In box: %d Cr" % ShippingDB.sale_total(contents)
+	var market: Node = _structures.get("market")
+	var extra: float = float(_structures.get("sale_multiplier")) if market != null else 1.0
+	value_label.text = "In box: %d Cr" % (int(market.quote(contents, extra)["total"]) if market != null
+		else ShippingDB.sale_total(contents))
 	var window := _row_labels.size()
 	var start := clampi(_index - window / 2, 0, maxi(_row_ids.size() - window, 0))
 	for slot in window:
@@ -169,9 +173,12 @@ func _refresh() -> void:
 			label.text = LEAVE_TEXT
 		else:
 			var held: int = _player.inventory.count_of(item_id)
-			label.text = "%s x%d — %d Cr" % [
-				String(ItemDB.get_item(item_id).get("name", item_id)), held,
-				ShippingDB.unit_value(item_id) * held,
+			var unit: int = market.unit_price(item_id, extra) if market != null else ShippingDB.unit_value(item_id)
+			# Milestone D: the market's mood for this item, e.g. "+40%" in demand, "-12%" flooded.
+			var trend: String = MarketRules.trend_text(market.multiplier_for(item_id)) if market != null else ""
+			label.text = "%s x%d — %d Cr%s" % [
+				String(ItemDB.get_item(item_id).get("name", item_id)), held, unit * held,
+				"  " + trend if trend != "" else "",
 			]
 		label.add_theme_color_override("font_color",
 			ROW_SELECTED_COLOR if i == _index else ROW_COLOR)

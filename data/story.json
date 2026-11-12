@@ -1,0 +1,46 @@
+{
+  "_comment": "The main story, The Signal (Milestone D, docs/LIVING_SETTLEMENT.md section 5). Loaded by scripts/story.gd. One entry per stage id from the spec's table, each with title and journal (what to do next, at most 220 characters) plus the stage's own keys: static.notice (the morning notice that starts it), radio_parts.have_some (Harlan, with fewer than 3 parts), broadcast.notice (the broadcast as received, at most 320), find_vault.need_keycard / need_code (at the door) and opening (three pages, at most 300 each), done_home.notice and done_shared.notice (the morning after). wren_code_hint is the same text as Wren's wren_vault_code line in data/dialogue.json. Harlan's conversations are story_* nodes in his dialogue entry. The vault code is 4-1-7-7 (data/lore_notes.json, the Foreman's Letter). Text uses only the UI font's glyphs; other strings at most 200. tools/validate_social_data.py checks this file.",
+  "stages": {
+    "static": {
+      "title": "A Voice in the Static",
+      "journal": "Harlan's old radio caught something in the night, and he wants a word. Find him in town and talk to him.",
+      "notice": "MAYOR'S NOTICE: The radio said something last night. Not static. Something. Would the farmer kindly come and see me at once. Or soon. At once. - Harlan"
+    },
+    "radio_parts": {
+      "title": "Parts and Patience",
+      "journal": "Harlan needs 3 Radio Parts to raise an antenna. Each district of the ruins has one, somewhere. Bring them to him.",
+      "have_some": "Every part's another inch of antenna and another word out of the static. Three in all, farmer. Keep looking. I'll keep listening."
+    },
+    "broadcast": {
+      "title": "The Broadcast",
+      "journal": "The antenna went up on Harlan's roof overnight, and the radio is speaking clearly at last. Read the morning notice to hear what it says.",
+      "notice": "…kssh… This is the Northgate Seed Reserve. Automated message. The vault beneath the Core is sealed… stock remains viable. Staff: keycard and code at the… …kssh… If anyone is still out there… the seeds are waiting. Repeating. This is the Northgate Seed…"
+    },
+    "find_vault": {
+      "title": "Under the Core",
+      "journal": "Find the seed vault under the Core. The door wants a Keycard and a four-digit code. An old note in the ruins has the code, and Wren may know it, if you're good friends.",
+      "need_keycard": "A steel hatch in a concrete collar, its little light a patient red. Beside it, a card slot, and you've no card to put in it. A Keycard, then.",
+      "need_code": "The card slot blinks green. Now a keypad waits for four digits. Somebody, somewhere in these ruins, must have written them down.",
+      "opening": [
+        "The keypad chimes. Deep below, old machinery wakes and hums. The hatch sighs open on a breath of cold, clean air, the cleanest you've ever tasted, and lights come on down a long stair, one by one, as if they've been waiting.",
+        "Rows and rows of sealed steel canisters, floor to ceiling, each stencilled with a little sprout and labelled by hand: wheat, beans, squash, apple, names you've only read in old notes. Frost on the shelves. Not one seal broken.",
+        "On a desk by the door, a clipboard. The last page is an inventory, every row ticked twice, and at the bottom: 'Checked them all again. They'll keep. Somebody will come. - E.M.' You pack all you can carry. It's more than enough."
+      ]
+    },
+    "decision": {
+      "title": "Seeds for the Valley",
+      "journal": "You've carried the seed stock out of the vault. Take it to Harlan: the town has to decide what to do with it, and he wants you to choose."
+    },
+    "done_home": {
+      "title": "Planted at Home",
+      "journal": "The vault seed is in the town's fields. Your crops yield more from the good stock, and Harlan sends you a share of the town harvest every Monday.",
+      "notice": "MAYOR'S NOTICE: Every field in town was sown from the vault this week. Your crops will yield more from the good stock, and the town's share comes to your door each Monday. Dig in. - Harlan"
+    },
+    "done_shared": {
+      "title": "Down the Road",
+      "journal": "Tully is carrying the vault seed to every settlement on the road. He now comes four days a week with more stock, and Marta's demand lists run longer.",
+      "notice": "MAYOR'S NOTICE: Tully left at dawn with the vault seed, bound for every settlement on the road. Trade's waking up: he'll be here four days a week now, and Marta wants more of everything. - Harlan"
+    }
+  },
+  "wren_code_hint": "Funny thing about doors under the Core. They're shy. They only open for someone who says four, one, seven, seven. I didn't tell you that. A foreman did."
+}

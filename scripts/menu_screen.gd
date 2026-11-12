@@ -49,6 +49,7 @@ const NpcScript := preload("res://scripts/npc.gd")
 const Weather := preload("res://scripts/weather.gd")
 const Calendar := preload("res://scripts/calendar.gd")
 const UIText := preload("res://scripts/ui_text.gd")
+const MarketRules := preload("res://scripts/market_rules.gd")
 const Builder := preload("res://scripts/builder.gd")
 
 ## 2026-10-07 Milestone B: CRAFT (the recipe book, scripts/crafting.gd) and SKILLS tabs join the
@@ -148,8 +149,18 @@ var expedition: Node = null
 var _journal_tab: Control = null
 var _people_tab: Control = null
 var _note_index := 0
-## The JOURNAL's note reader: E opens the highlighted note full-width; E or Esc goes back.
-var _note_open := false
+## The JOURNAL's pages (Milestone D): up/down picks one; on Notes, E turns to the next note.
+const JOURNAL_PAGES: Array[String] = ["Today", "Town", "Story", "Notes"]
+const JOURNAL_TODAY := 0
+const JOURNAL_TOWN := 1
+const JOURNAL_STORY := 2
+const JOURNAL_NOTES := 3
+var journal_page := 0
+## Assigned by main.gd: the market and caravan (Today), festivals and the story (later pages).
+var market: Node = null
+var caravan: Node = null
+var festivals: Node = null
+var story: Node = null
 var _people_index := 0
 const CRAFT_ROWS_VISIBLE := 7
 const DIM_COLOR := Color("#8a7a63")
@@ -206,25 +217,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			open_menu()
 	elif not active:
 		return
-	elif event.is_action_pressed("ui_cancel") and tab_index == TAB_JOURNAL and _note_open:
-		_note_open = false
-		_refresh_journal()
 	elif event.is_action_pressed("ui_cancel"):
 		close()
 	elif tab_index == TAB_JOURNAL and event.is_action_pressed("interact") \
-			and expedition != null and not expedition.notes_read.is_empty():
-		_note_open = not _note_open
-		Audio.play_sfx("ui_open" if _note_open else "ui_close", -8.0)
+			and journal_page == JOURNAL_NOTES:
+		_note_index += 1
+		Audio.play_sfx("ui_hover", -10.0)
 		_refresh_journal()
 	elif event.is_action_pressed("build_cycle") or event.is_action_pressed("move_right") \
 			or event.is_action_pressed("hotbar_next"):
 		tab_index = next_tab(tab_index)
-		_note_open = false
 		_quit_armed = false  # navigating away disarms, like the title screen's delete guard
 		_refresh()
 	elif event.is_action_pressed("move_left") or event.is_action_pressed("hotbar_prev"):
 		tab_index = prev_tab(tab_index)
-		_note_open = false
 		_quit_armed = false
 		_refresh()
 	elif tab_index == TAB_CRAFT and event.is_action_pressed("move_down"):
@@ -234,9 +240,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif tab_index == TAB_CRAFT and (event.is_action_pressed("use_tool") \
 			or event.is_action_pressed("interact")):
 		_craft_selected()
-	elif tab_index == TAB_JOURNAL and not _note_open \
-			and (event.is_action_pressed("move_down") or event.is_action_pressed("move_up")):
-		_note_index += 1 if event.is_action_pressed("move_down") else -1
+	elif tab_index == TAB_JOURNAL and (event.is_action_pressed("move_down") or event.is_action_pressed("move_up")):
+		journal_page = posmod(journal_page + (1 if event.is_action_pressed("move_down") else -1), JOURNAL_PAGES.size())
 		Audio.play_sfx("ui_hover", -10.0)
 		_refresh_journal()
 	elif tab_index == TAB_PEOPLE and (event.is_action_pressed("move_down") or event.is_action_pressed("move_up")):
@@ -269,7 +274,6 @@ func open_menu() -> void:
 func close() -> void:
 	active = false
 	_quit_armed = false
-	_note_open = false
 	box.visible = false
 
 
@@ -813,60 +817,136 @@ const HEART_COLOR := Color("#c5372f")
 func _refresh_journal() -> void:
 	for child in _journal_tab.get_children():
 		child.queue_free()
-	if _note_open and expedition != null and not expedition.notes_read.is_empty():
-		_show_note()
-		return
-	var w := 296.0
+	for i in JOURNAL_PAGES.size():
+		_put(_journal_tab, ("> " if i == journal_page else "  ") + JOURNAL_PAGES[i], Vector2(0, i * 12), 60,
+			ACCENT_COLOR if i == journal_page else ROW_COLOR)
+	_put(_journal_tab, "↑↓ page", Vector2(0, 110), 60, DIM_COLOR)
+	var pane := Control.new()
+	pane.position = Vector2(JOURNAL_PANE_X, 0)
+	pane.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_journal_tab.add_child(pane)
+	match journal_page:
+		JOURNAL_TODAY:
+			_journal_today(pane)
+		JOURNAL_TOWN:
+			_journal_town(pane)
+		JOURNAL_STORY:
+			_journal_story(pane)
+		JOURNAL_NOTES:
+			_journal_notes(pane)
+
+
+const JOURNAL_PANE_X := 64.0
+const JOURNAL_PANE_W := 232.0
+
+
+func _journal_today(pane: Control) -> void:
+	var w := JOURNAL_PANE_W
 	var day: int = DayManager.day
 	var y := 0.0
-	y += _wrap_put(_journal_tab, "%s. %s today; tomorrow, %s." % [Calendar.date_text(day),
+	y += _wrap_put(pane, "%s. %s today; tomorrow, %s." % [Calendar.date_text(day),
 		Weather.display_name(DayManager.weather_today), Weather.display_name(DayManager.weather_tomorrow).to_lower()],
 		Vector2(0, y), w, ROW_COLOR) + 4
-	_put(_journal_tab, "REQUEST", Vector2(0, y), w, ACCENT_COLOR)
+	if festivals != null:
+		var next: Dictionary = festivals.next_festival(day)
+		if not next.is_empty():
+			var ahead := int(next["in_days"])
+			y += _wrap_put(pane, "%s: %s." % [String(next["name"]), "today, in the square" if ahead == 0
+				else ("tomorrow" if ahead == 1 else "in %d days" % ahead)], Vector2(0, y), w,
+				GOOD_COLOR if ahead == 0 else DIM_COLOR) + 4
+	_put(pane, "MARKET", Vector2(0, y), w, ACCENT_COLOR)
+	y += 10
+	var lines: Array[String] = []
+	if market != null and not market.demand.is_empty():
+		var names: Array[String] = []
+		for item_id in market.demand:
+			names.append(ItemDB.display_name(String(item_id)))
+		lines.append("Marta's short of %s (+40%%)." % ", ".join(names))
+	if market != null:
+		var low: Array[String] = []
+		for item_id in market.flooded().slice(0, 3):
+			low.append("%s %s" % [ItemDB.display_name(item_id), MarketRules.trend_text(market.multiplier_for(item_id))])
+		if not low.is_empty():
+			lines.append("Flooded: %s." % ", ".join(low))
+	if lines.is_empty():
+		lines.append("Prices are steady.")
+	if caravan != null:
+		var ahead: int = caravan.days_until_next(day)
+		if ahead == 0:
+			lines.append("Tully's caravan is at the stall today.")
+		elif ahead > 0:
+			lines.append("Tully's caravan comes %s." % ("tomorrow" if ahead == 1 else "in %d days" % ahead))
+	y += _wrap_put(pane, " ".join(lines), Vector2(0, y), w, DIM_COLOR) + 4
+	_put(pane, "REQUEST", Vector2(0, y), w, ACCENT_COLOR)
 	y += 10
 	var request_text := "None. The notice board in the square posts one each morning."
 	if quests != null and not quests.active.is_empty():
 		var req: Dictionary = quests.active
 		request_text = "%s: %s" % [QuestDB.title_of(req), _request_progress(req, day)]
-	y += _wrap_put(_journal_tab, request_text, Vector2(0, y), w, DIM_COLOR) + 4
-	_put(_journal_tab, "TOWN WORKS", Vector2(0, y), w, ACCENT_COLOR)
-	y += 10
-	var ids := QuestDB.project_ids()
-	for i in ids.size():
-		var id: String = ids[i]
-		var status := "%d%%" % int(round(QuestDB.progress(id, quests.given_to(id)) * 100.0)) if quests != null else ""
-		if quests != null and quests.is_finished(id):
+	_wrap_put(pane, request_text, Vector2(0, y), w, DIM_COLOR)
+
+
+func _journal_town(pane: Control) -> void:
+	var w := JOURNAL_PANE_W
+	_put(pane, "TOWN WORKS", Vector2(0, 0), w, ACCENT_COLOR)
+	var y := 12.0
+	for id in QuestDB.project_ids():
+		var project := QuestDB.project(id)
+		var status := ""
+		var detail := String(project.get("reward", ""))
+		var color := DIM_COLOR
+		if quests == null:
+			pass
+		elif quests.is_finished(id):
 			status = "Done"
-		elif quests != null and quests.is_funded(id):
+			color = GOOD_COLOR
+		elif quests.is_funded(id):
 			status = "Tonight"
-		var at := Vector2(float(i % 2) * 150.0, y + float(i / 2) * 10.0)
-		_put(_journal_tab, String(QuestDB.project(id).get("name", id)), at, 110, ROW_COLOR)
-		_put(_journal_tab, status, at + Vector2(112, 0), 34, GOOD_COLOR if status == "Done" else DIM_COLOR)
-	y += 24
+			detail = "Fully funded. Harlan's crew builds it tonight."
+		else:
+			status = "%d%%" % int(round(QuestDB.progress(id, quests.given_to(id)) * 100.0))
+			var left: Dictionary = QuestDB.remaining(id, quests.given_to(id))
+			var parts: Array[String] = []
+			for key in left:
+				parts.append("%d Cr" % int(left[key]) if key == "credits" else QuestDB.amount_text(String(key), int(left[key])))
+			detail = "Needs " + ", ".join(parts) + "."
+		_put(pane, String(project.get("name", id)), Vector2(0, y), w - 44, ROW_COLOR)
+		_put(pane, status, Vector2(w - 44, y), 44, color).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		y += 10
+		var detail_label := _put(pane, detail, Vector2(6, y), w - 6, color)
+		detail_label.tooltip_text = detail
+		y += 14
+
+
+func _journal_story(pane: Control) -> void:
+	var w := JOURNAL_PANE_W
+	var info: Dictionary = story.journal_entry() if story != null else {}
+	if info.is_empty():
+		_put(pane, "THE STORY SO FAR", Vector2(0, 0), w, ACCENT_COLOR)
+		_wrap_put(pane, "You were born here, and the farm is yours now. Get it back on its feet; the town is watching, fondly.",
+			Vector2(0, 12), w, DIM_COLOR)
+		return
+	_put(pane, String(info.get("title", "")), Vector2(0, 0), w, ACCENT_COLOR)
+	var y := 12.0
+	y += _wrap_put(pane, String(info.get("journal", "")), Vector2(0, y), w, ROW_COLOR) + 6
+	var past: Array = info.get("past", [])
+	if not past.is_empty():
+		_wrap_put(pane, "Before: " + ", ".join(past) + ".", Vector2(0, y), w, DIM_COLOR)
+
+
+func _journal_notes(pane: Control) -> void:
+	var w := JOURNAL_PANE_W
 	var read: Array = expedition.notes_read if expedition != null else []
-	_put(_journal_tab, "NOTES  (%d of %d found)" % [read.size(), LoreDB.notes().size()], Vector2(0, y), w, ACCENT_COLOR)
-	y += 10
+	_put(pane, "NOTES  (%d of %d found)" % [read.size(), LoreDB.notes().size()], Vector2(0, 0), w, ACCENT_COLOR)
 	if read.is_empty():
-		_note_open = false
-		_wrap_put(_journal_tab, "Old notes turn up in the ruins. Read one and it's kept here.", Vector2(0, y), w, DIM_COLOR)
+		_wrap_put(pane, "Old notes turn up in the ruins. Read one and it's kept here.", Vector2(0, 12), w, DIM_COLOR)
 		return
 	_note_index = posmod(_note_index, read.size())
-	var rows := maxi(1, int((116.0 - y) / 10.0))
-	var first := clampi(_note_index - rows / 2, 0, maxi(read.size() - rows, 0))
-	for row in range(first, mini(first + rows, read.size())):
-		var note := LoreDB.note(String(read[row]))
-		_put(_journal_tab, ("> " if row == _note_index else "  ") + String(note.get("title", "")),
-			Vector2(0, y + (row - first) * 10), 180, ACCENT_COLOR if row == _note_index else ROW_COLOR)
-	_put(_journal_tab, "E: read", Vector2(200, y), 96, DIM_COLOR)
-
-
-## The highlighted note, full-width over the journal (E or Esc goes back).
-func _show_note() -> void:
-	var read: Array = expedition.notes_read
-	var note := LoreDB.note(String(read[posmod(_note_index, read.size())]))
-	_put(_journal_tab, String(note.get("title", "")), Vector2(0, 0), 296, ACCENT_COLOR)
-	_wrap_put(_journal_tab, String(note.get("text", "")), Vector2(0, 14), 296, ROW_COLOR)
-	_put(_journal_tab, "E / Esc: back to the journal", Vector2(0, 110), 296, DIM_COLOR)
+	var note := LoreDB.note(String(read[_note_index]))
+	_put(pane, "%d. %s" % [_note_index + 1, String(note.get("title", ""))], Vector2(0, 14), w, ROW_COLOR)
+	_wrap_put(pane, String(note.get("text", "")), Vector2(0, 26), w, DIM_COLOR)
+	if read.size() > 1:
+		_put(pane, "E: next note", Vector2(0, 110), w, DIM_COLOR)
 
 
 func _request_progress(req: Dictionary, day: int) -> String:

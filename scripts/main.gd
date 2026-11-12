@@ -27,6 +27,9 @@ const QuestsScript := preload("res://scripts/quests.gd")
 const QuestDB := preload("res://scripts/quest_db.gd")
 const TownWorksScript := preload("res://scripts/town_works.gd")
 const NoticeUIScript := preload("res://scripts/notice_ui.gd")
+const MarketScript := preload("res://scripts/market.gd")
+const CaravanScript := preload("res://scripts/caravan.gd")
+const QuestDBRef := preload("res://scripts/quest_db.gd")
 const Faction := preload("res://scripts/faction.gd")
 const Weather := preload("res://scripts/weather.gd")
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
@@ -73,6 +76,9 @@ var confirm_ui: CanvasLayer = null
 var quests: Node = null
 var town_works: Node = null
 var notice_ui: CanvasLayer = null
+## Milestone D (2026-11-10, docs/LIVING_SETTLEMENT.md): prices that move, and Tully's caravan.
+var market: Node = null
+var caravan: Node = null
 ## Morning notices waiting for the screen to be free ([title, body]): finished Town Works.
 var _notices: Array = []
 
@@ -118,7 +124,16 @@ func _ready() -> void:
 		# Milestone B: every storage (the layout chest, built sheds, crafted chests) opens the
 		# two-pane storage screen, which can move items in and out.
 		structures.chest_toggled.connect(func(inv, cell: Vector2i) -> void:
-			storage_ui.open_storage(inv, cell, "Storage"))
+			# Milestone D: a trading post's shelf opens with its markup controls.
+			if structures.is_trading_post_at(cell):
+				storage_ui.open_post(inv, cell, structures, structures.post_at(cell))
+			else:
+				storage_ui.open_storage(inv, cell, "Storage"))
+		structures.post_sold.connect(_on_post_sold)
+		var post_zone := String(zone_id)
+		structures.clerk_check = func(top_left: Vector2i) -> bool:
+			return settlers._assigned_count({"zone_id": post_zone, "building_id": "trading_post",
+				"top_left": top_left}) > 0
 		zones[zone_id]["objects"].storage_opened.connect(func(inv, cell: Vector2i) -> void:
 			storage_ui.open_storage(inv, cell, "Crate Chest"))
 		structures.crops_sold.connect(player.add_credits)
@@ -169,6 +184,18 @@ func _ready() -> void:
 	GameState.register_save_section("quests", func() -> Dictionary: return quests.save_state())
 	ruins["enemies"].enemy_killed.connect(func(enemy_type: String) -> void:
 		quests.on_enemy_killed(enemy_type, player))
+	market = MarketScript.new()
+	market.name = "Market"
+	add_child(market)
+	GameState.register_save_section("market", func() -> Dictionary: return market.save_state())
+	for zone_id in zones:
+		zones[zone_id]["structures"].market = market
+	caravan = CaravanScript.new()
+	caravan.name = "Caravan"
+	add_child(caravan)
+	caravan.setup(zones["town"]["npcs"], zones["town"]["map"].get_node("Props"))
+	GameState.register_save_section("caravan", func() -> Dictionary: return caravan.save_state())
+	dialogue_ui.caravan_requested.connect(_on_caravan_requested)
 	town_works = TownWorksScript.new()
 	town_works.name = "TownWorks"
 	add_child(town_works)
@@ -184,6 +211,8 @@ func _ready() -> void:
 	notice_ui.name = "NoticeUI"
 	add_child(notice_ui)
 	notice_ui.bind(player, quests)
+	notice_ui.market = market
+	notice_ui.caravan = caravan
 	player.notice_ui = notice_ui
 	player.notice_board_requested.connect(notice_ui.open)
 	DayManager.day_started.connect(_on_day_started)
@@ -223,6 +252,8 @@ func _ready() -> void:
 	menu_screen.bind(player, hud.inventory_grid)
 	menu_screen.skills = skills
 	menu_screen.quests = quests
+	menu_screen.market = market
+	menu_screen.caravan = caravan
 	menu_screen.expedition = expedition
 	player.menu_screen = menu_screen
 	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
@@ -248,8 +279,11 @@ func _ready() -> void:
 		# ever needs, symmetric with _apply_save's own call below.
 		_recompute_capacity_unlocks()
 		quests.new_game(randi(), DayManager.day, DayManager.season())
+		market.new_game(randi())
+		caravan.base_seed = randi()
 	else:
 		_apply_save(save_data)
+	caravan.on_day_started(DayManager.day, DayManager.season(), affinity.value_for(CaravanScript.NPC_ID))
 	town_works.apply()
 	_refresh_npc_markers()
 	_ensure_home_truck()
@@ -375,6 +409,17 @@ func _apply_save(data: Dictionary) -> void:
 	else:
 		quests.load_state(quest_data)
 	quests.on_day_started(DayManager.day, DayManager.season(), expedition.runs, expedition.max_depth)
+	# Milestone D: a save from before has no market or caravan: both start fresh.
+	var market_data: Dictionary = data.get("market", {})
+	if market_data.is_empty():
+		market.new_game(hash([data.get("settlement_id", ""), data.get("saved_unix", 0), "market"]))
+	else:
+		market.load_state(market_data)
+	var caravan_data: Dictionary = data.get("caravan", {})
+	if caravan_data.is_empty():
+		caravan.base_seed = hash([data.get("settlement_id", ""), data.get("saved_unix", 0), "caravan"])
+	else:
+		caravan.load_state(caravan_data)
 	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
 	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
 	if not zones.has(player.current_zone_id):
@@ -427,6 +472,12 @@ func _on_day_started(day: int) -> void:
 		_notices.append([String(project.get("name", id)),
 			"%s\n\n%s" % [String(project.get("done", "")), String(project.get("reward", ""))]])
 	Events.message.emit("Kael's weather call for tomorrow: %s." % Weather.display_name(DayManager.weather_tomorrow))
+	# Milestone D: the market moves, and Tully comes and goes.
+	if market.on_day_started(day, DayManager.season()) and not market.demand.is_empty():
+		Events.message.emit("Marta's buying this week: %s." % _item_list(market.demand))
+	caravan.on_day_started(day, DayManager.season(), affinity.value_for(CaravanScript.NPC_ID))
+	if caravan.is_here(day):
+		Events.message.emit("Tully's caravan is at the market stall today.")
 
 
 func _on_ranch_store_requested(target_npc: Node) -> void:
@@ -666,6 +717,38 @@ func _read_blueprint() -> void:
 		Audio.play_sfx("achievement", -4.0)
 
 
+## -- Milestone D: the economy (docs/LIVING_SETTLEMENT.md) --
+
+## "Mutant Potatoes, Berry Jam and Glowcaps".
+static func _item_list(ids: Array) -> String:
+	var names: Array[String] = []
+	for id in ids:
+		names.append(QuestDBRef.amount_text(String(id), 2).substr(2))
+	if names.size() <= 1:
+		return "".join(names)
+	return ", ".join(names.slice(0, names.size() - 1)) + " and " + names[names.size() - 1]
+
+
+func _on_post_sold(total: int, sold: Dictionary) -> void:
+	var units := 0
+	for item_id in sold:
+		units += int(sold[item_id])
+	player.add_credits(total)
+	Events.message.emit("Your trading post sold %d %s: +%d Cr." % [units, "thing" if units == 1 else "things", total])
+
+
+## Tully's stall: today's stock at his prices, less 2% a heart.
+func _on_caravan_requested(npc: Node) -> void:
+	var hearts: int = affinity.value_for(CaravanScript.NPC_ID)
+	var stock: Array = []
+	var offers := {}
+	for offer in caravan.offers:
+		stock.append(String(offer["item"]))
+		offers[String(offer["item"])] = {"price": CaravanScript.price_after(int(offer["price"]), hearts),
+			"qty": int(offer["qty"])}
+	$StoreUI.open_store(npc, stock, "TULLY'S CARAVAN", offers, func(item_id: String) -> void: caravan.take(item_id))
+
+
 ## -- Milestone B: the social layer (docs/SOCIAL_AND_QUESTS.md) --
 
 const GIFT_FLOATS := {
@@ -707,6 +790,8 @@ func dialogue_context() -> Dictionary:
 		flags["has_animals"] = true
 	if not settlers.roster.is_empty():
 		flags["has_settlers"] = true
+	if caravan.is_here(day):
+		flags["caravan_day"] = true
 	return {"flags": flags}
 
 

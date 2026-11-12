@@ -31,6 +31,11 @@ var _cell := Vector2i.ZERO
 var _cursor := 0
 var _title: Label = null
 var _box: Control = null
+var _hint: Label = null
+const HINT := "E or click: move stack"
+## Milestone D: set while a trading post's shelf is open (its structures node and top-left cell).
+var _post := Vector2i(-1, -1)
+var _post_structures: Node = null
 var _widgets: Array = []  # 54 slot dicts: 0..26 storage, 27..53 pack
 
 
@@ -57,6 +62,9 @@ func open_storage(inventory, cell: Vector2i, title: String = "Storage") -> void:
 	_storage = inventory
 	_cell = cell
 	_title.text = title
+	_post = Vector2i(-1, -1)
+	_post_structures = null
+	_hint.text = HINT
 	_cursor = 27 + int(_player.inventory.selected_hotbar_index)
 	if not _storage.changed.is_connected(_refresh):
 		_storage.changed.connect(_refresh)
@@ -65,6 +73,25 @@ func open_storage(inventory, cell: Vector2i, title: String = "Storage") -> void:
 	active = true
 	_box.visible = true
 	_refresh()
+
+
+## Milestone D: opens a trading post's shelf (docs/LIVING_SETTLEMENT.md §3). Same screen, with the
+## post's markup in the title and Q to change it.
+func open_post(inventory, cell: Vector2i, structures: Node, top_left: Vector2i) -> void:
+	open_storage(inventory, cell, "Trading Post")
+	if not active or _storage != inventory:
+		return
+	_post = top_left
+	_post_structures = structures
+	_hint.text = "E: move stack   Q: markup"
+	_refresh_post_title()
+
+
+func _refresh_post_title() -> void:
+	if _post_structures == null:
+		return
+	var clerk: bool = _post_structures.clerk_check.is_valid() and bool(_post_structures.clerk_check.call(_post))
+	_title.text = "Trading Post — " + _post_structures.post_summary(_post_structures.post_markup(_post), clerk)
 
 
 func close() -> void:
@@ -97,6 +124,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_move(0, -1)
 	elif event.is_action_pressed("use_tool") or event.is_action_pressed("interact"):
 		transfer_at(_cursor)
+	elif event.is_action_pressed("build_cycle") and _post_structures != null:
+		_post_structures.cycle_post_markup(_post)
+		Audio.play_sfx("ui_hover", -8.0)
+		_refresh_post_title()
 
 
 func _move(dx: int, dy: int) -> void:
@@ -187,7 +218,7 @@ func _build() -> void:
 	for i in 27:
 		_widgets.append(_slot_widget(Vector2(8 + (i % COLS) * (SLOT + GAP), y + (i / COLS) * (SLOT + GAP)), 27 + i))
 	y += 3 * (SLOT + GAP)
-	_text("E or click: move stack", Vector2(8, y), DIM)
+	_hint = _text(HINT, Vector2(8, y), DIM)
 	var close_hint := _text("Esc: close", Vector2(8, y), DIM)
 	close_hint.size.x = width - 16.0
 	close_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

@@ -57,6 +57,9 @@ var _player: Node = null
 var _row_ids: Array[String] = []
 var _row_labels: Array[Label] = []
 var _index := 0
+## Milestone D: per-item {"price", "qty"} overrides for a limited shelf, and who to tell.
+var _offers: Dictionary = {}
+var _on_buy: Callable = Callable()
 
 
 func _ready() -> void:
@@ -84,7 +87,11 @@ func bind(player: Node) -> void:
 ##
 ## Milestone B (2026-10-08): `stock` and `title` open a different shelf in the same UI (Doc Ama's
 ## medical supplies once the clinic is rebuilt); left empty, it's Marta's seasonal shelf.
-func open_store(_target_npc: Node, stock: Array = [], title: String = "") -> void:
+##
+## Milestone D (2026-11-10): `offers` ({item: {"price", "qty"}}) gives a shelf its own prices and
+## limited stock (Tully's caravan); `on_buy` is told each item bought so the seller can count it out.
+func open_store(_target_npc: Node, stock: Array = [], title: String = "", offers: Dictionary = {},
+		on_buy: Callable = Callable()) -> void:
 	if active or _player == null:
 		return
 	if modal_gate != null and modal_gate.is_any_open_except(self):
@@ -92,6 +99,8 @@ func open_store(_target_npc: Node, stock: Array = [], title: String = "") -> voi
 	active = true
 	box.visible = true
 	_index = 0
+	_offers = offers.duplicate(true)
+	_on_buy = on_buy
 	status_label.text = ""
 	var title_label: Label = box.get_node_or_null("TitleLabel")
 	if title_label != null:
@@ -147,10 +156,22 @@ func _confirm() -> void:
 		close()
 		return
 	var result := ShopDB.attempt_purchase(_player.credits, item_id)
+	if _offers.has(item_id):
+		var offer: Dictionary = _offers[item_id]
+		if int(offer["qty"]) <= 0:
+			status_label.text = "Sold out."
+			Audio.play_sfx("ui_error", -4.0)
+			return
+		var cost := int(offer["price"])
+		result = {"ok": int(_player.credits) >= cost, "credits": int(_player.credits) - cost}
 	if not result["ok"]:
 		status_label.text = "Not enough Credits."
 		Audio.play_sfx("ui_error", -4.0)
 		return
+	if _offers.has(item_id):
+		_offers[item_id]["qty"] = int(_offers[item_id]["qty"]) - 1
+		if _on_buy.is_valid():
+			_on_buy.call(item_id)
 	# set_credits() emits credits_changed, which _on_credits_changed() turns back into a _refresh()
 	# call while active — no need to also refresh explicitly here (see bind()'s comment).
 	_player.set_credits(int(result["credits"]))
@@ -163,6 +184,17 @@ func _confirm() -> void:
 	Events.item_gained.emit(item_id, 1)
 	Audio.play_sfx("ui_purchase", -2.0)
 	status_label.text = "Bought %s." % String(ItemDB.get_item(item_id).get("name", item_id))
+
+
+## A shelf row: name and price, plus what's left for limited stock.
+func _row_text(item_id: String) -> String:
+	var name := String(ItemDB.get_item(item_id).get("name", item_id))
+	if not _offers.has(item_id):
+		return "%s — %d Cr" % [name, ShopDB.price(item_id)]
+	var offer: Dictionary = _offers[item_id]
+	if int(offer["qty"]) <= 0:
+		return "%s — sold out" % name
+	return "%s — %d Cr  (%d left)" % [name, int(offer["price"]), int(offer["qty"])]
 
 
 ## Live balance update while open (see bind()'s comment) — a no-op while closed, since there's
@@ -185,8 +217,7 @@ func _refresh() -> void:
 			continue
 		label.visible = true
 		var item_id := _row_ids[i]
-		label.text = LEAVE_TEXT if item_id == "" \
-			else "%s — %d Cr" % [String(ItemDB.get_item(item_id).get("name", item_id)), ShopDB.price(item_id)]
+		label.text = LEAVE_TEXT if item_id == "" else _row_text(item_id)
 		label.add_theme_color_override("font_color",
 			ROW_SELECTED_COLOR if i == _index else ROW_COLOR)
 	var current_id := _row_ids[_index]

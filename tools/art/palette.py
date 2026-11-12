@@ -193,3 +193,35 @@ GLASS_STREAK = "#f6fffb"       # white highlight streaks on glass (drawn at alph
 TENT_CANVAS_RAMP = ["#5a5038", "#7e7252", "#a39470", "#c4b68e", "#ddd0a8"]   # Doc's field tent: sun-faded army canvas
 GH_FRAME_RAMP = ["#4a463e", "#6e695e", "#a39d8d", "#cfc9b6", "#ebe6d4"]    # greenhouse frame: light painted steel
 GH_BRICK_RAMP = ["#4a2a1e", "#6e3c2a", "#8e5038", "#ab6748", "#c4825e"]    # greenhouse brick plinth (warm settlement brick)
+
+
+# -- A living settlement (added by tools/art/living/ and townsfolk/tf_tully.py, Milestone D) -----
+# Tully the caravan trader, the open market stall, the trading post, the festival dressing, the
+# race goats and the Northgate vault door. Ramps run darkest -> lightest. Settlement side unless
+# a comment says ruins.
+SKIN_TAN_RAMP = ["#5e3826", "#8a543a", "#b47552", "#cf9370", "#e4b08c"]      # Tully: road-weathered tan
+GINGER_BEARD_RAMP = ["#5e3018", "#8a4a22", "#b06a34", "#cc8a4e"]             # Tully's beard: faded ginger
+BEARD_GREY_RAMP = ["#8a8378", "#b3ada0", "#d6d0c2"]                          # ... going grey (streaks in the ginger)
+DUSTER_RAMP = ["#1c2531", "#293646", "#3a4c60", "#506679", "#6b8294", "#8ea3b0"]  # Tully's faded slate-blue travelling coat
+HAT_STRAW_RAMP = ["#544228", "#7a6238", "#a0844c", "#c2a868", "#dcc98c"]    # Tully's sun-bleached wide-brim hat (paler than Silas's brown one)
+CAP_GLINT = "#f6f1de"          # a bottle cap catching the light (Tully's sash, the cap jar)
+CAP_RED = "#c8402c"            # painted bottle cap, red
+CAP_BLUE = "#4f7fae"           # painted bottle cap, blue
+PACK_CANVAS_RAMP = ["#40382a", "#5e5340", "#80735a", "#a19374", "#bfb292"]  # Tully's pack, the goat's panniers
+POST_WOOD_RAMP = ["#32232b", "#3d2a34", "#563a41", "#694749", "#84665b", "#a28474"]  # trading post boards (sampled from shack.png, so the two read as kin)
+POST_TIN_RAMP = ["#201717", "#30262a", "#424549", "#5a5a5e", "#6e7073", "#8c8f92"]   # trading post roof sheets (sampled from storage_shed.png)
+GOAT_COAT_RAMP = ["#646070", "#80898b", "#a9c3ad", "#adc8b1", "#d4e4cf"]    # the game's goats (sampled from ranch_goat.png): mutant grey-green
+GOAT_OUTLINE = "#472e3c"       # ranch_goat.png's plum outline (animals keep it so the pack-goat matches the ranch's)
+GOAT_HORN_RAMP = ["#aa785f", "#c0b585", "#fdfab6"]                          # horn / muzzle cream (ranch_goat.png)
+GOAT_HOOF = "#983166"          # ranch_goat.png's magenta hooves
+RACE_GOAT_RAMP = ["#8f8f94", "#b9b9bc", "#dcdcdc", "#f2f2f0", "#ffffff"]    # race goats: neutral grey-white, tinted per goat by the game (modulate)
+RACE_GOAT_OUTLINE = "#3a3338"  # race goat outline: near-neutral dark so a tint keeps it dark
+FEST_TEAL_RAMP = ["#1f4444", "#2f6462", "#45867e", "#66a898", "#92c8b4"]    # festival booth stripes, bunting (brighter than CLOTH_TEAL: a feast day)
+FEST_RED_RAMP = ["#6a1f1c", "#9a2f26", "#c64634", "#e06a4c"]                 # festival red: bunting, lantern paper, the rosette
+FEST_GOLD_RAMP = ["#7a5412", "#b07e1e", "#e1a82e", "#ffcf58"]                # festival gold: bunting, booth trim, the rosette's heart
+FEST_BLUE_RAMP = ["#27375a", "#3b5484", "#5a7bb0", "#86a4cf"]                # festival blue bunting flag
+LANTERN_PAPER_RAMP = ["#8a6a4a", "#b8946a", "#dcc096", "#f2e2bc"]            # unlit paper lantern (oiled paper)
+VAULT_STEEL_RAMP = ["#1e2226", "#2c3237", "#3e464c", "#545e64", "#6e7a80", "#8c989c"]  # ruins: the vault hatch (cool blue steel, colder than the city's rusted metal)
+VAULT_LAMP_RED = ["#5a1410", "#b0241a", "#ff5a3c", "#ffb89a"]                # ruins: sealed-door status lamp (glass dark -> hot core)
+VAULT_LAMP_GREEN = ["#0f4a3c", "#1a9a74", "#3fe0a8", "#c4ffe6"]              # ruins: open-door status lamp. Signal teal-green, deliberately NOT the rad-glow yellow-green (that always means hazard)
+HAZARD_STRIPE_YELLOW = "#a8903c"   # ruins: faded yellow of the hazard chevrons on the vault collar

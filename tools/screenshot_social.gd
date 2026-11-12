@@ -157,12 +157,12 @@ func _physics_process(_delta: float) -> bool:
 			if ticks == 26:
 				_shot("shot_journal_4x.png")
 				var menu: Node = main.get_node("MenuScreen")
-				menu._note_open = true
+				menu.journal_page = menu.JOURNAL_NOTES
 				menu._refresh()
 			if ticks == 29:
 				_shot("shot_journal_note_4x.png")
 				var menu: Node = main.get_node("MenuScreen")
-				menu._note_open = false
+				menu.journal_page = menu.JOURNAL_TODAY
 				menu.tab_index = menu.TAB_PEOPLE
 				menu._people_index = 0
 				menu._refresh()

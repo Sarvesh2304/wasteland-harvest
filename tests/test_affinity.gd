@@ -29,12 +29,15 @@ func test_named_npc_ids_match_the_authored_layout_roster() -> void:
 		authored.append(String(entry["id"]))
 	for entry in LayoutCommon.RANCH_NPCS:
 		authored.append(String(entry["id"]))
+	# Plus the visitors (Tully), who have hearts but no home on the map.
+	for id in AffinityScript.VISITOR_IDS:
+		authored.append(String(id))
 	authored.sort()
 	var declared: Array[String] = []
 	for id in AffinityScript.NAMED_NPC_IDS:
 		declared.append(String(id))
 	declared.sort()
-	assert_eq(declared, authored, "NAMED_NPC_IDS is exactly TOWN_NPCS + RANCH_NPCS")
+	assert_eq(declared, authored, "NAMED_NPC_IDS is exactly TOWN_NPCS + RANCH_NPCS + the visitors")
 
 
 func test_is_named_npc_excludes_settlers_and_unknown_ids() -> void:

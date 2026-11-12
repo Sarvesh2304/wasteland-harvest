@@ -125,6 +125,10 @@ var _traveling := false
 ## map cell: the retry then leads with the other axis and walks around them. See
 ## NpcSchedule.next_travel_cell's swap_axis doc for the stall this fixes.
 var _travel_swap_axis := false
+## Milestone D: where a festival wants this NPC (scripts/festivals.gd sets it for the day);
+## NO_GATHER the rest of the time.
+const NO_GATHER := Vector2i(-1, -1)
+var gather_cell := NO_GATHER
 var _rng := RandomNumberGenerator.new()
 ## The real-art sprite (null when this npc_id has no NPC_FRAMES entry and uses the placeholder).
 var _sprite: AnimatedSprite2D = null
@@ -196,7 +200,13 @@ func occupies_cell(cell: Vector2i) -> bool:
 func _begin_step() -> void:
 	var current: Vector2i = _test_map.world_to_cell(global_position)
 	var center := home
-	if _scheduled:
+	if gather_cell != NO_GATHER:
+		# Milestone D: a festival. Everyone walks to their spot in the square and ambles there.
+		center = gather_cell
+		if not NpcGrid.within_zone(current, center, wander_radius):
+			_begin_travel_step(current, center)
+			return
+	elif _scheduled:
 		center = NpcSchedule.current_waypoint(
 			NpcSchedule.schedule_for(npc_id), _schedule_minutes())
 		if not NpcGrid.within_zone(current, center, wander_radius):

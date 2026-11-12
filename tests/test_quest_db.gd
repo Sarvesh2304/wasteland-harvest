@@ -170,7 +170,10 @@ func test_authored_requests_are_valid() -> void:
 		assert_true(String(t.get("title", "")).length() <= 24, "%s: title fits" % id)
 		assert_true(String(t.get("text", "")) != "" and String(t.get("thanks", "")) != "", "%s: has text" % id)
 	for npc_id in AffinityScript.NAMED_NPC_IDS:
-		assert_true(by_npc.has(npc_id), "%s posts requests" % npc_id)
+		if AffinityScript.VISITOR_IDS.has(npc_id):
+			assert_false(by_npc.has(npc_id), "%s is rarely in town: no two-day requests" % npc_id)
+		else:
+			assert_true(by_npc.has(npc_id), "%s posts requests" % npc_id)
 
 
 func test_authored_projects_match_the_spec() -> void:

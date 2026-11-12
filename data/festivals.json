@@ -1,0 +1,60 @@
+{
+  "_comment": "Seasonal festivals (Milestone D, docs/LIVING_SETTLEMENT.md section 4). Loaded by scripts/festivals.gd. id, name, season, day, host and activity are copied exactly from the spec's table and are what the engine keys on. Player-visible text: announce (the toast and the board, the day before, at most 120 characters), blurb (two sentences for the journal), booth_title, booth_text (the booth's prompt before you start) and the per-activity keys: seed_hunt start + results {high, mid, low} ({count}); goat_race goats [{name, odds, quip}] (odds 2, 3, 4, 6; Dorothy is the 2) + win/lose ({goat}, {winner}); harvest_show results {1-4} ({score}); gift_circle draw ({npc}), open ({npc}, {item}) and gifts (the item id each of the seven townsfolk gives when they drew the player's name). Text uses only the UI font's glyphs, at most 200 characters. tools/validate_social_data.py checks this file.",
+  "festivals": [
+    {"id": "planting_day", "name": "Planting Day", "season": "spring", "day": 14,
+     "host": "mayor_harlan", "activity": "seed_hunt",
+     "announce": "Planting Day tomorrow! Twelve seed packets hidden around town, two hours to find them, and a speech.",
+     "blurb": "Every Spring 14 the town hides twelve seed packets and hunts them down before the first sowing. Harlan hosts, and his speech is said to be short.",
+     "booth_title": "The Seed Hunt",
+     "booth_text": "Twelve seed packets are hidden around town, and you have two hours to find them. Every one you find is yours to plant. Wren found eight last year, and would like that known.",
+     "start": "Off you go! Two hours on the clock. Look under things, behind things, and in Harlan's hat.",
+     "results": {
+       "high": "{count} packets! Wren is demanding a recount. Here's 300 Cr and three Glow Melon Seeds, with the town's compliments, and every packet is yours.",
+       "mid": "{count} packets. A fine hunt. Here's 150 Cr, and every packet's yours to plant.",
+       "low": "Packets found: {count}. Wren found eight, and she's counting. Here's 50 Cr for the effort, and whatever you found is yours to plant."
+     }},
+    {"id": "scorch_fair", "name": "Scorch Fair", "season": "summer", "day": 15,
+     "host": "rancher_silas", "activity": "goat_race",
+     "announce": "Scorch Fair tomorrow! Goat races in the plaza from nine. Dorothy is entered. Nobody could stop her.",
+     "blurb": "Every Summer 15 Silas brings his fastest goats to the plaza and the whole town bets on them. Dorothy is always the favourite, for reasons nobody can explain.",
+     "booth_title": "The Goat Race",
+     "booth_text": "Four goats, one plaza, no rules the goats respect. Pick a runner and stake 50 Cr; a win pays your stake times the odds. Three races at most. Mind your ankles.",
+     "goats": [
+       {"name": "Dorothy", "odds": 2, "quip": "Silas's oldest, meanest and fastest. She'll win, unless she stops to bite a rival. She usually stops."},
+       {"name": "Turnip", "odds": 3, "quip": "Steady and sensible, and devoted to Silas. Runs straight at him, wherever he's standing."},
+       {"name": "Old Tin", "odds": 4, "quip": "Older than the fence and twice as stubborn. Slow, but has never once failed to finish."},
+       {"name": "Pickles", "odds": 6, "quip": "The smallest goat in the valley and the loudest. Has never won. Has never once stopped believing."}
+     ],
+     "win": "{goat} wins! Your stake comes back multiplied, and {goat} takes a lap of honour, mostly sideways.",
+     "lose": "{winner} takes it. {goat} finishes eventually, chewing the ribbon. Better luck next race."},
+    {"id": "harvest_day", "name": "Harvest Day", "season": "autumn", "day": 21,
+     "host": "marta", "activity": "harvest_show",
+     "announce": "Harvest Day tomorrow! Bring your best five things to the long table. Marta is keeping score.",
+     "blurb": "Every Autumn 21 the town lays the best of its year out on one long table, and the best spread wins. Marta hosts, keeps the score and enters anyway.",
+     "booth_title": "The Harvest Table",
+     "booth_text": "Lay out your best five different things, grown, foraged, cooked or made. You keep them all. The score is what they'd sell for, plus a bonus for every different kind.",
+     "results": {
+       "1": "First place, at {score}! Marta checked the sums twice and couldn't find a mistake, which annoyed her. Here's 1000 Cr, and the whole town's applause.",
+       "2": "Second place, at {score}. A table to be proud of. Here's 500 Cr, and Harlan wants to know where you got that.",
+       "3": "Third place, at {score}. Respectable, Marta says, and she never says that. Here's 250 Cr.",
+       "4": "Fourth, at {score}. Every table here fed somebody this year, yours included. Here's 100 Cr for the effort."
+     }},
+    {"id": "winter_gathering", "name": "Winter Gathering", "season": "winter", "day": 14,
+     "host": "doc_ama", "activity": "gift_circle",
+     "announce": "Winter Gathering tomorrow! Bring a gift for the name you drew. Doc says bring a scarf, too.",
+     "blurb": "Every Winter 14 the town gathers under the lanterns to swap the gifts it drew names for a week before. Doc Ama hosts, and checks everyone for chilblains.",
+     "booth_title": "The Gift Circle",
+     "booth_text": "Give your gift to the one whose name you drew and it counts five times over, like a birthday. Somebody drew yours, too: there's a parcel here with your name on it.",
+     "draw": "Names out of Harlan's hat! You drew {npc}. Find them something good before the Winter Gathering, and keep it a secret.",
+     "open": "The parcel's from {npc}. Inside, wrapped in old newspaper and string: {item}.",
+     "gifts": {
+       "mayor_harlan": "pumpkin_soup",
+       "marta": "pickled_veg",
+       "scout_kael": "coffee",
+       "rancher_silas": "cheese",
+       "brask": "scrap_gnome",
+       "wren": "prewar_relic",
+       "doc_ama": "medkit"
+     }}
+  ]
+}

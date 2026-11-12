@@ -72,6 +72,10 @@ const SETTLER_REJECT_SENTINEL := "SETTLER_REJECT"
 ## the gift hand-over choice this box synthesizes itself.
 const CLINIC_HEAL_SENTINEL := "CLINIC_HEAL"
 const OPEN_CLINIC_STORE_SENTINEL := "OPEN_CLINIC_STORE"
+## Milestone D: Tully's caravan stock, and the main story's decision (docs/LIVING_SETTLEMENT.md).
+const OPEN_CARAVAN_SENTINEL := "OPEN_CARAVAN"
+const STORY_HOME_SENTINEL := "STORY_HOME"
+const STORY_SHARED_SENTINEL := "STORY_SHARED"
 const GIFT_SENTINEL := "_GIVE_GIFT"
 
 ## Fallback reactions for an NPC without authored gift lines of that kind.
@@ -101,6 +105,9 @@ signal settler_decision_requested(npc: Node, accepted: bool)
 ## Milestone B: Doc Ama's clinic choices (main.gd heals the player / opens the clinic shelf).
 signal clinic_heal_requested(npc: Node)
 signal clinic_store_requested(npc: Node)
+signal caravan_requested(npc: Node)
+## The main story's decision was made ("home" or "shared"); main.gd's story node takes it from there.
+signal story_choice(npc: Node, choice: String)
 ## A gift was handed over and reacted to (main.gd floats the reaction).
 signal gift_reacted(npc: Node, item_id: String, reaction: String)
 ## A gift couldn't be given ("today"/"week") while the player held something giftable.
@@ -363,6 +370,14 @@ func _advance() -> void:
 		var target_npc := npc
 		close()
 		clinic_store_requested.emit(target_npc)
+	elif next_id == OPEN_CARAVAN_SENTINEL:
+		var target_npc := npc
+		close()
+		caravan_requested.emit(target_npc)
+	elif next_id == STORY_HOME_SENTINEL or next_id == STORY_SHARED_SENTINEL:
+		var target_npc := npc
+		close()
+		story_choice.emit(target_npc, "home" if next_id == STORY_HOME_SENTINEL else "shared")
 	elif next_id == "":
 		close()
 	else:

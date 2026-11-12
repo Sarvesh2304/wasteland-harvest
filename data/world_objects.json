@@ -32,6 +32,7 @@
   "forage_wasteland_walnut": {"name": "Wasteland Walnut", "tool": "hand", "hp": 1, "size": [1, 1], "solid": false, "sprite": "res://art/items/wasteland_walnut.png", "forage_item": "wasteland_walnut", "xp": {"foraging": 6}, "spawn_on": "forage_autumn"},
   "forage_snow_yam": {"name": "Snow Yam", "tool": "hand", "hp": 1, "size": [1, 1], "solid": false, "sprite": "res://art/items/snow_yam.png", "forage_item": "snow_yam", "xp": {"foraging": 7}, "spawn_on": "forage_winter"},
   "forage_crystal_moss": {"name": "Crystal Moss", "tool": "hand", "hp": 1, "size": [1, 1], "solid": false, "sprite": "res://art/items/crystal_moss.png", "forage_item": "crystal_moss", "xp": {"foraging": 9}, "spawn_on": "forage_winter"},
+  "forage_seed_packet": {"name": "Seed Packet", "tool": "hand", "hp": 1, "size": [1, 1], "solid": false, "sprite": "res://art/env/props/seed_packet.png", "forage_item": "seed_mixed", "xp": {"foraging": 2}},
   "forage_frost_lichen": {"name": "Frost Lichen", "tool": "hand", "hp": 1, "size": [1, 1], "solid": false, "sprite": "res://art/items/frost_lichen.png", "forage_item": "frost_lichen", "xp": {"foraging": 6}, "spawn_on": "forage_winter"},
 
 

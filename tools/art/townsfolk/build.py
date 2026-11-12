@@ -7,8 +7,10 @@ variation is hand-placed or hash-based), so re-running produces byte-identical P
 generator changed. An output allowlist stops it from writing anything but its own files.
 
 Writes
-  art/characters/{brask,wren,doc_ama}/{idle,walk}/{south,north,east,west}/{0..3}.png  24x24
-  art/characters/{brask,wren,doc_ama}/rotations/{south,north,east,west}.png  (= idle frame 0)
+  art/characters/{brask,wren,doc_ama,caravan_trader}/{idle,walk}/{south,north,east,west}/{0..3}.png
+                                                           24x24 (caravan_trader = Tully, tf_tully.py)
+  art/characters/{brask,wren,doc_ama,caravan_trader}/rotations/{south,north,east,west}.png
+                                                           (= idle frame 0)
   art/buildings/town_clinic_ruined.png, town_clinic.png   64x56  footprint 4x3
   art/buildings/store_expanded.png                         48x48  footprint 3x2
   art/buildings/watchtower.png                             32x64  footprint 2x2
@@ -18,6 +20,7 @@ Writes
   art/ui/heart_full.png, heart_empty.png (7x6), quest_marker.png (9x12), gift_icon.png (8x8),
   art/ui/talk_icon.png (8x7)
   art/characters/townsfolk_preview.png, art/buildings/_works_preview.png   review images
+  art/characters/caravan_preview.png                       Tully beside Marta and Brask
 Building sprites are exactly as wide as their footprint and bottom-anchored on it.
 The <id>_frames.tres SpriteFrames are made by tools/build_player_frames.py, not here.
 """
@@ -34,7 +37,8 @@ if str(ART_TOOLS) not in sys.path:
 
 REPO = ART_TOOLS.parents[1]
 SECTIONS = ["characters", "buildings", "ui", "preview"]
-CHARACTERS = {"brask": "tf_brask", "wren": "tf_wren", "doc_ama": "tf_doc_ama"}
+CHARACTERS = {"brask": "tf_brask", "wren": "tf_wren", "doc_ama": "tf_doc_ama",
+              "caravan_trader": "tf_tully"}          # Tully (Milestone D)
 DIRS = ["south", "north", "east", "west"]
 
 BUILDINGS = ["town_clinic_ruined", "town_clinic", "store_expanded", "watchtower",
@@ -54,7 +58,8 @@ def _outputs():
                     out.add(f"art/characters/{cid}/{act}/{d}/{i}.png")
     out |= {f"art/buildings/{b}.png" for b in BUILDINGS}
     out |= {f"art/ui/{u}.png" for u in UI}
-    out |= {"art/characters/townsfolk_preview.png", "art/buildings/_works_preview.png"}
+    out |= {"art/characters/townsfolk_preview.png", "art/buildings/_works_preview.png",
+            "art/characters/caravan_preview.png"}
     return out
 
 
@@ -133,6 +138,7 @@ def build_preview():
     from townsfolk import tf_preview
     write("art/characters/townsfolk_preview.png", tf_preview.characters(REPO))
     write("art/buildings/_works_preview.png", tf_preview.works(REPO))
+    write("art/characters/caravan_preview.png", tf_preview.caravan(REPO))
     print("[townsfolk] previews done")
 
 

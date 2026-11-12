@@ -80,6 +80,16 @@ static func forage_item(kind: String) -> String:
 	return String(get_kind(kind).get("forage_item", ""))
 
 
+## The forage kind that yields `item_id` when picked ("" if nothing does): Milestone D's harvest
+## show uses it to tell what was foraged.
+static func kind_for_forage(item_id: String) -> String:
+	_ensure_loaded()
+	for kind in all_kinds():
+		if is_forage(String(kind)) and forage_item(String(kind)) == item_id and String(kind) != "forage_seed_packet":
+			return String(kind)
+	return ""
+
+
 static func becomes(kind: String) -> String:
 	return String(get_kind(kind).get("becomes", ""))
 

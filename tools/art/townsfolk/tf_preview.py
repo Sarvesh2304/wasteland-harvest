@@ -123,3 +123,27 @@ def _paste_clip(im, img, x, y):
     cx0, cy0 = max(0, -x), max(0, -y)
     part = img.crop((cx0, cy0, img.width, img.height))
     im.alpha_composite(part, (max(0, x), max(0, y)))
+
+
+def caravan(repo, scale=5):
+    """art/characters/caravan_preview.png: Marta, Brask and Tully (caravan_trader) side by side,
+    idle S / N / E / W then the walk east cycle; under them Tully's walk south and walk west
+    cycles. Spring grass, x5."""
+    gap = 4
+    cols = [("idle", d, 0) for d in DIRS] + [None] + [("walk", "east", i) for i in range(4)]
+    rows = [("marta", cols), ("brask", cols), ("caravan_trader", cols),
+            ("caravan_trader", [("walk", "south", i) for i in range(4)] + [None] +
+             [("walk", "west", i) for i in range(4)])]
+    w = 8 * 24 + 3 * gap
+    h = len(rows) * 24 + (len(rows) + 1) * 2 + 2 * gap
+    im = _grass(repo, w, h)
+    for r, (cid, cells) in enumerate(rows):
+        y = gap + r * 26 + (gap if r == len(rows) - 1 else 0)
+        x = gap
+        for c in cells:
+            if c is None:
+                x += gap
+                continue
+            im.alpha_composite(_frame(repo, cid, *c), (x, y))
+            x += 24
+    return im.resize((w * scale, h * scale), Image.NEAREST)

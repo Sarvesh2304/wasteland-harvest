@@ -37,6 +37,9 @@ var modal_gate: RefCounted = null
 var player: Node = null
 var quests: Node = null
 var runs_provider: Callable = Callable()
+## Milestone D: the market and the caravan, for the TODAY notes (assigned by main.gd).
+var market: Node = null
+var caravan: Node = null
 
 var _cursor := 0
 var _armed := false
@@ -155,8 +158,7 @@ func _redraw() -> void:
 	# The request note shares the left column with Kael's weather call; a project's notice (longer:
 	# its story and its reward) takes the whole column.
 	if _cursor == 0:
-		_build_request_note(Rect2(PANEL.position.x + 6, PANEL.position.y + 15, LEFT_W, 116))
-		_build_weather_note(Rect2(PANEL.position.x + 6, PANEL.position.y + 135, LEFT_W, 30))
+		_build_request_note(Rect2(PANEL.position.x + 6, PANEL.position.y + 15, LEFT_W, 150))
 	else:
 		_build_project_note(Rect2(PANEL.position.x + 6, PANEL.position.y + 15, LEFT_W, 150),
 			QuestDB.project_ids()[_cursor - 1])
@@ -225,12 +227,26 @@ func _ready_to_hand_in(req: Dictionary) -> bool:
 		and int(player.inventory.count_of(String(req["item"]))) >= int(req["count"])
 
 
-func _build_weather_note(r: Rect2) -> void:
-	var note := _rect(_root, r, PAPER_DIM)
-	_rect(note, Rect2(r.size.x / 2.0 - 2, -1, 4, 4), CORK_EDGE)
-	_text(note, "KAEL'S WEATHER CALL", Vector2(6, 3), ACCENT, r.size.x - 12)
-	_text(note, "Today %s, tomorrow %s" % [Weather.display_name(DayManager.weather_today).to_lower(),
-		Weather.display_name(DayManager.weather_tomorrow).to_lower()], Vector2(6, 15), TEXT, r.size.x - 12)
+## Today's pinned notes, under the Town Works list: Kael's weather call, what Marta's short of
+## this week, and when Tully is next at the stall (Milestone D).
+func _build_today(pane: Control, at: Vector2, w: float) -> void:
+	var y := at.y
+	_text(pane, "TODAY", Vector2(at.x, y), ACCENT, w)
+	y += 12
+	y += _wrap(pane, "%s today, %s tomorrow." % [Weather.display_name(DayManager.weather_today),
+		Weather.display_name(DayManager.weather_tomorrow).to_lower()], Vector2(at.x, y), w, TEXT) + 3
+	if market != null and not market.demand.is_empty():
+		var names: Array[String] = []
+		for item_id in market.demand:
+			names.append(ItemDB.display_name(String(item_id)))
+		y += _wrap(pane, "Marta's short of %s: +40%%." % ", ".join(names), Vector2(at.x, y), w, TEXT) + 3
+	if caravan != null:
+		var ahead: int = caravan.days_until_next(DayManager.day)
+		if ahead == 0:
+			_wrap(pane, "Tully's caravan is at the stall.", Vector2(at.x, y), w, DONE)
+		elif ahead > 0:
+			_wrap(pane, "Tully's caravan: %s." % ("tomorrow" if ahead == 1 else "in %d days" % ahead),
+				Vector2(at.x, y), w, DIM)
 
 
 ## The Town Works list and, for the highlighted project, what it still needs.
@@ -254,8 +270,7 @@ func _build_works(r: Rect2) -> void:
 		y += 13
 	y += 4
 	if _cursor == 0:
-		_wrap(pane, "Harlan's list of what the town needs rebuilt. Pick a project to see what it still needs; bring it here to contribute.",
-			Vector2(6, y), w, DIM)
+		_build_today(pane, Vector2(6, y), w)
 		return
 	var id: String = ids[_cursor - 1]
 	if quests.is_finished(id):

@@ -158,10 +158,14 @@ var _storage_inventories: Dictionary = {}
 ## finished project can swap the store's or the clinic's art), the notice board's cell, and the
 ## buildings Town Works adds (rebuilt from the quests state at boot, so never saved here).
 var sale_multiplier := 1.0
+## Milestone D: the market (scripts/market.gd), assigned by main.gd; null in bare tests, where
+## shipments sell at list price.
+var market: Node = null
 var _layout_visuals: Dictionary = {}
 var _layout_kinds: Dictionary = {}
 var _board_cell := Vector2i(-1, -1)
 var _works: Dictionary = {}
+var _works_rects: Dictionary = {}
 
 
 func _ready() -> void:
@@ -378,6 +382,7 @@ func _on_day_started(day: int) -> void:
 			still_pending.append(entry)
 	_pending = still_pending
 	_tick_building_yields_and_effects()
+	_resolve_trading_posts()
 	# Phase 5 Stage 3: the shipping box's overnight sale rides the same signal. Because signal
 	# emission is synchronous, this (and the crops_sold -> player.add_credits hop main.gd wires)
 	# has fully resolved before player._sleep_in_bed()'s skip_to_next_morning() call returns —
@@ -451,7 +456,8 @@ func _complete_construction(entry: Dictionary) -> void:
 		# _is_footprint_occupied() guard (see its doc) is what stops a second building from then
 		# being placed on the now-unblocked cell.
 		_test_map.unblock_cells(BuildGrid.footprint_cells(top_left, footprint_size))
-	if BuildingDB.is_storage(building_id):
+	if BuildingDB.is_storage(building_id) or BuildingDB.interaction(building_id) == POST_INTERACTION:
+		# A trading post's shelf is a storage inventory too (Milestone D), so it saves with the rest.
 		_storage_inventories[entry["top_left"]] = Inventory.new()
 
 
@@ -504,6 +510,101 @@ func is_shipping_box_at(cell: Vector2i) -> bool:
 	return cell == _shipping_box_cell
 
 
+## -- Milestone D (2026-11-10): the trading post, the player's own shop
+##    (docs/LIVING_SETTLEMENT.md §3) --
+## Its shelf is a storage inventory. Each morning passing trade buys from it in shelf order at
+## the markup the player set: the higher the markup, the fewer units move. A settler assigned
+## as trader sells half as many again. It ignores glut and demand.
+
+signal post_sold(total: int, sold: Dictionary)
+
+const POST_INTERACTION := "trading_post"
+const POST_NAMES: Array[String] = ["Fair", "Bold", "Steep"]
+const POST_MARKUPS: Array[float] = [1.15, 1.35, 1.6]
+const POST_UNITS: Array[int] = [12, 6, 3]
+const POST_CLERK_BONUS := 1.5
+
+var _post_markup: Dictionary = {}
+## Callable(top_left: Vector2i) -> bool: whether a settler is assigned to that post (main.gd).
+var clerk_check: Callable = Callable()
+
+
+## The top-left of the completed trading post covering `cell`, or (-1, -1).
+func post_at(cell: Vector2i) -> Vector2i:
+	for entry in _completed:
+		if BuildingDB.interaction(String(entry["building_id"])) != POST_INTERACTION:
+			continue
+		var top_left: Vector2i = entry["top_left"]
+		var footprint_size: Vector2i = entry["size"]
+		if cell.x >= top_left.x and cell.x < top_left.x + footprint_size.x \
+				and cell.y >= top_left.y and cell.y < top_left.y + footprint_size.y:
+			return top_left
+	return Vector2i(-1, -1)
+
+
+func is_trading_post_at(cell: Vector2i) -> bool:
+	return post_at(cell) != Vector2i(-1, -1)
+
+
+func post_markup(top_left: Vector2i) -> int:
+	return int(_post_markup.get(top_left, 0))
+
+
+func cycle_post_markup(top_left: Vector2i) -> int:
+	_post_markup[top_left] = (post_markup(top_left) + 1) % POST_MARKUPS.size()
+	return post_markup(top_left)
+
+
+static func post_units(level: int, clerk: bool) -> int:
+	var units := POST_UNITS[clampi(level, 0, POST_UNITS.size() - 1)]
+	return int(floor(float(units) * POST_CLERK_BONUS)) if clerk else units
+
+
+## "Fair: +15%, sells up to 12 a day" for the shelf screen.
+static func post_summary(level: int, clerk: bool) -> String:
+	var l := clampi(level, 0, POST_MARKUPS.size() - 1)
+	return "%s: +%d%%, sells up to %d a day" % [POST_NAMES[l], int(round((POST_MARKUPS[l] - 1.0) * 100.0)),
+		post_units(l, clerk)]
+
+
+## What a day's trade takes from `slots` (an Inventory's slots) at markup `level`: shippable
+## items only, in shelf order. {"sold": {item: count}, "total": Credits}.
+static func post_sale(slots: Array, level: int, clerk: bool) -> Dictionary:
+	var left := post_units(level, clerk)
+	var markup := POST_MARKUPS[clampi(level, 0, POST_MARKUPS.size() - 1)]
+	var sold := {}
+	var total := 0
+	for slot in slots:
+		if left <= 0:
+			break
+		var item_id := String((slot as Dictionary).get("item_id", ""))
+		var count := int((slot as Dictionary).get("count", 0))
+		if item_id == "" or count <= 0 or not ShippingDB.is_shippable(item_id):
+			continue
+		var take := mini(count, left)
+		sold[item_id] = int(sold.get(item_id, 0)) + take
+		total += take * int(round(float(ShippingDB.unit_value(item_id)) * markup))
+		left -= take
+	return {"sold": sold, "total": total}
+
+
+func _resolve_trading_posts() -> void:
+	for entry in _completed:
+		if BuildingDB.interaction(String(entry["building_id"])) != POST_INTERACTION:
+			continue
+		var top_left: Vector2i = entry["top_left"]
+		var inv: Inventory = _storage_inventories.get(top_left)
+		if inv == null:
+			continue
+		var clerk := clerk_check.is_valid() and bool(clerk_check.call(top_left))
+		var result := post_sale(inv.slots, post_markup(top_left), clerk)
+		if int(result["total"]) <= 0:
+			continue
+		for item_id in result["sold"]:
+			inv.remove_item(String(item_id), int(result["sold"][item_id]))
+		post_sold.emit(int(result["total"]), result["sold"])
+
+
 ## -- Milestone B: the notice board and Town Works --
 
 ## Whether the cell is the town square's notice board (player.gd opens the board on it).
@@ -553,6 +654,7 @@ func add_works_building(id: String, kind: String, top_left: Vector2i, footprint_
 		visual.add_child(glow)
 	_test_map.block_cells(BuildGrid.footprint_cells(top_left, footprint_size))
 	_works[id] = visual
+	_works_rects[id] = Rect2i(top_left, footprint_size)
 
 
 func has_works_building(id: String) -> bool:
@@ -569,6 +671,19 @@ func remove_works_building(id: String, top_left: Vector2i, footprint_size: Vecto
 	body.queue_free()
 	_test_map.unblock_cells(BuildGrid.footprint_cells(top_left, footprint_size))
 	_works.erase(id)
+	_works_rects.erase(id)
+
+
+## The id of the Town Works / festival building covering `cell` ("" if none). player.gd offers an
+## interaction on the ones in USABLE_WORKS (Milestone D: the festival booth).
+func works_id_at(cell: Vector2i) -> String:
+	for id in _works_rects:
+		if (_works_rects[id] as Rect2i).has_point(cell):
+			return String(id)
+	return ""
+
+
+const USABLE_WORKS := {"festival_booth": "Join in"}
 
 
 ## Loads crops into the box's pending contents. Returns false (contents untouched) for a
@@ -590,7 +705,13 @@ func _resolve_shipping_sale(day: int) -> void:
 	if shipping_contents.is_empty():
 		return
 	var entry := ShippingDB.make_history_entry(day, shipping_contents)
-	if sale_multiplier != 1.0:
+	if market != null:
+		# Milestone D: glut and demand move each item's price (scripts/market.gd); the shopfront
+		# bonus rides on top. "base" keeps what it would have fetched at list price.
+		var quote: Dictionary = market.sell(shipping_contents, sale_multiplier)
+		entry["base"] = int(entry["total"])
+		entry["total"] = int(quote["total"])
+	elif sale_multiplier != 1.0:
 		entry["bonus"] = int(round(float(entry["total"]) * (sale_multiplier - 1.0)))
 		entry["total"] = int(entry["total"]) + int(entry["bonus"])
 	sale_history.append(entry)
@@ -612,6 +733,9 @@ func save_state() -> Dictionary:
 		var inv: Inventory = _storage_inventories[top_left]
 		storage_out[SaveData.cell_key(top_left)] = \
 			SaveData.encode_inventory(inv.slots, inv.selected_hotbar_index)
+	var posts_out := {}
+	for top_left in _post_markup:
+		posts_out[SaveData.cell_key(top_left)] = int(_post_markup[top_left])
 	return {
 		"pending": pending_out,
 		"completed": completed_out,
@@ -619,6 +743,7 @@ func save_state() -> Dictionary:
 		"chest": SaveData.encode_inventory(
 			chest_inventory.slots, chest_inventory.selected_hotbar_index),
 		"shipping": SaveData.encode_shipping(shipping_contents, sale_history),
+		"posts": posts_out,
 	}
 
 
@@ -639,6 +764,9 @@ func load_state(data: Dictionary) -> void:
 		_apply_inventory_data(inv, storage[key])
 		_storage_inventories[SaveData.parse_cell_key(String(key))] = inv
 	_apply_inventory_data(chest_inventory, data.get("chest", {}))
+	var posts: Dictionary = data.get("posts", {})
+	for key in posts:
+		_post_markup[SaveData.parse_cell_key(String(key))] = clampi(int(posts[key]), 0, POST_MARKUPS.size() - 1)
 	# Phase 5 Stage 3: a mid-session save can hold a loaded-but-not-yet-sold box (the player
 	# filled it, then saved/quit without sleeping) — restoring it here is what guarantees that
 	# pending load still sells on the next morning after a reload, never silently vanishing.

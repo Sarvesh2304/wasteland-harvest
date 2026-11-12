@@ -13,10 +13,14 @@ const Calendar := preload("res://scripts/calendar.gd")
 ## art/ui/fonts/wasteland_harvest_ui.ttf's characters (tools/font_add_glyphs.py adds the extras).
 const FONT_CHARS := " !\"'()+,-./0123456789:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz–—‘’“”…↑↓←→%♥♡{}"
 const SENTINELS: Array[String] = ["OPEN_STORE", "OPEN_RANCH_STORE", "CLINIC_HEAL", "OPEN_CLINIC_STORE",
-	"SETTLER_ACCEPT", "SETTLER_REJECT"]
+	"SETTLER_ACCEPT", "SETTLER_REJECT", "OPEN_CARAVAN", "STORY_HOME", "STORY_SHARED"]
 const FLAGS: Array[String] = ["first_week", "after_day_28", "expedition_today", "died_recently", "veteran",
 	"reached_downtown", "reached_industrial", "reached_core", "raiders_hostile", "raiders_trusted",
-	"player_hurt", "player_irradiated", "rich", "has_animals", "has_settlers", "birthday"]
+	"player_hurt", "player_irradiated", "rich", "has_animals", "has_settlers", "birthday",
+	# Milestone D (docs/LIVING_SETTLEMENT.md §6)
+	"caravan_day", "festival_tomorrow", "festival_planting_day", "festival_scorch_fair",
+	"festival_harvest_day", "festival_winter_gathering", "story_signal", "story_broadcast",
+	"story_vault_open", "story_home", "story_shared"]
 const GIFT_KINDS: Array[String] = ["loved", "liked", "neutral", "disliked", "hated", "birthday", "birthday_loved"]
 const MAX_LINE := 200
 
@@ -145,6 +149,9 @@ func test_service_nodes() -> void:
 	var clinic: Array = DialogueDB.dialogue_node("doc_ama", "clinic")["choices"]
 	assert_eq(String(clinic[0]["next"]), "CLINIC_HEAL")
 	assert_eq(String(clinic[1]["next"]), "OPEN_CLINIC_STORE")
+	assert_eq(DialogueDB.service_node_id("caravan_trader"), "wares")
+	assert_eq(String(DialogueDB.dialogue_node("caravan_trader", "wares")["choices"][0]["next"]), "OPEN_CARAVAN",
+		"Tully's first service choice opens his stall")
 	for id in ["mayor_harlan", "scout_kael", "brask", "wren"]:
 		assert_eq(DialogueDB.service_node_id(id), "", "%s has no service menu" % id)
 
