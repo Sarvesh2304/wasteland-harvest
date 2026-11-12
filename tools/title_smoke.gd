@@ -53,6 +53,7 @@ func _initialize() -> void:
 	game_state.saves_dir = SAVES_DIR
 	game_state.legacy_save_path = SAVES_DIR.path_join("legacy.json")
 	game_state.save_path = SAVES_DIR.path_join("preboot.json")  # inert until New Game allocates
+	game_state.opening_meta_path = SAVES_DIR.path_join("opening.cfg")  # never the player's own
 	_delete_test_saves()
 	# Two coexisting playthroughs: slot 1 (Open Plains, day 3, saved earlier) and slot 2
 	# (Forest Edge, day 7, saved later — so it must list FIRST).
@@ -155,6 +156,22 @@ func _physics_process(_delta: float) -> bool:
 					% game_state.save_path)
 			_check(not FileAccess.file_exists(SAVES_DIR.path_join("slot_3.json")),
 				"slot 3's file stays lazy until the first save")
+			_enter_stage(50)
+		50:
+			# Milestone E: confirming a settlement now plays the opening before main.tscn. Slots
+			# exist, so it offers to skip straight to the birth; take that, accept the creator's
+			# defaults, and skip the montage to day 1 (tools/opening_smoke.gd covers the opening
+			# itself in depth).
+			if ticks < 15:
+				return false
+			var opening := current_scene
+			_check(opening != null and opening.name == "Opening", "the picker's confirm plays the opening")
+			if opening == null or opening.name != "Opening":
+				return _finish()
+			_check(opening.mode == opening.Mode.OFFER, "slots exist, so the opening offers to skip the intro")
+			_drive_opening(opening, "use_tool")   # Skip to the birth
+			opening.creator.confirm()             # defaults (a suggested name)
+			_drive_opening(opening, "ui_cancel")  # skip the montage -> main.tscn
 			_enter_stage(5)
 		5:
 			if ticks < 20:
@@ -253,6 +270,13 @@ func _finish() -> bool:
 			print("TITLE SMOKE FAIL: %s" % failure)
 		quit(1)
 	return true
+
+
+func _drive_opening(opening: Node, action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	opening.handle_input(event)
 
 
 func _drive(action: String) -> void:

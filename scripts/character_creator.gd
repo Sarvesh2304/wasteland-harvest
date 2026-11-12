@@ -58,7 +58,7 @@ const PREVIEW_SCALE := 3.0
 const TURN_SECONDS := 1.6
 const FACING_CYCLE: Array[String] = ["south", "east", "north", "west"]
 
-const EDITOR_RECT := Rect2(8, 28, 190, 146)
+const EDITOR_RECT := Rect2(8, 30, 190, 120)
 const CELL := Vector2(17, 13)
 const GRID_ORIGIN := Vector2(10, 34)   # inside the editor panel
 const COMMAND_W := 42.0
@@ -292,28 +292,26 @@ func _build() -> void:
 		var y := ROWS_Y + i * ROW_H + (6.0 if i == ROW_BEGIN else 0.0)
 		_row_labels.append(_label(ROW_LABELS[i], Vector2(ROWS_X + 8, y), Vector2(60, 10), LABEL_COLOR))
 		_row_values.append(_label("", Vector2(VALUE_X, y), Vector2(130, 10), TEXT_COLOR))
-	_marker = _label(">", Vector2(ROWS_X, ROWS_Y), Vector2(8, 10), MARK_COLOR)
-	# Preview: a cream panel with the player walking on it.
-	var edge := ColorRect.new()
-	edge.color = PANEL_EDGE
-	edge.position = PREVIEW_RECT.position - Vector2(1, 1)
-	edge.size = PREVIEW_RECT.size + Vector2(2, 2)
-	add_child(edge)
-	var panel := ColorRect.new()
-	panel.color = PANEL_BG
-	panel.position = PREVIEW_RECT.position
-	panel.size = PREVIEW_RECT.size
-	add_child(panel)
-	var ground := ColorRect.new()  # a strip of field under the feet
-	ground.color = Color("#95ac49")
-	ground.position = PREVIEW_RECT.position + Vector2(0, PREVIEW_RECT.size.y - 26)
-	ground.size = Vector2(PREVIEW_RECT.size.x, 26)
-	add_child(ground)
-	var ground_lip := ColorRect.new()
-	ground_lip.color = Color("#5d7d3a")
-	ground_lip.position = ground.position
-	ground_lip.size = Vector2(PREVIEW_RECT.size.x, 1)
-	add_child(ground_lip)
+	_marker = _label("→", Vector2(ROWS_X, ROWS_Y), Vector2(8, 10), MARK_COLOR)
+	# Preview: the clinic's lamplit plank room (the birth happens here), the player walking in it.
+	_rect(PREVIEW_RECT.position - Vector2(2, 2), PREVIEW_RECT.size + Vector2(4, 4), PANEL_EDGE)
+	_rect(PREVIEW_RECT.position - Vector2(1, 1), PREVIEW_RECT.size + Vector2(2, 2), Color("#b77c3e"))
+	var floor_h := 30.0
+	var wall_h := PREVIEW_RECT.size.y - floor_h
+	_rect(PREVIEW_RECT.position, Vector2(PREVIEW_RECT.size.x, wall_h), Color("#5c3a1b"))
+	for y in range(6, int(wall_h), 7):  # wall planks
+		_rect(PREVIEW_RECT.position + Vector2(0, y), Vector2(PREVIEW_RECT.size.x, 1), Color("#4a2e15"))
+	for i in 5:  # plank seams, staggered
+		var sx := 9.0 + float((i * 37) % int(PREVIEW_RECT.size.x - 10))
+		_rect(PREVIEW_RECT.position + Vector2(sx, 7 * i + 1), Vector2(1, 5), Color("#4a2e15"))
+	# lamplight pooled on the wall behind the figure (two stepped bands, no airbrush)
+	_rect(PREVIEW_RECT.position + Vector2(24, 10), Vector2(PREVIEW_RECT.size.x - 48, wall_h - 10), Color("#7b5025", 0.55))
+	_rect(PREVIEW_RECT.position + Vector2(36, 18), Vector2(PREVIEW_RECT.size.x - 72, wall_h - 18), Color("#9a6631", 0.45))
+	var floor_y := PREVIEW_RECT.position.y + wall_h
+	_rect(Vector2(PREVIEW_RECT.position.x, floor_y), Vector2(PREVIEW_RECT.size.x, floor_h), Color("#9a6631"))
+	_rect(Vector2(PREVIEW_RECT.position.x, floor_y), Vector2(PREVIEW_RECT.size.x, 2), Color("#3d2612"))
+	for y in [8.0, 17.0, 26.0]:  # floorboards
+		_rect(Vector2(PREVIEW_RECT.position.x, floor_y + y), Vector2(PREVIEW_RECT.size.x, 1), Color("#7b5025"))
 	var shadow := ColorRect.new()
 	shadow.color = Color("#281a0b", 0.35)
 	shadow.size = Vector2(30, 3)
@@ -389,6 +387,16 @@ func _build_editor() -> void:
 		Vector2(EDITOR_RECT.size.x, 10), DIM_COLOR, HORIZONTAL_ALIGNMENT_CENTER, _editor)
 
 
+func _rect(pos: Vector2, size_: Vector2, color: Color) -> ColorRect:
+	var r := ColorRect.new()
+	r.position = pos
+	r.size = size_
+	r.color = color
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(r)
+	return r
+
+
 func _label(text: String, pos: Vector2, size_: Vector2, color: Color,
 		align := HORIZONTAL_ALIGNMENT_LEFT, parent: Node = null) -> Label:
 	var label := Label.new()
@@ -406,7 +414,7 @@ func _refresh() -> void:
 	if _header == null:
 		return
 	var forms := PlayerProfile.pronoun_tokens(pronouns)
-	_header.text = "\"Well, then,\" said Doc Ama, \"what are we calling %s?\"" % String(forms["them"])
+	_header.text = "“Well, then,” said Doc Ama, “what are we calling %s?”" % String(forms["them"])
 	for i in ROW_LABELS.size():
 		var selected := i == row_index and not editing_name
 		_row_labels[i].add_theme_color_override("font_color",
@@ -431,9 +439,10 @@ func _refresh() -> void:
 func _row_value_text(i: int, selected: bool) -> String:
 	match i:
 		ROW_NAME:
+			# Same two-character lead-in as the option rows, so every value lines up.
 			if player_name == "":
-				return "(%s)" % placeholder_name
-			return player_name
+				return "  (%s)" % placeholder_name
+			return "  " + player_name
 		ROW_PRONOUNS:
 			return _arrows(String(PlayerProfile.PRONOUN_LABELS[pronouns]), selected)
 		ROW_LOOK, ROW_HAIR, ROW_SKIN, ROW_OUTFIT:

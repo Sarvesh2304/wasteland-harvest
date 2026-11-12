@@ -225,3 +225,46 @@ VAULT_STEEL_RAMP = ["#1e2226", "#2c3237", "#3e464c", "#545e64", "#6e7a80", "#8c9
 VAULT_LAMP_RED = ["#5a1410", "#b0241a", "#ff5a3c", "#ffb89a"]                # ruins: sealed-door status lamp (glass dark -> hot core)
 VAULT_LAMP_GREEN = ["#0f4a3c", "#1a9a74", "#3fe0a8", "#c4ffe6"]              # ruins: open-door status lamp. Signal teal-green, deliberately NOT the rad-glow yellow-green (that always means hazard)
 HAZARD_STRIPE_YELLOW = "#a8903c"   # ruins: faded yellow of the hazard chevrons on the vault collar
+
+
+# -- Character creation and the opening (added by tools/art/opening/, Milestone E) ---------------
+# The player's cosmetic ramps are [shade, base, light] and are MIRRORED in scripts/player_profile.gd
+# (HAIR_OPTIONS / SKIN_OPTIONS / OUTFIT_OPTIONS — keep the two in step); index 0 of each is the
+# PixelLab player as drawn. The intro paints the player's parents with them.
+PLAYER_HAIR_RAMPS = {
+    "chestnut": ["#321816", "#3f211c", "#4e2e25"],
+    "ink": ["#141012", "#1d1613", "#2d231e"],
+    "auburn": ["#4a1c12", "#76301c", "#a24526"],
+    "ginger": ["#8a4a22", "#b06a34", "#cc8a4e"],
+    "straw": ["#7a6238", "#a0844c", "#c2a868"],
+    "ash_grey": ["#5f5b55", "#827d75", "#a6a197"],
+    "plum_dye": ["#3f2431", "#573443", "#704657"],
+}
+PLAYER_SKIN_RAMPS = {
+    "peach": ["#d0886d", "#ffbe99", "#ffd1b3"],
+    "fair": ["#cf8a72", "#eaab92", "#f8c9b0"],
+    "tan": ["#b47552", "#cf9370", "#e4b08c"],
+    "bronze": ["#8c5534", "#ad6e45", "#c98b5c"],
+    "brown": ["#7a4a31", "#9a6242", "#b67d57"],
+    "deep": ["#4a2c1c", "#6b3f27", "#8c5534"],
+}
+PLAYER_OUTFIT_RAMPS = {
+    "duster_tan": ["#774727", "#ae6d35", "#dc8340"],
+    "olive": ["#4a5131", "#6a7444", "#8d9660"],
+    "rust_red": ["#7e2a1e", "#a83a26", "#c4583a"],
+    "slate_blue": ["#293646", "#3a4c60", "#6b8294"],
+    "plum": ["#3f2431", "#573443", "#8a5c6c"],
+    "teal": ["#2f5452", "#43726c", "#84b3a4"],
+    "charcoal": ["#2f2b28", "#423d38", "#6e665c"],
+    "canvas": ["#7e7252", "#a39470", "#ddd0a8"],
+}
+# Intro skies (top -> horizon), painted with ordered dithering between bands.
+SKY_DAWN = ["#2b2f4e", "#4a4566", "#8a5a6a", "#d07a54", "#f3b05e", "#ffd88a"]
+SKY_DAY = ["#6d8fa8", "#86a6b9", "#a3bcc6", "#c4d2cf", "#e3e2c9"]
+SKY_NIGHT = ["#0e1222", "#141a30", "#1b2238", "#262c45", "#343a52"]
+SKY_SUNSET = ["#3a2c4a", "#6a3e58", "#a8505a", "#d97a4e", "#f2a64e", "#ffd27a"]
+SKY_GOLDEN = ["#7c95a6", "#a7b2ad", "#d6c49a", "#ecc57c", "#f6d896"]
+STAR = "#e8e4cf"              # stars (warm off-white, never pure white)
+MOON = ["#b9b6a4", "#dedac4", "#f4f0dc"]
+SNOW_RAMP = ["#8f9aa6", "#b6c1c8", "#d5dcdf", "#e9edee"]     # first-winter snow cover at night
+GRAVE_STONE_RAMP = ["#4a463e", "#6c665a", "#8d877a", "#aaa395"]  # the parents' markers (settlement stone)

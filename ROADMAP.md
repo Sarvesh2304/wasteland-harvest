@@ -161,7 +161,20 @@ Spec: `docs/LIVING_SETTLEMENT.md`.
       - *Art: `tools/art/living/`.*
 
 ### Milestone E — "Ship-ready"
-- [ ] Title screen, intro, character naming/appearance presets
+- [x] Title screen, intro, character naming/appearance presets
+      - *New Game: settlement picker (framed as where your parents staked their claim) ->
+        `scenes/opening.tscn`: a 3-page illustrated intro (claim, first walls, a birth in the
+        clinic; ESC skips, and later new games offer "Skip to the birth") -> character creation
+        at the birth (`scripts/character_creator.gd`: name via typing or an on-screen letter grid,
+        he/she/they, 6 base presets + hair / skin / outfit colours as a palette swap of the
+        player sprite, live walking preview) -> a 4-page montage (growing up, the parents'
+        peaceful passing, the farm passing to you) -> day 1. Fully drivable with the existing
+        actions (controller-ready). Name / pronouns / look persist in the save's additive
+        "profile" section; NPCs greet the player by name ({name} in DialogueDB.fill); the name
+        shows on Load rows and the menu's Skills tab.*
+      - *Tested by `tests/test_player_profile.gd`, `tests/test_player_look.gd`,
+        `tools/opening_smoke.gd`; screenshots: `tools/screenshot_opening.gd`.*
+      - *Art: `tools/art/opening/`.*
 - [ ] Options (volumes, fullscreen, rebinding), controller support, accessibility
 - [ ] Balance pass, performance pass, exported builds
 

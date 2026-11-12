@@ -90,6 +90,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_active(not active)
 	elif not active:
 		return
+	elif event.is_action_pressed("ui_cancel"):
+		# Esc / B leaves build mode too (Milestone E: a pad's B is the universal back).
+		set_active(false)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("build_cycle"):
 		catalog_index = BuildGrid.wrap_index(catalog_index, 1, _ids.size())
 	elif event.is_action_pressed("use_tool"):
@@ -110,6 +114,16 @@ func set_active(value: bool) -> void:
 	_label.visible = active
 
 
+## "Space place   Q next   Esc done" in the keys (or pad buttons) actually bound, via the Settings
+## autoload when it's there (the UI font has no brackets).
+func _hint() -> String:
+	var settings := get_node_or_null("/root/Settings")
+	if settings == null:
+		return "Space place   Q next   Esc done"
+	return "%s place   %s next   %s done" % [settings.prompt("use_tool"), settings.prompt("build_cycle"),
+		settings.back_prompt()]
+
+
 func current_id() -> String:
 	if catalog_index < 0 or catalog_index >= _ids.size():
 		return ""
@@ -128,8 +142,7 @@ func _process(_delta: float) -> void:
 	_preview.position = _test_map.to_global(Vector2(top_left) * CELL_SIZE)
 	_preview.size = Vector2(footprint_size) * CELL_SIZE
 	_preview.color = VALID_COLOR if _placement_ok(id, top_left, footprint_size) else INVALID_COLOR
-	_label.text = "%s — %s\n[Space] place  [Q] next  [B] cancel" \
-		% [BuildingDB.display_name(id), cost_text(id)]
+	_label.text = "%s — %s\n%s" % [BuildingDB.display_name(id), cost_text(id), _hint()]
 	_label.position = _preview.position + Vector2(0, -20)
 
 

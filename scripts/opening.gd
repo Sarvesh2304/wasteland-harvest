@@ -26,6 +26,8 @@ extends Control
 const PlayerProfile := preload("res://scripts/player_profile.gd")
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const CreatorScript := preload("res://scripts/character_creator.gd")
+const PlayerLook := preload("res://scripts/player_look.gd")
+const PLAYER_FRAMES := preload("res://art/characters/player/player_frames.tres")
 
 const MAIN_SCENE := "res://scenes/main.tscn"
 const ART_DIR := "res://art/opening/"
@@ -39,7 +41,10 @@ const MONTAGE_PAGES: Array[Dictionary] = [
 	{"art": "childhood", "text": "You grew up underfoot: in the fields, in Marta's store, at the gate where Kael kept sending you home. The town grew up around you."},
 	{"art": "town", "text": "Twenty years went by in seasons. New roofs, new neighbours, a fence around everything that mattered."},
 	{"art": "farewell", "text": "This spring your parents passed, a week apart, peacefully and of old age, in the town they built. Everyone came to say goodbye."},
-	{"art": "farm", "text": "The farm is yours now, {name}. The fields have gone wild and the tools are worn, but the whole town knows whose child you are."},
+	# "player": the live player sprite, in the look just chosen, drawn onto the picture at
+	# [x, bottom, animation] (picture pixels; tools/art/opening/op_pages.py PLAYER_SPOTS leaves
+	# that spot clear).
+	{"art": "farm", "player": [140, 104, "idle_north"], "text": "The farm is yours now, {name}. The fields have gone wild and the tools are worn, but the whole town knows whose child you are."},
 ]
 
 const OFFER_SKIP := "Skip to the birth"
@@ -76,6 +81,7 @@ var _dots: HBoxContainer
 var _offer_panel: Control
 var _offer_rows: Array[Label] = []
 var _reveal_tween: Tween
+var _page_player: AnimatedSprite2D
 
 
 func _ready() -> void:
@@ -101,7 +107,7 @@ func handle_input(event: InputEvent) -> void:
 		Mode.CREATE:
 			if creator != null:
 				creator.handle_input(event)
-	if event.is_pressed():
+	if event.is_pressed() and is_inside_tree():
 		get_viewport().set_input_as_handled()
 
 
@@ -164,6 +170,7 @@ func _show_page(m: Mode, index: int) -> void:
 		_reveal_tween.kill()
 	_reveal_tween = create_tween()
 	_reveal_tween.tween_property(_caption, "visible_ratio", 1.0, REVEAL_SECONDS)
+	_place_page_player(page)
 	_picture_frame.modulate.a = 0.0
 	create_tween().tween_property(_picture_frame, "modulate:a", 1.0, FADE_SECONDS)
 	var last := index == pages_for(m).size() - 1
@@ -174,6 +181,18 @@ func _show_page(m: Mode, index: int) -> void:
 	else:
 		_hint.text = "SPACE next   ESC skip to day 1"
 	_refresh_dots()
+
+
+func _place_page_player(page: Dictionary) -> void:
+	var spot = page.get("player", null)
+	_page_player.visible = spot is Array
+	if not (spot is Array):
+		_page_player.stop()
+		return
+	_page_player.sprite_frames = PlayerLook.build_frames(PLAYER_FRAMES, GameState.player_appearance)
+	# Frames are 24x24, centred, feet on row 20: the feet row sits 8 px below the centre.
+	_page_player.position = PICTURE_RECT.position + Vector2(float(spot[0]), float(spot[1]) - 1.0 - 8.0)
+	_page_player.play(String(spot[2]))
 
 
 func _refresh_dots() -> void:
@@ -302,6 +321,10 @@ func _build() -> void:
 	_picture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_picture_frame.add_child(_picture)
+	_page_player = AnimatedSprite2D.new()
+	_page_player.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_page_player.visible = false
+	_picture_frame.add_child(_page_player)
 	_caption = Label.new()
 	_caption.position = CAPTION_RECT.position
 	_caption.size = CAPTION_RECT.size
@@ -340,7 +363,7 @@ func _build_offer() -> void:
 	art.size = PICTURE_RECT.size
 	art.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	art.modulate = Color(0.45, 0.4, 0.38, 1.0)
+	art.modulate = Color(0.32, 0.28, 0.28, 1.0)
 	_offer_panel.add_child(art)
 	var title := Label.new()
 	title.text = "A NEW LIFE"

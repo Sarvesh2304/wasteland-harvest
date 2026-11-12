@@ -154,6 +154,7 @@ func _confirm() -> void:
 
 
 func _refresh() -> void:
+	hint_label.text = preload("res://scripts/settings.gd").list_hint_for(get_node_or_null("/root/Settings"), "load/leave")  # names the pad's buttons on a pad
 	var contents: Dictionary = _structures.shipping_contents
 	var market: Node = _structures.get("market")
 	var extra: float = float(_structures.get("sale_multiplier")) if market != null else 1.0

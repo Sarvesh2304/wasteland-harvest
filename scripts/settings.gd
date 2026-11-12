@@ -103,10 +103,10 @@ const KEY_WORDS := {
 	KEY_RIGHT: "Right", KEY_SHIFT: "Shift", KEY_CTRL: "Ctrl", KEY_ALT: "Alt", KEY_META: "Meta",
 	KEY_CAPSLOCK: "Caps Lock", KEY_PAGEUP: "Page Up", KEY_PAGEDOWN: "Page Down",
 	KEY_HOME: "Home", KEY_END: "End", KEY_INSERT: "Insert", KEY_DELETE: "Delete",
-	KEY_MINUS: "-", KEY_EQUAL: "Equals", KEY_BRACKETLEFT: "Left Bracket",
-	KEY_BRACKETRIGHT: "Right Bracket", KEY_BACKSLASH: "Backslash", KEY_SEMICOLON: ";",
-	KEY_APOSTROPHE: "'", KEY_QUOTELEFT: "Backtick", KEY_COMMA: ",", KEY_PERIOD: ".",
-	KEY_SLASH: "/", KEY_KP_ADD: "Num +", KEY_KP_SUBTRACT: "Num -", KEY_KP_MULTIPLY: "Num Times",
+	KEY_MINUS: "Minus", KEY_EQUAL: "Equals", KEY_BRACKETLEFT: "Left Bracket",
+	KEY_BRACKETRIGHT: "Right Bracket", KEY_BACKSLASH: "Backslash", KEY_SEMICOLON: "Semicolon",
+	KEY_APOSTROPHE: "Apostrophe", KEY_QUOTELEFT: "Backtick", KEY_COMMA: "Comma",
+	KEY_PERIOD: "Period", KEY_SLASH: "Slash", KEY_KP_ADD: "Num +", KEY_KP_SUBTRACT: "Num -", KEY_KP_MULTIPLY: "Num Times",
 	KEY_KP_DIVIDE: "Num /", KEY_KP_PERIOD: "Num .", KEY_NUMBERSIGN: "Hash", KEY_AMPERSAND: "And",
 	KEY_ASTERISK: "Star", KEY_DOLLAR: "Dollar", KEY_AT: "At", KEY_UNDERSCORE: "Underscore",
 	KEY_LESS: "Less", KEY_GREATER: "Greater", KEY_ASCIICIRCUM: "Caret", KEY_ASCIITILDE: "Tilde",
@@ -192,9 +192,9 @@ static func sanitize(key: String, value):
 			var scale := int(value)
 			return scale if WINDOW_SCALES.has(scale) else int(default)
 		"access/text_speed":
-			return String(value) if TEXT_SPEEDS.has(String(value)) else String(default)
+			return str(value) if TEXT_SPEEDS.has(str(value)) else String(default)
 		"access/use_mode":
-			return String(value) if USE_MODES.has(String(value)) else String(default)
+			return str(value) if USE_MODES.has(str(value)) else String(default)
 	if default is bool:
 		return bool(value)
 	return value
@@ -358,6 +358,19 @@ func nav_prompt() -> String:
 
 func back_prompt() -> String:
 	return "B" if using_pad else "Esc"
+
+
+## A cycle-then-confirm list's footer ("Up/Down choose   Space buy/leave" / "D-pad choose   A
+## buy/leave"), for the store, shipping and ranch screens.
+func list_hint(verbs: String) -> String:
+	return "%s choose   %s %s" % [nav_prompt(), prompt("use_tool"), verbs]
+
+
+## Static form for screens that may run without the autoload (bare tests): the keyboard words.
+static func list_hint_for(settings: Node, verbs: String) -> String:
+	if settings == null:
+		return "Up/Down choose   Space %s" % verbs
+	return String(settings.list_hint(verbs))
 
 
 ## -- Bindings --

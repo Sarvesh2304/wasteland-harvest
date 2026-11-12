@@ -205,6 +205,7 @@ func _on_credits_changed(_current: int) -> void:
 
 
 func _refresh() -> void:
+	hint_label.text = preload("res://scripts/settings.gd").list_hint_for(get_node_or_null("/root/Settings"), "buy/leave")  # names the pad's buttons on a pad
 	credits_label.text = "Credits: %d" % (_player.credits if _player != null else 0)
 	# A scrolling window over the shelf: the highlighted row is always on screen.
 	var window := _row_labels.size()

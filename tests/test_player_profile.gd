@@ -274,3 +274,9 @@ func test_opening_page_text_tokens() -> void:
 		for i in text.length():
 			assert_true(FONT_CHARS.contains(text[i]), "page '%s' char '%s' is drawable" % [page["art"], text[i]])
 		assert_true(ResourceLoader.exists("res://art/opening/%s.png" % page["art"]), "page '%s' has its art" % page["art"])
+
+
+func test_menu_profile_line() -> void:
+	var MenuScreen = load("res://scripts/menu_screen.gd")
+	assert_eq(MenuScreen.profile_line("Juniper", "she", "forest_edge"), "Juniper (She / her), farmer of Forest Edge")
+	assert_eq(MenuScreen.profile_line("", "they", "open_plains"), "Farmer of Open Plains", "a pre-profile save")

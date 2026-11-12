@@ -48,10 +48,10 @@ func _physics_process(_delta: float) -> bool:
 			menu._refresh()
 		30:
 			_capture("skills_tab")
-			menu.tab_index = menu.TAB_CONTROLS
+			menu.tab_index = menu.TAB_OPTIONS
 			menu._refresh()
 		36:
-			_capture("controls_tab")
+			_capture("options_tab")
 			root.get_node("GameState").delete_save()
 			quit(0)
 	return false

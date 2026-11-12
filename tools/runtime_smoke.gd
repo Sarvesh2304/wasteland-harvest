@@ -1401,15 +1401,14 @@ func _physics_process(_delta: float) -> bool:
 				_check(menu_screen.assignments_tab.visible and not menu_screen.build_tab.visible,
 					"only the Assignments tab's content is showing")
 				_drive_menu_action("build_cycle")
-				_check(menu_screen.tab_index == menu_screen.TAB_CONTROLS,
-					"Q cycles Assignments -> Controls")
-				_check(menu_screen.controls_rows.get_child_count()
-						== menu_screen.CONTROLS_REFERENCE.size(),
-					"Controls tab rendered one row per reference entry")
-				# -- Controls wraps back to Inventory --
+				_check(menu_screen.tab_index == menu_screen.TAB_OPTIONS,
+					"Q cycles Assignments -> Options")
+				_check(menu_screen.options.is_visible_in_tree(),
+					"the Options tab shows the shared options screen (scripts/options_menu.gd)")
+				# -- Options wraps back to Inventory --
 				_drive_menu_action("build_cycle")
 				_check(menu_screen.tab_index == menu_screen.TAB_INVENTORY,
-					"Q wraps Controls -> Inventory")
+					"Q wraps Options -> Inventory")
 				# -- Save & Return footer: first Space arms, a tab cycle disarms --
 				_check(not menu_screen._quit_armed, "quit footer starts disarmed")
 				_drive_menu_action("use_tool")

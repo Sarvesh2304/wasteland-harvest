@@ -160,3 +160,26 @@ Tully is drawn by the townsfolk kit (`tf_tully.py`).
   cold contact shadow; status lamps use VAULT_LAMP_RED / VAULT_LAMP_GREEN, never rad glow.
 - **Item icons** `vault_seeds` / `festival_ribbon` are drawn with the items kit (`ia_lib`).
 - Review image: `art/env/_previews/living.png`.
+
+## 10. The opening and character creation (`tools/art/opening/`, Milestone E)
+`python3 tools/art/opening/build.py [regions pages preview]` (or `python3 tools/art/build_all.py
+opening`; an output allowlist stops it from writing anything but its own files). Colours: the
+"Character creation and the opening" block at the end of `tools/art/palette.py`.
+- **Player recolour regions** (`art/characters/player/regions/<action>/<facing>/<n>.png`, one per
+  player frame, `op_regions.py`): one-hot masks, red = hair, green = skin, blue = outfit (the
+  duster). The PixelLab player uses the same dark browns for hair and trousers, so hair is told
+  apart by position (the dark component holding the topmost dark rows, within a head's height and
+  width of it); skin and outfit by colour family; tool handles are excluded by distance from the
+  body. `scripts/player_look.gd` remaps each region by luminance onto the chosen
+  [shade, base, light] ramp (mirrored in `scripts/player_profile.gd`). Re-run after any player
+  frame changes, and check `art/opening/_preview/regions.png`.
+- **Intro / montage pages** (`art/opening/<page>.png`, 256x112, fully opaque, `op_pages.py`):
+  postcards built from the game's OWN sprites (buildings, props, trees, townsfolk, the player)
+  pasted bottom-anchored with contact shadows onto a painted backdrop (`op_scene.py`: skies
+  banded with a 2x2 ordered dither, ruined-city skylines, ridges, stroked ground). Glows are
+  stepped and dithered, never airbrushed. Night scenes tint sprites toward NIGHT_SKY but keep
+  lamplight pixels lit. The parents are the player sprite recoloured (father: ink hair, olive
+  coat; mother: auburn shoulder-length hair, plum), so the player takes after them.
+- The farm page leaves a spot clear (`PLAYER_SPOTS`) where `scripts/opening.gd` draws the LIVE
+  player sprite in the look just chosen.
+- Review image: `art/opening/_preview/opening.png`.

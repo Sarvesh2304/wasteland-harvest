@@ -164,7 +164,10 @@ func _redraw() -> void:
 			QuestDB.project_ids()[_cursor - 1])
 	_build_works(Rect2(PANEL.position.x + LEFT_W + 12, PANEL.position.y + 15, PANEL.size.x - LEFT_W - 18, 150))
 	var verb := "accept" if _cursor == 0 else "contribute"
-	_text(_root, "↑↓ choose   E: %s   Esc: close" % verb,
+	var settings := get_node_or_null("/root/Settings")
+	var act := String(settings.prompt("interact")) if settings != null else "E"
+	var back := String(settings.back_prompt()) if settings != null else "Esc"
+	_text(_root, "↑↓ choose   %s: %s   %s: close" % [act, verb, back],
 		Vector2(PANEL.position.x, PANEL.end.y - 12), PAPER, PANEL.size.x, HORIZONTAL_ALIGNMENT_CENTER)
 
 

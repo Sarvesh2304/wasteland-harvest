@@ -219,7 +219,9 @@ func _build() -> void:
 		_widgets.append(_slot_widget(Vector2(8 + (i % COLS) * (SLOT + GAP), y + (i / COLS) * (SLOT + GAP)), 27 + i))
 	y += 3 * (SLOT + GAP)
 	_hint = _text(HINT, Vector2(8, y), DIM)
-	var close_hint := _text("Esc: close", Vector2(8, y), DIM)
+	var settings := get_node_or_null("/root/Settings")
+	var close_hint := _text("%s: close" % (String(settings.back_prompt()) if settings != null else "Esc"),
+		Vector2(8, y), DIM)
 	close_hint.size.x = width - 16.0
 	close_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 

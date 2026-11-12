@@ -55,6 +55,8 @@ const Calendar := preload("res://scripts/calendar.gd")
 const UIText := preload("res://scripts/ui_text.gd")
 const MarketRules := preload("res://scripts/market_rules.gd")
 const Builder := preload("res://scripts/builder.gd")
+const PlayerProfile := preload("res://scripts/player_profile.gd")
+const SettlementDB := preload("res://scripts/settlement_db.gd")
 
 ## 2026-10-07 Milestone B: CRAFT (the recipe book, scripts/crafting.gd) and SKILLS tabs join the
 ## ring, right after the inventory. Tabs cycle forward with Q, and either way with Left/Right
@@ -172,6 +174,7 @@ func _ready() -> void:
 	options = OptionsMenu.new()
 	options.name = "Options"
 	options.set_anchors_preset(Control.PRESET_FULL_RECT)
+	options.offset_bottom = 14.0  # down over the footer line, which this tab leaves blank
 	options_tab.add_child(options)
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null:
@@ -792,9 +795,20 @@ func _build_skills_tab() -> void:
 	_skills_tab.add_child(_skills_rows)
 
 
+var _profile_label: Label = null
+
+
 func _refresh_skills() -> void:
 	for child in _skills_rows.get_children():
 		child.queue_free()
+	# Milestone E: who you are, under what you can do (its own label, not a skill row).
+	if _profile_label == null:
+		_profile_label = _label("", ACCENT_COLOR)
+		_profile_label.position = Vector2(4, 100)
+		_profile_label.size = Vector2(288, 10)
+		_skills_tab.add_child(_profile_label)
+	_profile_label.text = profile_line(GameState.player_name, GameState.player_pronouns,
+		GameState.chosen_settlement_id)
 	for skill in SkillsScript.SKILLS:
 		var total := int(skills.xp.get(skill, 0)) if skills != null else 0
 		var lvl := SkillsScript.level_for_xp(total)
@@ -816,6 +830,17 @@ func _refresh_skills() -> void:
 		perk.custom_minimum_size = Vector2(130, 12)
 		row.add_child(perk)
 		_skills_rows.add_child(row)
+
+
+## Milestone E: the SKILLS tab's header — "Juniper (She / her), farmer of Forest Edge". A save
+## from before character creation has no name and just reads "Farmer of Forest Edge".
+static func profile_line(player_name: String, pronouns: String, settlement_id: String) -> String:
+	var settlement := String(SettlementDB.get_settlement(settlement_id).get("name", ""))
+	var place := (" of %s" % settlement) if settlement != "" else ""
+	if player_name == "":
+		return "Farmer%s" % place
+	return "%s (%s), farmer%s" % [player_name,
+		String(PlayerProfile.PRONOUN_LABELS.get(PlayerProfile.normalize_pronouns(pronouns), "")), place]
 
 
 ## -- Worn gear (Milestone C) --

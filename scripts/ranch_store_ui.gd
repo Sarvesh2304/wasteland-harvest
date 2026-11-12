@@ -98,6 +98,9 @@ func _on_credits_changed(_current: int) -> void:
 
 
 func _refresh() -> void:
+	var hint := get_node_or_null("Root/Box/HintLabel") as Label
+	if hint != null:
+		hint.text = preload("res://scripts/settings.gd").list_hint_for(get_node_or_null("/root/Settings"), "buy/care/leave")  # names the pad's buttons on a pad
 	credits_label.text = "Credits: %d" % (_player.credits if _player != null else 0)
 	for i in _row_labels.size():
 		var label := _row_labels[i]

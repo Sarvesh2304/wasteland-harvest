@@ -5,7 +5,9 @@ extends Control
 ## resume-vs-new fork that settlement_select.gd's _ready() used to decide silently now lives
 ## here as an explicit player choice:
 ##   - New Game  -> scenes/settlement_select.tscn (unchanged in its own behavior: pick one of
-##                  the 3 starts, confirm; it claims a fresh save slot on confirm)
+##                  the 3 starts, confirm; it claims a fresh save slot on confirm), which then
+##                  plays the opening (scenes/opening.tscn: intro, character creation, montage —
+##                  Milestone E) before main.tscn
 ##   - Load Game -> the in-scene Load panel: every existing slot listed most-recent first
 ##                  (settlement + day, via scripts/save_slots.gd), confirm one to restore it
 ##                  into scenes/main.tscn through the exact staged-load handoff the old
