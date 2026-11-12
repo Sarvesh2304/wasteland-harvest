@@ -14,7 +14,7 @@ config/name="Wasteland Harvest"
 config/description="A post-apocalyptic farming & settlement RPG in the pixel-art style of Stardew Valley. Till irradiated-but-recovering soil, build up a scavenger settlement, and run combat expeditions into a ruined city for loot, story, and danger."
 run/main_scene="res://scenes/title_screen.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
 
 [autoload]
 
@@ -181,3 +181,4 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.156863, 0.101961, 0.043137, 1)
 2d/snap/snap_2d_transforms_to_pixel=true
+textures/vram_compression/import_etc2_astc=true

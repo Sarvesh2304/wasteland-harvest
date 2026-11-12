@@ -83,6 +83,12 @@ static func cost(building_id: String) -> Dictionary:
 	return out
 
 
+## Milestone E balance pass: the Credits a building also costs (0 when the catalog sets none) —
+## the builder's fee, the game's main Credit sink (docs/BALANCE.md).
+static func credits(building_id: String) -> int:
+	return int(get_building(building_id).get("credits", 0))
+
+
 static func build_days(building_id: String) -> int:
 	return int(get_building(building_id).get("build_days", 1))
 

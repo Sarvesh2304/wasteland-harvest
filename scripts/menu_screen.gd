@@ -414,6 +414,7 @@ func _have_counts() -> Dictionary:
 	for id in BuildingDB.ids():
 		for item_id in BuildingDB.cost(id):
 			have[item_id] = _player.inventory.count_of(String(item_id))
+	have["credits"] = int(_player.credits)
 	return have
 
 
@@ -439,7 +440,9 @@ static func catalog_rows(ids: Array[String], have: Dictionary) -> Array[Dictiona
 			"id": id,
 			"name": BuildingDB.display_name(id),
 			"cost_text": Builder.cost_text(id),
-			"affordable": BuildGrid.can_afford(have, BuildingDB.cost(id)),
+			# Milestone E: a building's Credits fee, read from have["credits"].
+			"affordable": BuildGrid.can_afford(have, BuildingDB.cost(id))
+				and int(have.get("credits", 0)) >= BuildingDB.credits(id),
 		})
 	return rows
 

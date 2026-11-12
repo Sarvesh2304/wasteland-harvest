@@ -156,7 +156,7 @@ func _can_afford(id: String) -> bool:
 	var have := {}
 	for item_id in cost:
 		have[item_id] = _player.inventory.count_of(String(item_id))
-	return BuildGrid.can_afford(have, cost)
+	return BuildGrid.can_afford(have, cost) and int(_player.credits) >= BuildingDB.credits(id)
 
 
 ## "12 Wood, 4 Stone, 2 Scrap Metal" from the catalog cost + item display names. Static (and
@@ -165,6 +165,8 @@ func _can_afford(id: String) -> bool:
 ## different prices for one building.
 static func cost_text(id: String) -> String:
 	var parts: Array[String] = []
+	if BuildingDB.credits(id) > 0:
+		parts.append("%d Cr" % BuildingDB.credits(id))
 	var cost: Dictionary = BuildingDB.cost(id)
 	for item_id in cost:
 		parts.append("%d %s" % [int(cost[item_id]),
@@ -190,5 +192,7 @@ func confirm_placement() -> bool:
 	var cost: Dictionary = BuildingDB.cost(id)
 	for item_id in cost:
 		_player.inventory.remove_item(String(item_id), int(cost[item_id]))
+	if BuildingDB.credits(id) > 0:
+		_player.set_credits(int(_player.credits) - BuildingDB.credits(id))
 	_player.set_energy(_player.energy - _player.ENERGY_BUILD * (1.0 - build_energy_discount))
 	return true
