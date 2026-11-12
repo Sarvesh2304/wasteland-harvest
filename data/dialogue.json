@@ -45,7 +45,19 @@
 			{"text": "My, you're doing well. Have you considered a voluntary civic contribution? Strictly voluntary. Strongly voluntary.", "when": {"flag": "rich"}},
 			{"text": "Kael brought you home over his shoulder, I hear. I've drafted a policy about that. The policy is: please don't.", "when": {"flag": "died_recently"}},
 			{"id": "harlan_first_week", "text": "How are you holding up? Your folks would want you to take it slow. Well, your mother would. Your father would want the fence painted.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
-			{"text": "About that notice-board request: no pressure. A little pressure. Civic pressure. The good kind.", "when": {"flag": "has_request_mayor_harlan"}, "priority": 1}
+			{"text": "About that notice-board request: no pressure. A little pressure. Civic pressure. The good kind.", "when": {"flag": "has_request_mayor_harlan"}, "priority": 1},
+			{"text": "Planting Day! Twelve packets hidden, two hours on the clock, and my speech. I've cut it to twenty minutes. Nineteen, if nobody claps.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Scorch Fair! I've fifty Credits on Pickles. Civic duty, farmer: somebody has to believe in the underdog. The undergoat.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day! I've entered five things. Marta says four of them are the same potato. They're different potatoes. They have different personalities.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering! Lanterns, scarves and the gift circle. I drew a name out of my own hat, and I'm sworn to secrecy. It's agony.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Big day tomorrow, farmer! I've checked the bunting twice and my speech three times. The speech wants a fourth.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "Tully's stall is up! Trade on the plaza is the sign of a healthy town. I told him so. He charged me for the conversation.", "when": {"flag": "caravan_day"}},
+			{"text": "Saturday, and the caravan's in. I bought a pre-war pencil sharpener. It doesn't sharpen. It's the principle of the thing.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "harlan_story_signal", "text": "I've not slept. I sat by the radio all night with a pencil and wrote down every sound it made. Forty pages. I think one of them is a word.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "harlan_story_broadcast", "text": "It wasn't June. I knew it wouldn't be. But somebody built that message to last, hoping someone would hear it. I know the feeling.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "harlan_story_vault", "text": "The Northgate vault, opened by a farmer from our own valley. It's in the town register now, in my very best handwriting.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "harlan_story_home", "text": "Every field in town is sown from the vault. I walked the rows at dawn and wept a little. Officially, it was the dew.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "harlan_story_shared", "text": "Tully's cart went out at dawn, heavy with seed. I watched it all the way to the ridge. This valley is sharing again. I like the sound of that.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back again? Persistence is the main qualification for mayor. Careful, or I'll nominate you.",
@@ -73,7 +85,23 @@
 			"offer_yes": {"text": "Good answer. For now, grow things. A town runs on its stomach, and that farm has fed this one before. I'll pin the real work on the notice board."},
 			"offer_no": {"text": "Take all the time you need. When you feel like being useful, mine's the ugly house with the good roof. The door's always open. Well, it sticks. Push."},
 			"day_28_food_shortage": {"text": "Farmer, a word. The reserve bins are running low. Lower than I'd admit at a town meeting, and I admit everything at town meetings. It's in the bylaws.", "next": "day_28_food_shortage_farm"},
-			"day_28_food_shortage_farm": {"text": "In the early years this farm fed half the town. The settlement is counting on it again. Keep the soil working, ship what you can, and we'll keep the lights on."}
+			"day_28_food_shortage_farm": {"text": "In the early years this farm fed half the town. The settlement is counting on it again. Keep the soil working, ship what you can, and we'll keep the lights on."},
+				"story_static": {"text": "Farmer! Thank goodness. Twenty years that radio has hissed at me, and last night it stopped hissing and started talking.", "next": "story_static_voice"},
+				"story_static_voice": {"text": "A voice, on a loop, over and over. Too faint to make out a word. I sat up with a pencil until dawn and wrote down forty pages of mumbling.", "next": "story_static_parts"},
+				"story_static_parts": {"text": "It wants an antenna. A proper one, up on my roof. That means Radio Parts, three of them, and the only place left that has any is the ruins.", "next": "story_static_end"},
+				"story_static_end": {"text": "Every district out there should have one, somewhere. Bring me three and I'll have that voice speaking plainly. I'll be listening till you do."},
+				"story_parts": {"text": "That's three! Hand them over. Gently. No, gentler. These are the three most important pieces of junk in the valley.", "next": "story_parts_roof"},
+				"story_parts_roof": {"text": "I'll have the antenna up on my roof tonight if I have to hold it there myself. Brask has offered to hold the ladder. Well. He grunted. I'm counting it.", "next": "story_parts_end"},
+				"story_parts_end": {"text": "Go home and get some sleep, farmer. In the morning, read the notice board. Whatever that voice has been trying to say, you'll be the first to hear it. After me."},
+				"story_decision": {"text": "You found it. You actually found it. Seed from before, sealed and cold and waiting. Wheat that's never seen a rad in its life.", "next": "story_decision_keeper"},
+				"story_decision_keeper": {"text": "Somebody stayed down there checking those canisters to the very end, so that somebody else could have them. E.M., whoever you were: thank you.", "next": "story_decision_ask"},
+				"story_decision_ask": {"text": "Now the town has to decide what to do with it, and I'd like you to decide. You carried it out. Your folks would have argued about this for a week.", "next": "story_decision_choice"},
+				"story_decision_choice": {"text": "We could sow every field in town and eat better than we have in a generation. Or Tully could carry it down the road, to every settlement that's still hoping. Which?", "choices": [
+					{"text": "Plant it here", "next": "STORY_HOME"},
+					{"text": "Send it down the road", "next": "STORY_SHARED"}
+				]},
+				"story_home_end": {"text": "Then we plant! Every field, every bed, every window box. I'll call a sowing week, and the town's share of the harvest comes to your door each Monday. Dig in, farmer."},
+				"story_shared_end": {"text": "Down the road it goes, then. Tully will weep, and then charge for the weeping. Every town on the road gets a fresh start, and trade will come back to us twice over."}
 		}
 	},
 	"marta": {
@@ -120,7 +148,19 @@
 			{"text": "Harlan told you about the reserve bins? I sell food for a living, and even I think he's right. Ship what you can spare.", "when": {"flag": "after_day_28"}},
 			{"text": "Back from the ruins? Anything shiny? I don't buy junk. I buy junk with potential.", "when": {"flag": "expedition_today"}},
 			{"id": "marta_first_week", "text": "I've written off your folks' tab. Eleven years of it. Don't argue. I've already torn out the page.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
-			{"text": "My shelf still has that gap you promised to fill. I've been staring at it. It's been staring back.", "when": {"flag": "has_request_marta"}, "priority": 1}
+			{"text": "My shelf still has that gap you promised to fill. I've been staring at it. It's been staring back.", "when": {"flag": "has_request_marta"}, "priority": 1},
+			{"text": "Planting Day. Every packet in that hunt came off my shelf, and Harlan paid full price. I nearly hid one in the till.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Scorch Fair. I don't gamble. I've put twenty on Old Tin, which isn't gambling. Old Tin always finishes. That's an investment.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day! I'm keeping score and I'm entering. If you think that's a conflict of interest, I checked, and it isn't. I asked myself.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering. I've wrapped my gift in last year's ledger pages. It's thrifty, and a reminder that somebody still owes me eleven credits.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Festival tomorrow. Everyone buys bunting the day before, so I've tripled my bunting. I've also tripled the price of bunting.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "Tully's in town. Go and buy something from him, so he stops coming in here to tell me what bottle caps are worth.", "when": {"flag": "caravan_day"}},
+			{"text": "If Tully sells you coffee, it's from the same roaster as mine, sixty miles of bad road away. Fine. It's good coffee. Don't tell him I said so.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "marta_story_signal", "text": "Harlan's been in twice for wire and solder. Paid full price without a word of haggling. Something's very wrong with that man, or very right.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "marta_story_broadcast", "text": "A vault full of pre-war seed. I've done the sums three times and keep getting 'priceless', which isn't a number. I hate it.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "marta_story_vault", "text": "You carried real seed out of the Core. If anyone asks what it's worth, send them to me. I won't know either, but I'll say it confidently.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "marta_story_home", "text": "Vault seed in every field. My seed sales will drop and everyone's dinner will improve. I'm calling it a fair trade. Barely.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "marta_story_shared", "text": "You gave it to Tully. Of course he wept. Trade's waking up already: my demand list's twice as long. I'm thrilled. Tell no one.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back so soon? I haven't even recounted.",
@@ -199,7 +239,19 @@
 			{"id": "kael_watchtower", "text": "Tower's up. With eyes on every road in, I can drive you straight to any district you've reached. Just say where.", "when": {"flag": "project_watchtower_new"}, "priority": 3, "once": true},
 			{"text": "With the tower watching the roads, I can run you straight to any district you've reached. Saves fuel. Saves you.", "when": {"flag": "project_watchtower"}},
 			{"text": "You're limping. Go see Doc. That's not a suggestion.", "when": {"flag": "player_hurt"}},
-			{"text": "That job I posted still stands. I'll be at the gate. I'm always at the gate.", "when": {"flag": "has_request_scout_kael"}, "priority": 1}
+			{"text": "That job I posted still stands. I'll be at the gate. I'm always at the gate.", "when": {"flag": "has_request_scout_kael"}, "priority": 1},
+			{"text": "Planting Day. Twelve packets hidden in town, and I checked every hiding spot twice for anything that bites. Have fun, kid.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Goat races. I've parked the truck facing out, in case Dorothy wins and decides she wants more.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day. Look at that table. Every plate on it is a day somebody didn't have to drive into the ruins. Best view in town.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering. Everyone in one place, lanterns lit, gate shut. I'm watching the road anyway. Somebody has to. Go and have fun.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Festival tomorrow. The whole town in the plaza at once. Makes me twitchy. I'll be on the edge of it, by the exit. Both exits.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "Tully's in. I checked his cart at the gate. Twice. Didn't find a thing. That's what worries me.", "when": {"flag": "caravan_day"}},
+			{"text": "Caravan's here. Good. A road that carries traders is a road somebody's keeping open. I like knowing somebody is.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "kael_story_signal", "text": "Harlan wants radio parts out of the ruins. Fine. Every district's got some. Every district's also got teeth. Pack light, come back.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "kael_story_broadcast", "text": "Northgate Seed Reserve. Same name Rook's lot paint on the walls. Could mean nothing. I don't trust nothing.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "kael_story_vault", "text": "You went down under the Core and came back up carrying the future. I've driven worse cargo. Never better.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "kael_story_home", "text": "Seed's in the ground here. Good. Every meal we grow is a run nobody has to make into the ruins.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "kael_story_shared", "text": "Tully's carrying it down the road? Then the road just got safer and more dangerous at once. I'll be watching it. More than usual.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Still here? Truck's not going anywhere without you. Unless something chases it.",
@@ -266,7 +318,19 @@
 			{"text": "Heard Kael brought you home over his shoulder. Rest up. Even a goat takes a day after a bad fall. Well. Half a day.", "when": {"flag": "died_recently"}},
 			{"text": "Back from the city? You've ruins dust on your boots. Wipe them before you go near the chicks.", "when": {"flag": "expedition_today"}},
 			{"id": "silas_first_week", "text": "I'm sorry about your folks, seedling. They were good to this place, and good to me. Come down any time. The animals don't ask questions.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
-			{"text": "No rush on that request, seedling. Well. Some rush. The goats are counting.", "when": {"flag": "has_request_rancher_silas"}, "priority": 1}
+			{"text": "No rush on that request, seedling. Well. Some rush. The goats are counting.", "when": {"flag": "has_request_rancher_silas"}, "priority": 1},
+			{"text": "Planting Day, seedling! Hunt well. Last year a packet turned up inside a goat. Not hidden there. It just found its way.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Scorch Fair! I've brushed every goat. Dorothy's the favourite, if she doesn't stop to bite somebody. She'll stop.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day. I've brought cheese for the table. Dorothy brought herself. She's not an entry, whatever she thinks.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering. I've left the cows a lantern of their own, so they don't feel left out. They'd never admit to feeling left out.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Something on in town tomorrow, seedling. I'll be there. I'll smell of goat, but I'll be there.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "Tully's goat and Dorothy have met again. Nobody won. Everybody lost a bit of fence.", "when": {"flag": "caravan_day"}},
+			{"text": "The caravan's in, seedling. Tully sometimes has good feed. Ask him. Don't let his goat near your pockets.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "silas_story_signal", "text": "Harlan's radio spoke, he says. I hope it's good news, seedling. He's been listening for one voice a long time.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "silas_story_broadcast", "text": "Seed, under the Core. If there's clean seed down there, maybe there's... no. One miracle at a time. Go careful, seedling.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "silas_story_vault", "text": "Pre-war seed, clean and never touched. The cows would weep if they understood. Dorothy would eat it. Keep it from Dorothy.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "silas_story_home", "text": "The fields are sown from the vault. Proper hay for the stock next winter. The cows thank you. I asked them.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "silas_story_shared", "text": "Down the road, to every town that's still trying. That's a kind thing, seedling. Kind things travel well.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Still here? Dorothy's been watching you. That's either a compliment or a warning.",
@@ -345,7 +409,19 @@
 			{"text": "Northgate trusts you. I don't trust Northgate. Doesn't mean you're wrong.", "when": {"flag": "raiders_trusted"}},
 			{"text": "More people inside the fence. More to guard. Good. That's the point.", "when": {"flag": "has_settlers"}},
 			{"id": "brask_first_week", "text": "Your father. Good man. Straight posts. ...That's all.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
-			{"text": "That job. Still open. Still mine. Get to it.", "when": {"flag": "has_request_brask"}, "priority": 1}
+			{"text": "That job. Still open. Still mine. Get to it.", "when": {"flag": "has_request_brask"}, "priority": 1},
+			{"text": "Planting Day. Packets hidden all over town. None on the wall. I checked.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Goat race. Ten on Old Tin. Slow. Always finishes. Like me.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day. Long table. Lot of food. Good year. Eat.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Gathering. Lanterns. Gifts. ...Drew a name. Carved something. Don't ask.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Festival tomorrow. Crowd in the plaza. I'll walk the wall first. Then I'll come. ...Probably.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "Tully. In town. Watched him come in. Watched the goat. Goat's the problem.", "when": {"flag": "caravan_day"}},
+			{"text": "Caravan's in. Gate stays open till dark. Then it shuts. Tully knows.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "brask_story_signal", "text": "Harlan's radio. Talking. Hm. Antenna'll want a ladder. I've got a ladder.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "brask_story_broadcast", "text": "Vault. Under the Core. Long way down. Take Kael. Come back.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "brask_story_vault", "text": "You opened it. You came back. Good. Both good.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "brask_story_home", "text": "Seed in the fields. More to guard. Good.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "brask_story_shared", "text": "Seed's gone down the road. With Tully. ...Tully. Hm. Wall'll be here when he's back.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Still here. So am I.",
@@ -415,7 +491,20 @@
 			{"text": "Heard Kael carried you home. Welcome to the club. We meet never, and we don't talk about it.", "when": {"flag": "died_recently"}},
 			{"text": "Back from the ruins? Show me what you found. No, the weird stuff. Always show me the weird stuff.", "when": {"flag": "expedition_today"}},
 			{"text": "Look at you, a regular out there. Careful. The ruins learn your habits. I change mine every week.", "when": {"flag": "veteran"}},
-			{"text": "Still on my little errand? Don't tell anyone what it's for. Mostly because I haven't told you.", "when": {"flag": "has_request_wren"}, "priority": 1}
+			{"text": "Still on my little errand? Don't tell anyone what it's for. Mostly because I haven't told you.", "when": {"flag": "has_request_wren"}, "priority": 1},
+			{"id": "wren_vault_code", "text": "Funny thing about doors under the Core. They're shy. They only open for someone who says four, one, seven, seven. I didn't tell you that. A foreman did.", "when": {"tier": "friend", "flag": "story_broadcast"}, "priority": 4, "once": true},
+			{"text": "Planting Day! I'm going to find eight. I always find eight. Twelve is rude, and four is sad.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "I've put my money on Pickles. Smallest goat, loudest heart. If Pickles ever wins, I'm retiring.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day. I entered one glowcap. Marta says it isn't a spread. I say it's a statement.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering. I drew a name and I already know what to give them. I knew before I drew it. Don't ask how.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Festival tomorrow. The whole town in the plaza, all at once. Best day of the year for a secret. Nobody's watching anything but the fun.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "Tully's in! He always has one thing he swears is pre-war. It's usually from last Tuesday. I buy it anyway.", "when": {"flag": "caravan_day"}},
+			{"text": "Tully knows every road between here and the coast. I've got a list of questions. He's got a list of prices.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "wren_story_signal", "text": "Harlan's radio talked? I've heard things on the old towers at night too. I thought it was the wind practising words.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "wren_story_broadcast", "text": "A seed vault under the Core. Told you there was something down there that could green the valley. Early, not crazy.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "wren_story_vault", "text": "You opened it. You actually opened it. I've sat by that hatch with my ear to the steel for two years. Was it cold? It sounded cold.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "wren_story_home", "text": "Every field in town, sown from the vault. I walked past the beds this morning just to look. Don't tell anyone I was out in daylight.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "wren_story_shared", "text": "Down the road, all of it, to towns we'll never see. That's the best secret ever told. Everyone gets to know it.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Again? You missed me. It's fine. I'm very missable.",
@@ -488,7 +577,19 @@
 			{"text": "Back from the ruins. Show me your hands. Now your arms. Now your eyes. Fine. Go and eat something.", "when": {"flag": "expedition_today"}},
 			{"text": "You keep going into the ruins, and I keep seeing you after. Let's keep it in that order.", "when": {"flag": "veteran"}},
 			{"id": "doc_first_week", "text": "How are you sleeping? Grief makes everything heavier, even the hoe. Come and see me if it gets too heavy. That's an order.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
-			{"text": "My request still stands. It's medical. Well, it's vegetables. Vegetables are medical.", "when": {"flag": "has_request_doc_ama"}, "priority": 1}
+			{"text": "My request still stands. It's medical. Well, it's vegetables. Vegetables are medical.", "when": {"flag": "has_request_doc_ama"}, "priority": 1},
+			{"text": "Planting Day. Wear gloves for the hunt. Half those packets are hidden in places I'd rather not think about.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Scorch Fair. Hat, water, and stand well back from the goats. I've stitched three ankles at this fair. All Dorothy.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day! That long table is the best medicine in the valley. Eat something from it. Something green, ideally.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering. I'm hosting, so I'm checking everyone for chilblains at the door. Scarf on? Good. Now go and give your gift.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "Festival tomorrow. Get a proper night's sleep tonight. A proper one. I'll know. I always know.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"text": "The caravan's in. If Tully sells you anything marked medicine, show it to me first. Last time it was a very convincing candle.", "when": {"flag": "caravan_day"}},
+			{"text": "Tully's in town. Tell him his goat's due a check-up. She bit me last time, so she's due another.", "when": {"flag": "caravan_day", "weekday": "Sat"}},
+			{"id": "doc_story_signal", "text": "Harlan hasn't slept in two days. He's listening to static with a pencil in his hand. I've prescribed sleep. He filed the prescription.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "doc_story_broadcast", "text": "Clean seed, sealed before the sickness reached it. Do you know what clean seed in clean soil could do for this town? I do. Go carefully.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "doc_story_vault", "text": "Seed that's never touched a rad. I'd like a few for study. For science. And for soup.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "doc_story_home", "text": "Clean crops in every field. I expect fewer stomach aches by summer. I'll miss the stomach aches. No, I won't.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "doc_story_shared", "text": "Every settlement on the road, eating cleaner. That's the most medicine anyone has ever handed out at once. Well done.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back again? Either you missed me or something hurts. Which?",
@@ -520,6 +621,92 @@
 				{"text": "Just visiting.", "next": "clinic_bye"}
 			]},
 			"clinic_bye": {"text": "Visiting is good for you. Visiting with a vegetable is better."}
+		}
+	},
+	"caravan_trader": {
+		"name": "Tully",
+		"personality": "Pragmatic Trader",
+		"birthday": {"season": "winter", "day": 10},
+		"start": "greet",
+		"service": "wares",
+		"lines": [
+			{"text": "Bottle caps, friend. Mark my words. One day they'll be money again, and I'll be the richest man on the road. Until then, Credits, please."},
+			{"text": "Interest has eaten another map. Interest is my goat. She compounds."},
+			{"text": "I take bottle caps as payment in spirit only. In practice I take Credits. In spirit, I'm weeping."},
+			{"text": "Every town on the road thinks it's the centre of the world. Most are wrong. This one's close. Within a day's walk."},
+			{"text": "The road's longer than it used to be. Or I'm slower. Interest says it's me. Interest is a goat and should mind her business."},
+			{"text": "Everything on this stall came a long way to meet you. Be kind to it. Buy it."},
+			{"text": "News from down the road: there's a town that grows nothing but cabbage, and they're sick of cabbage. Trade is just finding out who's sick of what."},
+			{"text": "The trick to the road is leaving every town a little gladder than you found it. And a little lighter in Credits."},
+			{"text": "Spring Rains turn the road to porridge. Interest likes porridge. She's had the road for breakfast twice this week.", "when": {"season": "spring"}},
+			{"text": "Scorched Summer. I travel by night and sell by day, and I sleep at some point I've not yet found.", "when": {"season": "summer"}},
+			{"text": "Amber Autumn, trading season. Every town wants a deal before the snow, and every deal wants me.", "when": {"season": "autumn"}},
+			{"text": "Grey Winter on the road. Cold enough to freeze the caps to my sash. They chime when I walk. I'm a very slow bell.", "when": {"season": "winter"}},
+			{"text": "Rain on the canvas, coffee in the pot and a customer at the stall. That's a good trade of a day.", "when": {"weather": "rain"}},
+			{"text": "Storm's up. Interest is under the stall and I'm under Interest. Business as usual, just lower down.", "when": {"weather": "storm"}},
+			{"text": "Snow on the stall. Nobody buys in the snow, so everything's half price. Not really. But I said it with feeling.", "when": {"weather": "snow"}},
+			{"text": "Green sky. I keep the caps under a lead apron in weather like this. Can't have them glowing. It devalues them.", "when": {"weather": "radstorm"}},
+			{"text": "Clear skies and a dry road. On days like this I could walk to the coast and back. I won't. But I could.", "when": {"weather": "clear"}},
+			{"text": "Up early, friend? Early birds get first pick, and first pick gets my best patter. It's very good patter. I've been working on it for thirty years.", "when": {"time": "morning"}},
+			{"text": "Lamps are lit on the stall. The last trade of the day is always the best one. Sentimental pricing.", "when": {"time": "evening"}},
+			{"text": "Wednesday! The middle of everybody else's week, and the start of mine.", "when": {"weekday": "Wed"}},
+			{"text": "Saturday. The busiest day on any road. Everybody's got Credits and nobody's got sense. My favourite kind of customer.", "when": {"weekday": "Sat"}},
+			{"text": "Stall's up, lamps are lit, and Interest has only eaten one sign. Come and see what the road brought in.", "when": {"flag": "caravan_day"}},
+			{"text": "You've got your mother's eye for a bargain. That's a compliment and a warning, and I've raised my prices accordingly.", "when": {"tier_max": "stranger"}},
+			{"text": "First time I brought my cart through this valley, there was one fence post and three people arguing. Your folks and Harlan. I sold them a hammer.", "when": {"tier": "acquaintance"}},
+			{"text": "You traded me a beetle for a bottle cap once. You were six, and very firm about it. The beetle and I parted ways. I've still got the cap.", "when": {"tier": "acquaintance"}},
+			{"text": "Marta and I ran the east road together for nine years. She did the sums, I did the talking, and the goat did whatever she liked.", "when": {"tier": "friend"}},
+			{"text": "Every cap on this sash is a town I've traded with. Some of those towns aren't there any more. I wear them anyway. Somebody should remember.", "when": {"tier": "friend"}},
+			{"text": "Marta asked me to stay, once. I said the road needed me. Some nights I think the road would have managed fine.", "when": {"tier": "close"}},
+			{"text": "There's a cap on my sash from a town called Fairwater. I've not found Fairwater in eleven years. I keep looking. I keep its cap polished.", "when": {"tier": "close"}},
+			{"text": "My birthday? Nobody on the road knows my birthday. I tell every town a different date and collect cake. You've got the real one. Keep it quiet.", "when": {"flag": "birthday"}, "priority": 10},
+			{"id": "tully_first_week", "text": "Heard about your folks on the road, two towns back. Good people. Hard bargains. I'm sorry, friend. You'll get the family rate. It's the same rate, said warmly.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"text": "Back from the city? Anything with a cap on it, I'll take off your hands. Anything with teeth, keep.", "when": {"flag": "expedition_today"}},
+			{"text": "You're bleeding on my merchandise, friend. Go and see Doc. I'll hold anything you were going to buy.", "when": {"flag": "player_hurt"}},
+			{"text": "Look at that purse. Friend, you're the reason I come twice a week.", "when": {"flag": "rich"}},
+			{"text": "Got animals now? Keep them away from Interest. She leads others astray. Goats, chickens. A cow, once.", "when": {"flag": "has_animals"}},
+			{"text": "Northgate's sore at you. Word travels on the road. I'll be taking the long way round their checkpoints, if it's all the same.", "when": {"flag": "raiders_hostile"}},
+			{"text": "Northgate wave me through their checkpoints now, on account of you. They even said please. Nearly.", "when": {"flag": "raiders_trusted"}},
+			{"text": "Planting Day! If you find a seed packet with a bottle cap tucked in it, that one's mine. Finders keepers. It's still mine.", "when": {"flag": "festival_planting_day"}, "priority": 8},
+			{"text": "Goat races! Interest wanted to enter. Silas said no. Interest ate his entry form, so I think she's entered now.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
+			{"text": "Harvest Day. Best table in three valleys, and I've seen the other two. Put in a good word for my stall, would you? Somebody has to.", "when": {"flag": "festival_harvest_day"}, "priority": 8},
+			{"text": "Winter Gathering. Harlan lets me put my name in the hat. Every year I draw Marta. I've stopped thinking it's luck.", "when": {"flag": "festival_winter_gathering"}, "priority": 8},
+			{"text": "A festival tomorrow? Then I'm staying the night. Crowds and Credits, friend. The two finest words in trade.", "when": {"flag": "festival_tomorrow"}, "priority": 2},
+			{"id": "tully_story_signal", "text": "Harlan's flagged me down three times today asking for radio parts. I had one radio part. It was a knob. He bought it.", "when": {"flag": "story_signal", "not_flag": "story_broadcast"}, "priority": 3, "once": true},
+			{"id": "tully_story_broadcast", "text": "A seed vault, eh? Every town on the road has a legend about one. This is the first time a legend's got on the radio.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "tully_story_vault", "text": "Real seed, pre-war, never touched. Friend, do you know what that's worth on the road? Neither do I. Nobody's ever had any to sell.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
+			{"id": "tully_story_home", "text": "Planted here, then. Fair choice. Good soil deserves good seed. I'll tell the road what this valley's growing, and charge them to hear it.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
+			{"id": "tully_story_shared", "text": "Every settlement on the road, a share of the vault, carried by me and one opinionated goat. I've never carried anything that mattered more. Don't tell the caps.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+		],
+		"repeat": [
+			"Back again? The stall hasn't changed. Well. Interest ate a corner.",
+			"Twice in a day! I'll have to start charging you for the conversation. In caps. Spiritually.",
+			"Still here? Interest has taken a liking to your sleeve. That's how it starts with her.",
+			"Forgot something? Forgetting is the best reason there is to come back to a stall. I recommend it."
+		],
+		"gift": {
+			"loved": ["{item}? Oh, friend. You've made an old road man very happy. I'll carry this one a long way.", "{item}! Now that's a proper gift. If this were caps, I'd be rich. It's better than caps. Don't tell them I said that."],
+			"liked": ["{item}, very kind. That'll keep me going for a good few miles.", "Thank you, friend. {item} travels well, and so does good will."],
+			"neutral": ["{item}. Thank you. I'll find somebody down the road who needs it. Somebody always does."],
+			"disliked": ["{item}. Ah. Well. Interest might eat it. Interest eats most things."],
+			"hated": ["{item}? Friend, I sell this stuff. I know what's in it. Take it back, gently, and walk away slowly."],
+			"birthday": ["A birthday present, on the right day and everything! You've no idea how rare that is on the road. Thank you, friend."],
+			"birthday_loved": ["{item}, on my birthday? I'll be telling this story in every town from here to the coast. With improvements."],
+			"already_today": ["One gift a day, friend. Any more and I'd have to start declaring them at checkpoints."]
+		},
+		"nodes": {
+			"greet": {"text": "Well, if it isn't the little cap collector, all grown up and owning land! It's Tully, friend, same as ever. Hat, beard, goat. Mostly goat.", "next": "road"},
+			"road": {"text": "I've worked this road since before your folks' first fence post. I'm sorry they're not here to haggle with me. They were terrible at it. I adored them.", "next": "ask"},
+			"ask": {"text": "Wednesdays and Saturdays I'm at the stall in the south-west corner, with whatever the road coughs up. This is Interest. She bites, but only the merchandise.", "choices": [
+				{"text": "What have you got?", "next": "OPEN_CARAVAN"},
+				{"text": "Bottle caps?", "next": "caps"}
+			]},
+			"caps": {"text": "Money, friend. Or they will be, one day. Marta says I'm mad. Marta keeps a jar of them behind her counter. Think on that."},
+			"wares": {"text": "Fresh off the road, friend. Well. Off the road, anyway. Care to have a look?", "choices": [
+				{"text": "Show me your wares.", "next": "OPEN_CARAVAN"},
+				{"text": "Just passing by.", "next": "wares_bye"}
+			]},
+			"wares_bye": {"text": "Passing by is how all my best customers start. Safe travels, friend. Well. Safe farming."}
 		}
 	}
 }

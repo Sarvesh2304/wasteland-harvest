@@ -80,6 +80,11 @@ static func forage_item(kind: String) -> String:
 	return String(get_kind(kind).get("forage_item", ""))
 
 
+## How many of forage_item one pick gives (default 1; a festival seed packet holds 2).
+static func forage_count(kind: String) -> int:
+	return maxi(int(get_kind(kind).get("forage_count", 1)), 1)
+
+
 ## The forage kind that yields `item_id` when picked ("" if nothing does): Milestone D's harvest
 ## show uses it to tell what was foraged.
 static func kind_for_forage(item_id: String) -> String:
@@ -202,6 +207,11 @@ static func is_vehicle(kind: String) -> bool:
 
 
 ## The subway stairs: the way deeper into the city.
+## Milestone D: a door the story opens (the seed vault under The Core).
+static func is_story_door(kind: String) -> bool:
+	return bool(get_kind(kind).get("story_door", false))
+
+
 static func is_descent(kind: String) -> bool:
 	return bool(get_kind(kind).get("descent", false))
 

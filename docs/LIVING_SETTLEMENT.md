@@ -180,7 +180,9 @@ The code is **4-1-7-7** (it's already in `data/lore_notes.json`).
 | `in_demand_<item>` | not provided; don't use |
 
 Priorities: birthday 10, festival-day lines 8, project news 5, story reactions 3 (and `once`),
-`festival_tomorrow` and `caravan_day` 2.
+`festival_tomorrow` 2. `caravan_day` lines carry no priority (2026-11-12): Tully comes twice a
+week, so a priority would have every townsperson talk about him every Wednesday and Saturday
+forever; as conditioned lines they're already weighted up and come round often enough.
 
 ## 7. Art list
 
@@ -194,7 +196,7 @@ All code-generated (`tools/art/`), same rules as before: deterministic, house pa
 | `art/buildings/mayor_house_antenna.png` | 64×72 | `mayor_house.png` with a scrap antenna mast and guy wires on the roof (load the existing PNG and draw on a taller canvas, bottom-aligned). |
 | `art/buildings/festival_booth.png` | 32 wide, up to 40 tall | Striped booth with flags, footprint 2×1. |
 | `art/env/props/bunting.png` | 64×16 | A string of little flags, to hang in rows across the plaza (no footprint). |
-| `art/env/props/festival_table.png` | 32×24 | A trestle table with food and a cloth, footprint 2×1. |
+| `art/buildings/festival_table.png` | 32×24 | A trestle table with food and a cloth, footprint 2×1. |
 | `art/env/props/festival_lantern.png` | 32×32, 2 frames of 16×32 | A post with a paper lantern: unlit, lit. |
 | `art/env/props/seed_packet.png` | 16×16 | A little paper seed packet lying on the ground (the hunt's pickups). |
 | `art/fx/race_goat.png` | 96×16, 4 frames of 24×16 | A goat running left, white-grey so the game can tint it, with a blank bib. |

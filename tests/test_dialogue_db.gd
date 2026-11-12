@@ -11,7 +11,8 @@ const ROSTER_IDS := ["mayor_harlan", "marta", "scout_kael", "brask", "wren", "do
 ## Phase 7 Stage 1: the 4 authored, named NPCs (the 3 town-core roster ids plus the Ranch keeper)
 ## — the only NPCs that carry a personality tag. Settlers are deliberately excluded (they're
 ## registered in memory via DialogueDB.register_runtime and are interchangeable by design).
-const NAMED_NPC_IDS := ["mayor_harlan", "marta", "scout_kael", "rancher_silas", "brask", "wren", "doc_ama"]
+const NAMED_NPC_IDS := ["mayor_harlan", "marta", "scout_kael", "rancher_silas", "brask", "wren", "doc_ama",
+	"caravan_trader"]
 
 ## The 6 frozen archetypes from the original roadmap HTML — the exact, complete valid set.
 const VALID_PERSONALITIES := [
@@ -32,6 +33,7 @@ const EXPECTED_PERSONALITIES := {
 	"brask": "Gruff Soldier",
 	"wren": "Secretive Scavenger",
 	"doc_ama": "Gentle Medic",
+	"caravan_trader": "Pragmatic Trader",
 }
 
 

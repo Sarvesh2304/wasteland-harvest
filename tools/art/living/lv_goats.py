@@ -1,11 +1,13 @@
 """The game's goats, Milestone D: Tully's pack-goat (on the open market stall) and the race goat
 strip (art/fx/race_goat.png).
 
-Both follow art/props/ranch_goat.png: a stocky goat with a short tail cocked up, back-swept cream
-horns, a cream muzzle and beard, a 1 px plum outline all round (animals keep it). The pack-goat
-wears ranch_goat.png's grey-green coat and magenta hooves; the race goat is neutral grey-white
+Both follow art/props/ranch_goat.png: a stocky goat with a short tail cocked up, back-swept
+horns, a cream muzzle and beard, a dark eye, a 1 px plum outline all round (animals keep it).
+The pack-goat wears ranch_goat.png's grey-green coat and magenta hooves and carries canvas
+panniers with a rolled red blanket on top; the race goat is neutral grey-white
 (RACE_GOAT_RAMP, near-neutral dark outline) so the game can tint each runner with `modulate`,
-and wears a blank white racing bib on its flank for the game to draw a number / colour on.
+and wears a blank white racing bib on its flank for the game to colour / number.
+Both face LEFT (the race runs east to west; the pack-goat looks out of the stall).
 """
 from __future__ import annotations
 
@@ -14,35 +16,43 @@ from living.lv_common import Canvas, P, outline_solid, part, pix, shadow
 COAT = P.GOAT_COAT_RAMP
 HORN = P.GOAT_HORN_RAMP
 PACK = P.PACK_CANVAS_RAMP
+LEATHER = P.LEATHER_RAMP
+RED = P.FEST_RED_RAMP
 
 PACK_GOAT_CMAP = {
     "5": COAT[4], "4": COAT[3], "3": COAT[2], "2": COAT[1], "1": COAT[0],
-    "h": HORN[2], "H": HORN[1], "t": HORN[0], "c": HORN[2], "e": P.GOAT_OUTLINE,
+    "t": HORN[0], "H": HORN[1], "m": HORN[2], "b": HORN[1], "e": P.GOAT_OUTLINE,
     "f": P.GOAT_HOOF,
-    "p": PACK[4], "P": PACK[3], "q": PACK[2], "Q": PACK[1], "s": P.LEATHER_RAMP[2],
-    "r": P.LEATHER_RAMP[3],
+    "p": PACK[4], "P": PACK[3], "q": PACK[2], "Q": PACK[1],
+    "s": LEATHER[2], "y": P.BRASS_RAMP[3],
+    "r": RED[3], "R": RED[2], "k": RED[1],
 }
 
-# Tully's pack-goat standing side on, facing LEFT (out of the stall), panniers on its flank.
+# Tully's pack-goat standing side on, facing LEFT, panniers over its back. Hooves on the last row.
 PACK_GOAT = [
-    "...hH..........",
-    "..hHt..........",
-    "..544t.......5.",
-    ".5e443.......42",
-    "c44432.......42",
-    ".cc432pppPPs42.",
-    "..c44pPPPPPs422",
-    "...44pPqqPPs322",
-    "...44PqqqqQs322",
-    "...44QQQQQQs222",
-    "...42.2...4222.",
-    "...4..2...4..2.",
-    "...f..f...f..f.",
+    "....tH..............",
+    "...tHHt.............",
+    "..5544t.............",
+    ".554433t............",
+    "55e4432.............",
+    "m544432.............",
+    "mm44432..rrrrrr..5..",
+    ".bb4432.rRRRRRRk.45.",
+    "..b4432pPPPPPPPPq45.",
+    "...4433pPPPPsPPPq43.",
+    "...4433pPPPPyPPPq432",
+    "...4432qPPPPsPPPQ322",
+    "...4432QqqqqsqqqQ322",
+    "....433.QQQQQQQQ.32.",
+    "....432..3.....3.32.",
+    "....32...2.....2.21.",
+    "....32...2.....2.21.",
+    "....ff...f.....f.ff.",
 ]
 
 
 def pack_goat():
-    """15 x 13 interior + plum outline = 17 x 15, facing left. Anchor: hooves on the last row."""
+    """20 x 18 interior + plum outline = 22 x 20, facing left. Anchor: hooves on the last row."""
     body = part(PACK_GOAT, PACK_GOAT_CMAP)
     cv = Canvas(body.w + 2, body.h + 2)
     cv.blit(body, 1, 1)
@@ -54,64 +64,63 @@ def pack_goat():
 RG = P.RACE_GOAT_RAMP
 RACE_CMAP = {
     "5": RG[4], "4": RG[3], "3": RG[2], "2": RG[1], "1": RG[0],
-    "h": HORN[2], "H": HORN[1], "e": P.RACE_GOAT_OUTLINE,
-    "W": RG[4], "w": RG[3], "b": RG[1],       # bib: white field, pale-grey hem
-    "f": P.RACE_GOAT_OUTLINE,
+    "t": HORN[0], "H": HORN[1], "m": RG[4], "b": RG[2], "e": P.RACE_GOAT_OUTLINE,
+    "W": RG[4], "w": RG[1],       # bib: blank white field inside a grey hem
 }
 
-# Body (no legs), facing LEFT. Head low and forward: a goat at full gallop.
+# Head and body (no legs), facing LEFT: head up on a stretched neck, horns swept back, ears
+# streaming behind, chin beard, tail cocked. Blitted at (1, 1); legs hang from the belly.
 RACE_BODY = [
-    ".hH..................",
-    "hHH..................",
-    "554H..............44.",
-    "5e44H............4432",
-    "44443.55555555555443.",
-    ".4433455444444444432.",
-    "..4334WWWWWWW44443322",
-    "...3344bWWWWWWb443322",
-    "....344bWWWWWWb433322",
-    "....343bbbbbbbb333221",
-    ".....3322222222222211",
+    "....tHH...........",
+    "...tH..H..........",
+    "..554t1.........4.",
+    ".5e4421........43.",
+    "m54443.1......443.",
+    "mm4443455555554432",
+    ".b.443444444444432.",
+    "..b.34wwwwwwwww432.",
+    ".....3wWWWWWWWw332.",
+    "......wwwwwwwww21..",
 ]
+BODY_X, BODY_Y = 1, 1
+BELLY_ROW = BODY_Y + 9    # legs hang from here
+HOOF_ROW = 14             # planted hooves; the outline takes row 15
 
-# Four gallop frames: (body y offset, [(hip x, hip y, foot x, foot y) per leg]); legs drawn as
-# 1 px lines in leg order far-front, far-back, near-front, near-back (near ones lighter).
+# Gallop legs per frame: (hip x, knee, hoof) in canvas coordinates, drawn far-front, far-back,
+# near-front, near-back (the near pair lighter, in front). Lifted hooves sit above HOOF_ROW.
 GALLOP = [
-    # extended: front legs reaching forward, hind legs pushed back
-    (1, [(6, 11, 2, 14), (17, 11, 21, 14), (7, 11, 3, 14), (18, 11, 22, 13)]),
-    # gathered: legs under the body, body high
-    (0, [(6, 10, 8, 14), (17, 10, 14, 14), (7, 10, 9, 13), (18, 10, 15, 14)]),
-    # landing on the front legs, hind legs swinging forward
-    (1, [(6, 11, 4, 14), (17, 11, 15, 13), (7, 11, 6, 14), (18, 11, 18, 14)]),
-    # push-off from the hind legs, front legs tucked
-    (0, [(6, 10, 3, 12), (17, 10, 20, 14), (7, 10, 5, 13), (18, 10, 19, 14)]),
+    # 0 stretched: front legs reaching forward, hind legs pushed back
+    [(8, (6, 12), (4, 13)), (17, (19, 12), (21, 14)),
+     (7, (5, 12), (3, 14)), (16, (18, 12), (20, 14))],
+    # 1 gathered: all four bunched under the body
+    [(8, (9, 12), (10, 13)), (17, (16, 12), (15, 13)),
+     (7, (8, 12), (8, 14)), (16, (15, 12), (14, 14))],
+    # 2 landing on the front legs, hind legs swinging through
+    [(8, (7, 12), (6, 14)), (17, (17, 12), (16, 13)),
+     (7, (6, 12), (5, 14)), (16, (16, 12), (14, 13))],
+    # 3 push-off from the hind legs, front legs tucked up
+    [(8, (6, 12), (8, 12)), (17, (18, 12), (19, 14)),
+     (7, (5, 11), (6, 13)), (16, (17, 12), (18, 14))],
 ]
 
 
 def race_frame(i):
-    by, legs = GALLOP[i]
     cv = Canvas(24, 16)
-    body = part(RACE_BODY, RACE_CMAP)
-    for k, (hx, hy, fx, fy) in enumerate(legs):
+    for k, (hx, knee, hoof) in enumerate(GALLOP[i]):
         near = k >= 2
-        col = RACE_CMAP["3"] if near else RACE_CMAP["2"]
-        pts = pix.line_points(hx + 1, hy + by - 1, fx + 1, fy)
-        for (x, y) in pts[:-1]:
+        col = RACE_CMAP["3"] if near else RACE_CMAP["1"]
+        pts = pix.poly_points([(hx, BELLY_ROW), knee, hoof])
+        for (x, y) in pts:
             cv.px(x, y, col)
         x, y = pts[-1]
-        cv.px(x, y, RACE_CMAP["f"])                 # hoof
-    cv.blit(body, 1, by + 1)
-    # tail flicks up on the gathered / push-off frames
-    if i in (1, 3):
-        cv.px(21, by + 2, RACE_CMAP["4"])
+        cv.px(x, y, RACE_CMAP["e"])            # hoof
+    cv.blit(part(RACE_BODY, RACE_CMAP), BODY_X, BODY_Y)
     outline_solid(cv, P.RACE_GOAT_OUTLINE)
-    # keep it inside the frame: nothing below row 15 (the hooves' row)
     return cv
 
 
 def race_strip():
-    frames = [race_frame(i) for i in range(4)]
-    return pix.hstrip(frames)
+    return pix.hstrip([race_frame(i) for i in range(4)])
 
 
 def with_shadow(goat, rx=None):

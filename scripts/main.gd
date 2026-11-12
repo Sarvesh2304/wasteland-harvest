@@ -29,6 +29,8 @@ const TownWorksScript := preload("res://scripts/town_works.gd")
 const NoticeUIScript := preload("res://scripts/notice_ui.gd")
 const MarketScript := preload("res://scripts/market.gd")
 const CaravanScript := preload("res://scripts/caravan.gd")
+const FestivalsScript := preload("res://scripts/festivals.gd")
+const StoryScript := preload("res://scripts/story.gd")
 const QuestDBRef := preload("res://scripts/quest_db.gd")
 const Faction := preload("res://scripts/faction.gd")
 const Weather := preload("res://scripts/weather.gd")
@@ -79,6 +81,8 @@ var notice_ui: CanvasLayer = null
 ## Milestone D (2026-11-10, docs/LIVING_SETTLEMENT.md): prices that move, and Tully's caravan.
 var market: Node = null
 var caravan: Node = null
+var festivals: Node = null
+var story: Node = null
 ## Morning notices waiting for the screen to be free ([title, body]): finished Town Works.
 var _notices: Array = []
 
@@ -196,6 +200,20 @@ func _ready() -> void:
 	caravan.setup(zones["town"]["npcs"], zones["town"]["map"].get_node("Props"))
 	GameState.register_save_section("caravan", func() -> Dictionary: return caravan.save_state())
 	dialogue_ui.caravan_requested.connect(_on_caravan_requested)
+	festivals = FestivalsScript.new()
+	festivals.name = "Festivals"
+	add_child(festivals)
+	festivals.setup(self)
+	GameState.register_save_section("festivals", func() -> Dictionary: return festivals.save_state())
+	dialogue_ui.circle_check = Callable(festivals, "is_circle_gift")
+	story = StoryScript.new()
+	story.name = "Story"
+	add_child(story)
+	story.setup(self)
+	GameState.register_save_section("story", func() -> Dictionary: return story.save_state())
+	dialogue_ui.story_hook = Callable(story, "conversation_for")
+	dialogue_ui.story_opened.connect(story.on_opened)
+	dialogue_ui.story_choice.connect(story.on_choice)
 	town_works = TownWorksScript.new()
 	town_works.name = "TownWorks"
 	add_child(town_works)
@@ -254,6 +272,8 @@ func _ready() -> void:
 	menu_screen.quests = quests
 	menu_screen.market = market
 	menu_screen.caravan = caravan
+	menu_screen.festivals = festivals
+	menu_screen.story = story
 	menu_screen.expedition = expedition
 	player.menu_screen = menu_screen
 	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
@@ -281,9 +301,11 @@ func _ready() -> void:
 		quests.new_game(randi(), DayManager.day, DayManager.season())
 		market.new_game(randi())
 		caravan.base_seed = randi()
+		festivals.base_seed = randi()
 	else:
 		_apply_save(save_data)
 	caravan.on_day_started(DayManager.day, DayManager.season(), affinity.value_for(CaravanScript.NPC_ID))
+	festivals.on_day_started(DayManager.day, false)
 	town_works.apply()
 	_refresh_npc_markers()
 	_ensure_home_truck()
@@ -420,6 +442,13 @@ func _apply_save(data: Dictionary) -> void:
 		caravan.base_seed = hash([data.get("settlement_id", ""), data.get("saved_unix", 0), "caravan"])
 	else:
 		caravan.load_state(caravan_data)
+	var festival_data: Dictionary = data.get("festivals", {})
+	if festival_data.is_empty():
+		festivals.base_seed = hash([data.get("settlement_id", ""), data.get("saved_unix", 0), "festivals"])
+	else:
+		festivals.load_state(festival_data)
+	story.load_state(data.get("story", {}))
+	story.apply_effects()
 	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
 	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
 	if not zones.has(player.current_zone_id):
@@ -478,6 +507,9 @@ func _on_day_started(day: int) -> void:
 	caravan.on_day_started(day, DayManager.season(), affinity.value_for(CaravanScript.NPC_ID))
 	if caravan.is_here(day):
 		Events.message.emit("Tully's caravan is at the market stall today.")
+	festivals.on_day_started(day)
+	for notice in story.on_day_started(day):
+		_notices.append(notice)
 
 
 func _on_ranch_store_requested(target_npc: Node) -> void:
@@ -792,6 +824,8 @@ func dialogue_context() -> Dictionary:
 		flags["has_settlers"] = true
 	if caravan.is_here(day):
 		flags["caravan_day"] = true
+	flags.merge(festivals.flags(day))
+	flags.merge(story.flags())
 	return {"flags": flags}
 
 
@@ -846,5 +880,6 @@ func _refresh_npc_markers() -> void:
 	for zone_id in zones:
 		for npc in zones[zone_id]["npcs"].npcs():
 			if npc.has_method("set_quest_marker"):
-				npc.set_quest_marker(quests.is_requester(String(npc.npc_id)))
+				npc.set_quest_marker(quests.is_requester(String(npc.npc_id))
+					or (story != null and story.wants_talk(String(npc.npc_id))))
 

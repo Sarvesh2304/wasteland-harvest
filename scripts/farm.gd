@@ -35,6 +35,9 @@ var _crop_sprites: Dictionary = {}
 ## crops there are planted and keep growing whatever the season.
 var greenhouse_cells: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
+## Milestone D (The Signal, "Plant it here"): the vault's good stock gives each harvest this
+## chance of one more (scripts/story.gd sets it).
+var vault_extra_chance := 0.0
 
 var _test_map: Node2D
 
@@ -236,6 +239,8 @@ func harvest(cell: Vector2i) -> Dictionary:
 	var result := FarmGrid.harvest_yield(plot, crop_def, _rng.randf(), _rng.randf())
 	if result.is_empty():
 		return {}
+	if vault_extra_chance > 0.0 and _rng.randf() < vault_extra_chance:
+		result["count"] = int(result["count"]) + 1
 	var next := FarmGrid.after_harvest(plot, crop_def)
 	if next.is_empty():
 		_plots.erase(cell)

@@ -47,8 +47,12 @@ CATEGORY_ORDER = ["Tools", "Seeds", "Crops", "Forage", "Resources", "Food", "Art
 
 
 def registry():
+    # Milestone D's two quest-item icons (vault_seeds, festival_ribbon) are drawn with this kit by
+    # the living-settlement pipeline (tools/art/living/lv_items.py); registered here too so this
+    # pipeline writes the real icons (byte-identical to living's) instead of placeholders.
+    from living import lv_items
     reg = {}
-    for mod in (ia_tools, ia_seeds, ia_produce, ia_resources, ia_food, ia_gear, ia_place):
+    for mod in (ia_tools, ia_seeds, ia_produce, ia_resources, ia_food, ia_gear, ia_place, lv_items):
         for k, fn in mod.ICONS.items():
             if k in reg:
                 raise RuntimeError(f"icon {k} defined twice")

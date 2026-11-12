@@ -139,3 +139,24 @@ anything but its own files, and it asserts the size / anchoring contracts below)
   `talk_icon` 8x7): native size, warm outline, flat fill + one shade + one highlight, fully opaque,
   the same reds as `hp_icon.png` and the same cream as `ready_bubble.png`.
 - Review images: `art/characters/townsfolk_preview.png`, `art/buildings/_works_preview.png`.
+
+## 9. A living settlement (`tools/art/living/`, Milestone D)
+`python3 tools/art/living/build.py [stall buildings festival fx ruins items preview]` (or
+`python3 tools/art/build_all.py living`; an output allowlist and per-file size / anchoring checks
+in `build.py`). Colours: the "A living settlement" block at the end of `tools/art/palette.py`.
+Tully is drawn by the townsfolk kit (`tf_tully.py`).
+- **Edited copies keep their source's pixels**: `market_stall_open.png` is `market_stall.png`
+  bottom-aligned on a 48x56 canvas (plaque moved right to make room for the pack-goat), and
+  `mayor_house_antenna.png` is `mayor_house.png` bottom-aligned on 64x72; swapping the texture
+  changes only the dressing.
+- **Animals** keep ranch_goat.png's look: a 1 px outline all round (plum on the pack-goat). The
+  race goat (`art/fx/race_goat.png`, 4 frames of 24x16, running left) is neutral grey-white with
+  a near-neutral dark outline so `modulate` tints it; its bib is a blank white field inside a grey
+  hem.
+- **Festival dressing**: `bunting.png` starts and ends at row 2 so copies 64 px apart join;
+  `festival_lantern.png` is unlit / lit (props.gd `night_frame` 1), the paper's middle 22 px above
+  the base where festivals.gd puts the light; the lit frame carries a faint translucent halo.
+- **Vault door** (`art/env/ruins/vault_door.png`, sealed / open): ruins palette, cold outline and a
+  cold contact shadow; status lamps use VAULT_LAMP_RED / VAULT_LAMP_GREEN, never rad glow.
+- **Item icons** `vault_seeds` / `festival_ribbon` are drawn with the items kit (`ia_lib`).
+- Review image: `art/env/_previews/living.png`.

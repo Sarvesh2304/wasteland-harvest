@@ -48,6 +48,12 @@
       "liked": ["purified_water", "bandage", "rain_radish", "ash_beet", "frostroot", "wild_greens", "snow_yam"],
       "disliked": ["coffee", "choco_bar", "glow_wine"],
       "hated": ["rotgut", "rad_crystal"]
+    },
+    "caravan_trader": {
+      "loved": ["bottle_caps", "coffee", "corn_bread", "wasteland_walnut"],
+      "liked": ["canned_beans", "preserved_food", "purified_water", "sweet_reed", "potato_hash", "rotgut", "cloth_scrap"],
+      "disliked": ["scorch_pepper", "glowcap", "mutant_egg"],
+      "hated": ["mystery_jerky"]
     }
   }
 }

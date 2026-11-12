@@ -47,7 +47,10 @@ NPCS = {  # id: (name, personality) — spec section 1
     "brask": ("Brask", "Gruff Soldier"),
     "wren": ("Wren", "Secretive Scavenger"),
     "doc_ama": ("Doc Ama", "Gentle Medic"),
+    "caravan_trader": ("Tully", "Pragmatic Trader"),  # docs/LIVING_SETTLEMENT.md section 2
 }
+# Named NPCs who visit rather than live here (scripts/affinity.gd VISITOR_IDS): no requests.
+VISITORS = {"caravan_trader"}
 
 PROJECTS = {  # id: (name, npc, needs, credits) — spec section 6, in board order
     "shop_expansion": ("Marta's New Shopfront", "marta",
@@ -80,10 +83,14 @@ BASE_FLAGS = [
     "first_week", "after_day_28", "expedition_today", "died_recently", "veteran",
     "reached_downtown", "reached_industrial", "reached_core", "raiders_hostile", "raiders_trusted",
     "player_hurt", "player_irradiated", "rich", "has_animals", "has_settlers", "birthday",
+    # Milestone D (docs/LIVING_SETTLEMENT.md section 6)
+    "caravan_day", "festival_tomorrow", "festival_planting_day", "festival_scorch_fair",
+    "festival_harvest_day", "festival_winter_gathering", "story_signal", "story_broadcast",
+    "story_vault_open", "story_home", "story_shared",
 ]
 FLAGS = set(BASE_FLAGS)
 FLAGS |= {"project_" + p for p in PROJECTS} | {"project_%s_new" % p for p in PROJECTS}
-FLAGS |= {"has_request_" + n for n in NPCS}
+FLAGS |= {"has_request_" + n for n in NPCS if n not in VISITORS}
 WHEN_KEYS = {"season", "weather", "time", "weekday", "tier", "tier_max", "flag", "not_flag"}
 LINE_KEYS = {"text", "when", "priority", "once", "id"}
 
@@ -92,10 +99,15 @@ SENTINELS = {  # sentinel: the only NPC whose nodes may use it
     "OPEN_RANCH_STORE": "rancher_silas",
     "CLINIC_HEAL": "doc_ama",
     "OPEN_CLINIC_STORE": "doc_ama",
+    "OPEN_CARAVAN": "caravan_trader",
+    "STORY_HOME": "mayor_harlan",
+    "STORY_SHARED": "mayor_harlan",
 }
 # Nodes opened directly by code rather than reached from start/service.
 EXTRA_ENTRY_NODES = {
-    "mayor_harlan": ["day_28_food_shortage"],   # scripts/story_beats.gd, main.gd
+    "mayor_harlan": ["day_28_food_shortage",    # scripts/story_beats.gd, main.gd
+                     # The Signal (docs/LIVING_SETTLEMENT.md section 5), opened by the story code
+                     "story_static", "story_parts", "story_decision", "story_home_end", "story_shared_end"],
     "rancher_silas": ["not_yet"],               # main.gd's OPEN_RANCH_STORE redirect
 }
 GIFT_KINDS = {  # kind: (min, max) authored lines — spec section 3's gift targets
@@ -429,6 +441,38 @@ def check_services(dialogue, report):
             choices = node.get("choices", [])
             if choices and str(choices[0].get("text", "")).rstrip(".!") != "Patch me up":
                 report.warn(where, "the spec words clinic choice 0 'Patch me up'")
+        elif npc_id == "caravan_trader":
+            if service != "wares" or nexts[:1] != ["OPEN_CARAVAN"]:
+                report.error(where, "Tully's service must be wares, choice 0 -> OPEN_CARAVAN")
+    check_story_nodes(dialogue.get("mayor_harlan", {}).get("nodes", {}), report)
+
+
+def check_story_nodes(nodes, report):
+    """Harlan's story conversations (docs/LIVING_SETTLEMENT.md section 5)."""
+    where = "dialogue.mayor_harlan.nodes"
+
+    def follow(nid):
+        seen = set()
+        while nid in nodes and nid not in seen and "next" in nodes[nid]:
+            seen.add(nid)
+            nid = nodes[nid]["next"]
+        return nodes.get(nid)
+
+    for start in ("story_static", "story_parts", "story_home_end", "story_shared_end"):
+        if start not in nodes:
+            report.error(where, "missing %s" % start)
+            continue
+        end = follow(start)
+        if end is None or "choices" in end:
+            report.error("%s.%s" % (where, start), "must lead to a terminal line")
+    if "story_decision" not in nodes:
+        report.error(where, "missing story_decision")
+    else:
+        end = follow("story_decision")
+        nexts = [c.get("next") for c in (end or {}).get("choices", [])]
+        if nexts != ["STORY_HOME", "STORY_SHARED"]:
+            report.error("%s.story_decision" % where,
+                         "must lead to a node whose two choices are STORY_HOME then STORY_SHARED (got %s)" % nexts)
 
 
 def check_dialogue(dialogue, tc, report, stats, seen_ids):
@@ -653,7 +697,7 @@ def check_gifts(gifts, items, report):
         report.warn("gifts.universal", "the spec's example has everyone loving prewar_relic")
     npcs = gifts.get("npcs")
     if not isinstance(npcs, dict) or set(npcs) != set(NPCS):
-        report.error("gifts.npcs", "needs exactly the 7 NPC ids")
+        report.error("gifts.npcs", "needs exactly the %d NPC ids" % len(NPCS))
         npcs = npcs if isinstance(npcs, dict) else {}
     for npc_id in NPCS:
         placed = check_taste_block("gifts.npcs.%s" % npc_id, npcs.get(npc_id, {}), items, report, counts=True)
@@ -686,7 +730,7 @@ def check_requests(requests, items, seasons_of, tc, report, stats):
     if set(requests) - {"_comment", "templates"}:
         report.error("requests.json", "unknown keys %s" % sorted(set(requests) - {"_comment", "templates"}))
     ids = set()
-    per_npc = {n: 0 for n in NPCS}
+    per_npc = {n: 0 for n in NPCS if n not in VISITORS}
     for i, t in enumerate(requests["templates"]):
         where = "requests[%d]" % i
         if not isinstance(t, dict):
@@ -702,8 +746,8 @@ def check_requests(requests, items, seasons_of, tc, report, stats):
         if set(t) - REQUEST_KEYS:
             report.error(where, "unknown keys %s (the engine would ignore them)" % sorted(set(t) - REQUEST_KEYS))
         npc = t.get("npc")
-        if npc not in NPCS:
-            report.error(where, "npc %r is not one of the 7" % npc)
+        if npc not in per_npc:
+            report.error(where, "npc %r is not a resident named NPC (visitors post no requests)" % npc)
         else:
             per_npc[npc] += 1
         kind = t.get("kind")

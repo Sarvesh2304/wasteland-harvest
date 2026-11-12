@@ -188,3 +188,19 @@ particular had 3 other same-size sibling attempts on the account (`8b9f5dbe…`,
 the same session; the hash check is what disambiguated the shipped one from those rejects, not
 just the description text. Same 8-hour map-object auto-delete caveat as the rest of this file
 applies — these ids are historical provenance only, the shipped PNGs are the only copies.
+
+## Living settlement buildings (Milestone D) — code-generated, 3 kinds
+
+Not PixelLab: drawn in code by `tools/art/living/` (`python3 tools/art/build_all.py living`, or
+`python3 tools/art/living/build.py buildings`), deterministic, house palette (`tools/art/palette.py`,
+"A living settlement" block). Same contract as the Town Works sprites (docs/ART_STYLE.md section 8):
+exactly as wide as the footprint, standing on its bottom edge; `structures.gd` `_bottom_align`
+lifts the extra height above the footprint.
+
+| File | Size | Footprint | Source |
+|---|---|---|---|
+| `trading_post.png` | 48x44 | 3x2 | `lv_buildings.trading_post()` — shack.png's plum boards, storage_shed.png's tin roof, open front with shelves and a lantern, counter with a brass scale, a hanging plank sign painted with a balance scale |
+| `mayor_house_antenna.png` | 64x72 | 4x3 | `lv_buildings.mayor_house_antenna()` — `mayor_house.png`'s pixels untouched, pasted bottom-aligned on a taller canvas, plus a scrap lattice mast, fishbone aerial, guy wires and feed cable. The aerial is kept low (boom on row 25, mast foot on row 39, whip and red lamp up to row 12): the house stands on map row 1 and the camera's top edge cuts this sprite at about row 18 in game, so the whip runs off the top but the aerial shows |
+| `festival_booth.png` | 32x40 | 2x1 | `lv_buildings.festival_booth()` — teal/cream striped canopy, a string of little flags between the corner poles, a red-draped counter with a painted rosette |
+
+Review image: `art/env/_previews/living.png` (Godot-ignored).

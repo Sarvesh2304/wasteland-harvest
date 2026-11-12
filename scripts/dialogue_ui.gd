@@ -141,6 +141,14 @@ var npc: Node = null
 var player: Node = null
 var context_provider: Callable = Callable()
 var delivery_hook: Callable = Callable()
+## Milestone D: whether a gift to this NPC today is the player's Winter Gathering gift
+## (festivals.gd is_circle_gift); it counts five times, like a birthday.
+var circle_check: Callable = Callable()
+## Milestone D: the main story (story.gd conversation_for). Called with an NPC id; returns "" for
+## an ordinary chat, a node id to open instead (Harlan's story_* nodes), or {"text": ...} for a
+## one-off line. story_opened fires once such a conversation has actually opened.
+var story_hook: Callable = Callable()
+signal story_opened(npc_id: String, what: Variant)
 
 ## Nodes this conversation made up on the spot (today's line, the gift reaction), looked up
 ## before the authored ones.
@@ -176,6 +184,18 @@ func open_dialogue(target_npc: Node) -> bool:
 	# The first conversation ever is the intro tree; so is every conversation with an NPC that has
 	# no daily lines (settlers), or when no affinity track is bound (bare tools/tests).
 	var met := affinity != null and int(affinity.last_talked_day(id)) != -1
+	var story: Variant = story_hook.call(id) if story_hook.is_valid() and met else ""
+	if story is Dictionary or String(story) != "":
+		var opened := false
+		if story is Dictionary:
+			_dynamic = {"_story": {"text": String((story as Dictionary).get("text", "..."))}}
+			_gift_item = ""
+			opened = _open_dialogue_at(target_npc, "_story", true, false)
+		else:
+			opened = _open_dialogue_at(target_npc, String(story), true)
+		if opened:
+			story_opened.emit(id, story)
+		return opened
 	if not met or not DialogueDB.has_daily_lines(id):
 		return _open_dialogue_at(target_npc, DialogueDB.start_node_id(id), true)
 	return _open_daily(target_npc)
@@ -210,7 +230,7 @@ func _open_daily(target_npc: Node) -> bool:
 	var service := DialogueDB.service_node_id(id)
 	if service != "" and DialogueDB.when_matches(DialogueDB.service_when(id), ctx):
 		_after_line = service
-	_gift_item = _offerable_gift(target_npc, bool(ctx["flags"].has("birthday")))
+	_gift_item = _offerable_gift(target_npc, bool(ctx["flags"].has("birthday")) or _is_circle_gift(id))
 	if _gift_item != "":
 		_dynamic = {"_line": {"text": text, "choices": [
 			{"text": "Give the %s" % ItemDB.display_name(_gift_item), "next": GIFT_SENTINEL},
@@ -240,6 +260,10 @@ func conversation_context(npc_id: String) -> Dictionary:
 	ctx["flags"] = flags
 	ctx["tier"] = String(affinity.tier_for(npc_id)) if affinity != null else "stranger"
 	return ctx
+
+
+func _is_circle_gift(npc_id: String) -> bool:
+	return circle_check.is_valid() and bool(circle_check.call(npc_id))
 
 
 static func is_birthday(npc_id: String, day: int) -> bool:
@@ -452,7 +476,7 @@ func _give_gift() -> void:
 		else:
 			close()
 		return
-	var result: Dictionary = affinity.give_gift(id, _gift_item, DayManager.day, birthday)
+	var result: Dictionary = affinity.give_gift(id, _gift_item, DayManager.day, birthday or _is_circle_gift(id))
 	var reaction := String(result["reaction"])
 	var kind := reaction
 	if birthday:

@@ -35,6 +35,8 @@ signal object_added(anchor: Vector2i, kind: String)
 ## the ruins), the subway stairs were taken, a container was searched.
 signal vehicle_used(zone: String)
 signal descent_used
+## Milestone D: the vault door (scripts/story.gd decides what happens).
+signal door_used(anchor: Vector2i, kind: String)
 signal container_searched(kind: String)
 
 const CELL := 16
@@ -337,19 +339,20 @@ func pick(cell: Vector2i, inventory) -> Dictionary:
 	var anchor: Vector2i = _occupancy[cell]
 	var kind := String(_objects[anchor]["kind"])
 	var item := WorldObjectDB.forage_item(kind)
-	if item == "" or inventory == null or not inventory.can_add(item, 1):
+	var count := WorldObjectDB.forage_count(kind)
+	if item == "" or inventory == null or not inventory.can_add(item, count):
 		Events.message.emit("Your pack is full.")
 		return {}
-	inventory.add_item(item, 1)
+	inventory.add_item(item, count)
 	var center := _center_world(kind, anchor)
 	remove(anchor)
 	Audio.play_sfx_at("harvest", center)
 	Fx.burst(center, "sparkle", Vector2.UP, 0.6)
-	Events.item_gained.emit(item, 1)
+	Events.item_gained.emit(item, count)
 	var xp := WorldObjectDB.xp_of(kind)
 	for skill in xp:
 		Events.xp_gained.emit(String(skill), int(xp[skill]))
-	return {"item_id": item, "count": 1}
+	return {"item_id": item, "count": count}
 
 
 ## Spills `count` of an item into the world as a pickup (delay lets a toppling tree land first).
@@ -580,7 +583,9 @@ func _build_node(kind: String, anchor: Vector2i, variant: int) -> Node2D:
 	if not light_spec.is_empty():
 		var light := NightLight.make(Color(light_spec[0]), float(light_spec[1]), float(light_spec[2]),
 			float(light_spec[4]) if light_spec.size() > 4 else 0.0)
-		light.position = Vector2(0, -float(light_spec[3]))
+		light.name = "Light"
+		# An optional 6th value nudges the light sideways (the vault door's corner lamp).
+		light.position = Vector2(float(light_spec[5]) if light_spec.size() > 5 else 0.0, -float(light_spec[3]))
 		root.add_child(light)
 	var work_spec := WorldObjectDB.work_light_of(kind)
 	if not work_spec.is_empty():
@@ -608,6 +613,20 @@ func _build_node(kind: String, anchor: Vector2i, variant: int) -> Node2D:
 		root.add_child(body)
 	add_child(root)
 	return root
+
+
+## Shows frame `frame` of a multi-frame object (the vault door: 0 sealed, 1 open), and recolours
+## its light if `light_color` is given (the door's lamp goes from red to green).
+func set_frame(anchor: Vector2i, frame: int, light_color: String = "") -> void:
+	var node: Node2D = _nodes.get(anchor)
+	if node == null:
+		return
+	var sprite: Sprite2D = node.get_node_or_null("Sprite")
+	if sprite != null and frame < sprite.hframes:
+		sprite.frame = frame
+	var light := node.get_node_or_null("Light") as PointLight2D
+	if light != null and light_color != "":
+		light.color = Color(light_color)
 
 
 func _texture_for(kind: String, variant: int) -> Texture2D:
@@ -851,6 +870,8 @@ func instant_verb(cell: Vector2i, held_item: String) -> String:
 		return "Head home" if zone_id() == "ruins" else "Ride out"
 	if WorldObjectDB.is_descent(kind):
 		return "Go deeper"
+	if WorldObjectDB.is_story_door(kind):
+		return "Open"
 	if not WorldObjectDB.is_placed(kind):
 		return ""
 	if WorldObjectDB.storage_size(kind) > 0:
@@ -882,6 +903,9 @@ func interact_placed(cell: Vector2i, player) -> bool:
 		return true
 	if WorldObjectDB.is_descent(kind):
 		descent_used.emit()
+		return true
+	if WorldObjectDB.is_story_door(kind):
+		door_used.emit(anchor, kind)
 		return true
 	if not WorldObjectDB.is_placed(kind):
 		return false

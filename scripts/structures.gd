@@ -279,6 +279,23 @@ func _make_visual(kind: String, px_size: Vector2, blueprint: bool) -> CanvasItem
 	return sprite
 
 
+## Milestone D: redraws every layout building of `kind` with art/buildings/<art_kind>.png (Harlan's
+## house gets its antenna). No-op when that art doesn't exist yet.
+func set_layout_art(kind: String, art_kind: String) -> void:
+	var path := "res://art/buildings/%s.png" % art_kind
+	if not ResourceLoader.exists(path):
+		return
+	for id in _layout_kinds:
+		if String(_layout_kinds[id]) != kind or not (_layout_visuals.get(id) is Sprite2D):
+			continue
+		var sprite: Sprite2D = _layout_visuals[id]
+		var footprint: Vector2 = Vector2(sprite.texture.get_size())
+		# The footprint's pixel height is what the old art was bottom-aligned to.
+		var px_size := Vector2(footprint.x, footprint.y - (-sprite.offset.y * 2.0))
+		sprite.texture = load(path)
+		_bottom_align(sprite, px_size)
+
+
 ## Art taller than its footprint (a tower, a roof) rises above it: the sprite's bottom edge sits
 ## on the footprint's bottom edge instead of the art being centred on the footprint.
 static func _bottom_align(sprite: Sprite2D, px_size: Vector2) -> void:

@@ -21,6 +21,9 @@ const TABLE_CELL := Vector2i(14, 5)
 const TABLE_SIZE := Vector2i(2, 1)
 const DRESS_TAG := "festival"
 const GATHER_FROM_MINUTES := 9 * 60.0
+## Evening: the party breaks up and everyone goes back to their usual day (the dressing stays up
+## till morning, lanterns lit).
+const GATHER_UNTIL_MINUTES := 18 * 60.0
 const PACKET_KIND := "forage_seed_packet"
 ## Where each of the townsfolk stands in the square (a festival's own "spots" override these).
 const SPOTS := {
@@ -56,6 +59,7 @@ var race_seconds := 5.0
 
 var _dressed := ""
 var _gathered := false
+var _released := false
 var _stand_in: Node = null
 var _hunt: Dictionary = {}
 var _race_node: Node2D = null
@@ -105,8 +109,11 @@ func on_day_started(day: int, announce: bool = true) -> void:
 
 
 func _process(_delta: float) -> void:
-	if _dressed != "" and not _gathered and DayManager.minutes_into_day >= GATHER_FROM_MINUTES:
+	if _dressed != "" and not _gathered and DayManager.minutes_into_day >= GATHER_FROM_MINUTES \
+			and DayManager.minutes_into_day < GATHER_UNTIL_MINUTES:
 		_gather(FestivalDB.festival(_dressed))
+	elif _gathered and not _released and DayManager.minutes_into_day >= GATHER_UNTIL_MINUTES:
+		_release()
 	if not _hunt.is_empty() and not main.modal_gate.is_any_open():
 		var remaining: int = main.zones["town"]["objects"].count_kinds([PACKET_KIND])
 		if remaining == 0 or DayManager.minutes_into_day >= float(_hunt["end"]) \
@@ -119,6 +126,7 @@ func _process(_delta: float) -> void:
 func _dress(f: Dictionary) -> void:
 	_dressed = String(f["id"])
 	_gathered = false
+	_released = false
 	var town: Node = main.zones["town"]["structures"]
 	town.add_works_building(BOOTH_ID, "festival_booth", BOOTH_CELL, BOOTH_SIZE)
 	town.add_works_building(TABLE_ID, "festival_table", TABLE_CELL, TABLE_SIZE)
@@ -152,11 +160,18 @@ func _undress() -> void:
 	if _dressed == "":
 		return
 	_dressed = ""
-	_gathered = false
 	var town: Node = main.zones["town"]["structures"]
 	town.remove_works_building(BOOTH_ID, BOOTH_CELL, BOOTH_SIZE)
 	town.remove_works_building(TABLE_ID, TABLE_CELL, TABLE_SIZE)
 	main.zones["town"]["map"].get_node("Props").clear_temp(DRESS_TAG)
+	_release()
+	_gathered = false
+	_clear_packets()
+
+
+## Everyone back to their own day; Silas goes home to the ranch.
+func _release() -> void:
+	_released = true
 	var town_npcs: Node = main.zones["town"]["npcs"]
 	for npc in town_npcs.npcs():
 		npc.gather_cell = npc.NO_GATHER
@@ -164,7 +179,6 @@ func _undress() -> void:
 		town_npcs.despawn_npc(_stand_in)
 	_stand_in = null
 	main.zones["ranch"]["npcs"].set_away("rancher_silas", false)
-	_clear_packets()
 
 
 func is_dressed() -> bool:
@@ -410,6 +424,8 @@ func _judge_show(f: Dictionary, entry: Dictionary) -> void:
 	if place == 1:
 		for id in SPOTS:
 			main.affinity.adjust_points(String(id), FestivalDB.SHOW_WIN_FRIENDSHIP)
+		if ItemDB.has_item("festival_ribbon"):
+			_pay(0, {"festival_ribbon": 1})
 		Audio.play_stinger("stinger_victory", -4.0)
 	var board: Array[String] = ["You %d" % score]
 	for rival in FestivalDB.rival_scores(year):

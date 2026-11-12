@@ -33,3 +33,15 @@ full explanation of why this wasn't done in this session.
 Same as `art/crops/README.md`: the import gap was closed the same day (headless `--import`),
 and these 7 icon PNGs were then brightened/saturated in place (HSV saturation ×1.30, value
 ×1.12) along with the rest of the settlement-side art — see `GDD.md` §9's "Revision note."
+
+## Milestone D quest items — code-generated (`vault_seeds.png`, `festival_ribbon.png`)
+
+Drawn with the items pipeline's own kit (`tools/art/items/ia_lib.py` + its private ramps) by
+`tools/art/living/lv_items.py`, so they match the other code-generated icons (16x16, 1 px clear
+margin, top-left light, selective outline). Written by the living pipeline
+(`python3 tools/art/build_all.py living`) and also registered in `tools/art/items/build.py`'s
+icon registry, so the items pipeline writes the same bytes (rather than placeholders) now that
+both ids are in `data/items.json`.
+- `vault_seeds.png` — a sealed steel seed canister from the Northgate vault: clamped lid, cream
+  label with a stencilled green sprout.
+- `festival_ribbon.png` — a prize rosette: pleated red ring, gold heart, two notched tails.

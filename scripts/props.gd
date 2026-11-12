@@ -161,7 +161,8 @@ func add_temp(tag: String, prop: Dictionary) -> void:
 
 func clear_temp(tag: String) -> void:
 	for node in _temp.get(tag, []):
-		_props.erase(node)
+		if node is Sprite2D:
+			_props.erase(node)
 		_animated = _animated.filter(func(a): return a[0] != node)
 		_night_props = _night_props.filter(func(a): return a[0] != node)
 		(node as Node).queue_free()

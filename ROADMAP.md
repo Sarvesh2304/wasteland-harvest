@@ -121,9 +121,44 @@ drivers green) — not when code merely exists.
       - *No saving mid-run.*
 
 ### Milestone D — "A living settlement"
-- [ ] Settlement evolution visible on the map (projects add buildings, lights, settlers)
-- [ ] Economy: dynamic prices, caravan trader, trading post
-- [ ] Events and festivals; main story arc beats
+Spec: `docs/LIVING_SETTLEMENT.md`.
+- [x] Settlement evolution visible on the map (projects add buildings, lights, settlers)
+      *(Milestone B's Town Works and 2026-11-12):*
+      - *The four Town Works projects rebuild the shop, clinic, watchtower and greenhouse on the
+        map, each with window lights after dark (`scripts/town_works.gd`).*
+      - *Settlers move in and walk the town.*
+      - *Milestone D adds Tully's open stall on caravan days, player-built trading posts, the
+        dressed square on festival days and the antenna on Harlan's roof once the story
+        reaches it.*
+- [x] Economy: dynamic prices, caravan trader, trading post *(2026-11-11):*
+      - *Prices: shipping a lot of one thing floods its price (down to -40%), and it recovers
+        overnight. From day 8, Marta posts a weekly list of three items she pays +40% for
+        (`scripts/market_rules.gd`, `scripts/market.gd`).*
+      - *Tully's caravan comes Wednesdays and Saturdays from day 3. He has six limited offers
+        from a 30-item pool and gives 2% off per heart (`scripts/caravan.gd`,
+        `data/caravan.json`). He has his own dialogue, gifts and birthday.*
+      - *Trading post: a buildable shop whose shelf sells overnight at a Fair, Bold or Steep
+        markup, faster with a settler clerk.*
+      - *Tested by `tools/economy_smoke.gd`.*
+- [x] Events and festivals; main story arc beats *(2026-11-12):*
+      - *Four festivals, one a season (`data/festivals.json`, `scripts/festivals.gd`). Planting
+        Day has a seed hunt, Scorch Fair goat races, Harvest Day the harvest show, and Winter
+        Gathering a gift circle where your drawn name's gift counts five times.*
+      - *On the day the square is dressed and the town gathers from 9 AM to 6 PM. The day
+        before is announced. Every townsperson has lines for each festival.*
+      - *Tested by `tools/festival_smoke.gd`.*
+      - *The main story, "The Signal" (`data/story.json`, `scripts/story.gd`):*
+        - *Harlan's radio needs three Radio Parts, and every ruins level holds one until he has
+          them.*
+        - *The antenna goes up and the broadcast names the Northgate seed vault under The
+          Core. Its door wants a Keycard and the code from the Foreman's Letter (or from Wren,
+          if she's a friend).*
+        - *The player chooses: plant the seed at home (harvests can yield more, and Harlan
+          sends a share every Monday) or send it down the road (Tully comes four days a week
+          with more stock, and demand lists grow).*
+        - *Every NPC reacts to each step.*
+        - *Tested by `tools/story_smoke.gd`.*
+      - *Art: `tools/art/living/`.*
 
 ### Milestone E — "Ship-ready"
 - [ ] Title screen, intro, character naming/appearance presets

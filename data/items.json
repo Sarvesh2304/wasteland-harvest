@@ -152,5 +152,7 @@
   "lore_note": {"name": "Old Note", "type": "quest", "category": "Special", "stack_max": 99, "value": 0, "icon": "res://art/items/lore_note.png", "description": "A scrap of someone's last days. Read it."},
   "keycard": {"name": "Keycard", "type": "quest", "category": "Special", "stack_max": 99, "value": 0, "icon": "res://art/items/keycard.png", "description": "Opens a sealed door somewhere in the city."},
   "radio_part": {"name": "Radio Part", "type": "quest", "category": "Special", "stack_max": 99, "value": 0, "icon": "res://art/items/radio_part.png", "description": "Harlan needs these to bring the old radio tower back."},
+  "vault_seeds": {"name": "Vault Seed Stock", "type": "quest", "category": "Special", "stack_max": 1, "value": 0, "icon": "res://art/items/vault_seeds.png", "description": "Sealed canisters from the Northgate vault, every seal unbroken. Harlan will want to see this."},
+  "festival_ribbon": {"name": "Festival Ribbon", "type": "quest", "category": "Special", "stack_max": 99, "value": 0, "icon": "res://art/items/festival_ribbon.png", "description": "A rosette from the Harvest Day table. First place. Marta checked the sums twice."},
   "prewar_relic": {"name": "Pre-War Relic", "type": "resource", "category": "Special", "stack_max": 99, "value": 250, "icon": "res://art/items/prewar_relic.png", "description": "A strange little object from before. Collectors pay well."}
 }
