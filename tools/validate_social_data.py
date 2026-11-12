@@ -225,11 +225,14 @@ class TextChecker:
             "count": 2,
             "due": max(len(d) for d in WEEKDAY_NAMES),
             "npc": max(len(n) for n, _ in NPCS.values()),
+            "name": 12,   # the player's name: scripts/player_profile.gd NAME_MAX
         }
 
     def check(self, where, text, limit, tokens=(), soft_limit=False):
         """Glyphs, tokens, length (raw and worst-case expanded), hygiene and framing."""
         r = self.report
+        # {name} (the player's name, Milestone E) is filled by DialogueDB.fill everywhere.
+        tokens = tuple(tokens) + ("name",)
         if not isinstance(text, str) or not text.strip():
             r.error(where, "missing or empty text")
             return

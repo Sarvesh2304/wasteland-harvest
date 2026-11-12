@@ -33,6 +33,11 @@ const PATH := "res://data/dialogue.json"
 
 static var _dialogues: Dictionary = {}
 static var _loaded := false
+## The player's name for the {name} token (Milestone E, GDD.md §3: "NPCs greet the player by
+## name from day one"). Kept in step by GameState.set_profile(); "" (a pre-profile save, or a
+## test with no player) reads as "farmer" — see scripts/player_profile.gd's FALLBACK_NAME.
+static var player_name := ""
+const NAME_FALLBACK := "farmer"
 
 
 static func _ensure_loaded() -> void:
@@ -275,11 +280,14 @@ static func daily_seed(npc_id: String, day: int, salt: String = "") -> int:
 	return h
 
 
-## Replaces {key} tokens with `tokens` values.
+## Replaces {key} tokens with `tokens` values. {name} (the player's name) is always available:
+## it comes from `player_name` unless `tokens` passes its own "name".
 static func fill(text: String, tokens: Dictionary) -> String:
 	var out := text
 	for key in tokens:
 		out = out.replace("{%s}" % key, str(tokens[key]))
+	if out.contains("{name}"):
+		out = out.replace("{name}", player_name if player_name != "" else NAME_FALLBACK)
 	return out
 
 

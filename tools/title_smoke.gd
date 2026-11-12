@@ -90,8 +90,8 @@ func _physics_process(_delta: float) -> bool:
 			# -- Claim 1: the menu sees the slots; the Load panel lists both, newest first --
 			if ticks < 10:
 				return false
-			_check(title._menu_entries == ["New Game", "Load Game", "Exit"],
-				"menu offers all three options with slots present (got %s)" \
+			_check(title._menu_entries == ["New Game", "Load Game", "Options", "Exit"],
+				"menu offers all four options with slots present (got %s)" \
 					% str(title._menu_entries))
 			_drive("move_down")
 			_drive("use_tool")
@@ -206,7 +206,7 @@ func _physics_process(_delta: float) -> bool:
 				"the delete took ONLY the armed slot's file")
 			_drive("ui_cancel")  # ESC back to the menu
 			_check(title.mode == title.Mode.MENU, "ESC returned to the menu")
-			_check(title._menu_entries.size() == 3,
+			_check(title._menu_entries.size() == 4,
 				"Load Game still offered — slots remain after the single delete")
 			_enter_stage(8)
 		8:

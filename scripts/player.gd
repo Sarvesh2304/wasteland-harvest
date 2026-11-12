@@ -4,11 +4,11 @@ extends CharacterBody2D
 ## Movement: 4-directional CharacterBody2D with idle/walk/tool animations per facing.
 ##
 ## Two action buttons, Stardew-style:
-## - USE ("use_tool": Space / C / left mouse / pad X): swings the selected hotbar item at the
+## - USE ("use_tool": Space / C / left mouse / pad A): swings the selected hotbar item at the
 ##   TARGET CELL — till, water, chop, mine, cut, plant, fertilise, eat — and, for compatibility
 ##   and convenience, also performs the instant interactions below when one is directly ahead.
 ##   Holding it repeats the swing; holding a direction too walks tile-by-tile while working.
-## - INTERACT ("interact": E / X / right mouse / pad A): talk, open chests, sleep, use the
+## - INTERACT ("interact": E / X / right mouse / pad X): talk, open chests, sleep, use the
 ##   shipping box, harvest, pick forage, eat/plant the selected item. Never swings a tool.
 ##
 ## Target cell: the cell in front of the player (keyboard/pad), or — when the mouse has moved
@@ -30,6 +30,7 @@ const WorldObjectDB := preload("res://scripts/world_object_db.gd")
 const Combat := preload("res://scripts/combat.gd")
 const Radiation := preload("res://scripts/radiation.gd")
 const NightLight := preload("res://scripts/night_light.gd")
+const PlayerLook := preload("res://scripts/player_look.gd")
 
 signal energy_changed(current: float, max_energy: float)
 signal npc_dialogue_requested(npc: Node)
@@ -125,6 +126,12 @@ var _modal_open_last_frame := false
 var _stepping := false
 var _step_target := Vector2.ZERO
 var _mouse_aim_until := 0.0
+## Toggle-mode use latch (see _use_pressed) and the raw button's last state, for its press edge.
+var _use_latched := false
+var _use_raw_last := false
+## The right stick's aim direction this frame (ZERO when it's at rest).
+var _stick_aim := Vector2.ZERO
+const STICK_AIM_DEADZONE := 0.35
 var _last_target := Vector2i(-9999, -9999)
 var _footstep_timer := 0.0
 
@@ -157,6 +164,29 @@ var notice_ui: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
+## The authored frames (player.tscn's SpriteFrames), kept so apply_appearance() can always
+## recolour from the original rather than from an already-recoloured copy.
+var _base_frames: SpriteFrames = null
+
+
+## Milestone E: dresses the sprite in a character-creation look (scripts/player_profile.gd's
+## {"preset","hair","skin","outfit"}) — a palette swap of the same frames via
+## scripts/player_look.gd. main.gd calls it on boot for new games and loaded saves alike. The
+## current animation and frame carry over, so it is safe at any time.
+func apply_appearance(look: Dictionary) -> void:
+	if sprite == null:
+		return
+	if _base_frames == null:
+		_base_frames = sprite.sprite_frames
+	var anim := sprite.animation
+	var frame := sprite.frame
+	var playing := sprite.is_playing()
+	sprite.sprite_frames = PlayerLook.build_frames(_base_frames, look)
+	if sprite.sprite_frames.has_animation(anim):
+		sprite.animation = anim
+		sprite.frame = frame
+		if playing:
+			sprite.play(anim)
 
 
 func _ready() -> void:
@@ -189,6 +219,9 @@ func _physics_process(delta: float) -> void:
 		_knock = _knock.move_toward(Vector2.ZERO, 900.0 * delta)
 		return
 	var use_pressed := _use_pressed()
+	if modal_open or _zone_transitioning:
+		_use_latched = false  # toggle mode: opening anything stops the repeat
+	_read_stick_aim()
 	_instant_armed = instant_armed_next(_instant_armed, use_pressed, modal_open, _modal_open_last_frame)
 	_interact_armed = instant_armed_next(_interact_armed, Input.is_action_pressed("interact"),
 		modal_open, _modal_open_last_frame)
@@ -233,19 +266,53 @@ func _physics_process(delta: float) -> void:
 	velocity = input * SPEED * _speed_multiplier()
 	move_and_slide()
 	facing = facing_from_input(input, facing)
+	if _stick_aim != Vector2.ZERO:
+		facing = facing_from_input(_stick_aim, facing)  # twin-stick: the right stick wins facing
 	_play("walk" if input != Vector2.ZERO else "idle")
 	_tick_footsteps(delta, input != Vector2.ZERO)
 
 
-## Use-button state: keyboard/pad always; the mouse button only when not over a UI control.
+## Use-button state. Hold mode (the default): held = using, so holding repeats the swing.
+## Toggle mode (Settings "Use button: Tap to start/stop", an accessibility option for players who
+## can't hold a button): each tap flips a latch that stands in for holding; opening any modal, an
+## instant interaction (bed, chest, NPC...), a zone change or death releases it.
 func _use_pressed() -> bool:
+	var raw := _use_pressed_raw()
+	var settings := get_node_or_null("/root/Settings")
+	if settings == null or not settings.toggle_use():
+		_use_latched = false
+		_use_raw_last = raw
+		return raw
+	if raw and not _use_raw_last:
+		_use_latched = not _use_latched
+	_use_raw_last = raw
+	return _use_latched
+
+
+## The physical use button: keyboard/pad always; the mouse button only when not over a UI control.
+func _use_pressed_raw() -> bool:
 	if not Input.is_action_pressed("use_tool"):
 		return false
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and _mouse_over_ui():
-		# Only the mouse is holding it, and it's on the HUD: that click belongs to the UI.
-		return Input.is_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_C) \
-			or Input.is_joy_button_pressed(0, JOY_BUTTON_X)
+		# Only the mouse is holding it, and it's on the HUD: that click belongs to the UI — unless
+		# a key or button bound to use_tool (whatever the player rebound it to) is held as well.
+		return preload("res://scripts/settings.gd").held_without_mouse("use_tool")
 	return true
+
+
+## Right-stick aiming (the aim_* actions, controller only): while the stick is pushed it points
+## weapons (_aim_vector) and sets facing, so the target cursor follows it too; the mouse's claim
+## on aiming ends the moment the stick moves.
+func _read_stick_aim() -> void:
+	var v := Input.get_vector("aim_left", "aim_right", "aim_up", "aim_down") \
+		if InputMap.has_action("aim_left") else Vector2.ZERO
+	if v.length() < STICK_AIM_DEADZONE:
+		_stick_aim = Vector2.ZERO
+		return
+	_stick_aim = v.normalized()
+	_mouse_aim_until = 0.0
+	if not using_tool and not dead:
+		facing = facing_from_input(_stick_aim, facing)
 
 
 func _mouse_over_ui() -> bool:
@@ -582,6 +649,7 @@ func interact() -> void:
 
 
 func _do_instant(cell: Vector2i) -> void:
+	_use_latched = false
 	if structures != null and structures.is_chest_at(cell):
 		structures.interact_chest(cell)
 		Audio.play_sfx("chest_open", -4.0)
@@ -1092,6 +1160,8 @@ func _attack(item_id: String) -> void:
 
 
 func _aim_vector() -> Vector2:
+	if _stick_aim != Vector2.ZERO:
+		return _stick_aim
 	if mouse_aiming():
 		var v := get_global_mouse_position() - hit_center()
 		if v.length() > 2.0:
@@ -1200,7 +1270,7 @@ func _slash_fx(aim: Vector2) -> void:
 
 func _muzzle_fx(at: Vector2, aim: Vector2, loud: bool) -> void:
 	var path := "res://art/fx/muzzle_flash.png"
-	if loud and ResourceLoader.exists(path):
+	if loud and ResourceLoader.exists(path) and not Fx.reduce_flashes():
 		var flash := Sprite2D.new()
 		flash.texture = load(path)
 		flash.hframes = 3
@@ -1298,6 +1368,7 @@ func _die() -> void:
 		return
 	dead = true
 	using_tool = false
+	_use_latched = false
 	_stepping = false
 	velocity = Vector2.ZERO
 	_knock = Vector2.ZERO

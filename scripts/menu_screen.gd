@@ -19,7 +19,11 @@ extends CanvasLayer
 ##      only: placing still happens through the existing B-key build mode in the world.
 ##   3. ASSIGNMENTS — the live settler roster. Each row is an OptionButton whose choices are
 ##      completed, staffable buildings; choosing "Unassigned" releases the settler.
-##   4. CONTROLS — a static key-reference list (see CONTROLS_REFERENCE's sync warning).
+##   4. OPTIONS — (Milestone E part 2) the options screen, scripts/options_menu.gd: settings and
+##      the live, rebindable controls list (it replaced the hand-maintained CONTROLS page). The
+##      same screen the title screen's Options entry opens. While it's showing, Up/Down/Left/
+##      Right and Space/E go to it; Q / LB / RB still change tab, and Tab / Esc still close —
+##      except during a pending rebind, when every press goes to it (so Tab can be bound).
 ## Plus an always-visible footer action on every tab: Save & Return to Title ("use_tool"/Space,
 ## guarded by a press-again-to-confirm arm — the same two-press guard title_screen.gd's slot
 ## delete uses — so a stray Space can't dump the player to the title mid-thought). The save is
@@ -58,7 +62,7 @@ const Builder := preload("res://scripts/builder.gd")
 ## Milestone B (2026-10-08) adds JOURNAL (today and tomorrow, the request you hold, Town Works,
 ## the notes you've read) and PEOPLE (hearts, birthdays, tastes discovered). Eight names only fit
 ## the tab bar with INVENTORY shortened to ITEMS.
-const TAB_NAMES: Array[String] = ["ITEMS", "CRAFT", "SKILLS", "JOURNAL", "PEOPLE", "BUILD", "SETTLERS", "CONTROLS"]
+const TAB_NAMES: Array[String] = ["ITEMS", "CRAFT", "SKILLS", "JOURNAL", "PEOPLE", "BUILD", "SETTLERS", "OPTIONS"]
 const TAB_INVENTORY := 0
 const TAB_CRAFT := 1
 const TAB_SKILLS := 2
@@ -66,7 +70,8 @@ const TAB_JOURNAL := 3
 const TAB_PEOPLE := 4
 const TAB_BUILD := 5
 const TAB_ASSIGNMENTS := 6
-const TAB_CONTROLS := 7
+const TAB_OPTIONS := 7
+const OptionsMenu := preload("res://scripts/options_menu.gd")
 
 ## Same modal palette as store_ui.gd/title_screen.gd's lists.
 const TAB_ACTIVE_COLOR := Color("#c5520f")     # rust red — the established highlight
@@ -80,42 +85,14 @@ const QUIT_IDLE_COLOR := Color("#7b5025")
 const QUIT_HINT := "Space — Save & Return to Title"
 const QUIT_HINT_ARMED := "Space AGAIN — Save & Return to Title"
 
-## HAND-MAINTAINED controls reference. There is NO automated sync between this table and
-## project.godot's [input] bindings — if a binding ever changes there, the "keys" strings here
-## MUST be updated by hand, or this screen becomes worse than no controls screen at all.
-## tests/test_menu_screen.gd only guards the weaker half (every action named here still exists
-## in the InputMap), which catches renamed/removed actions but NOT rebound keys.
-## Current per project.godot (2026-10-07 input map): move WASD/arrows/stick; use_tool Space/C/
-## LMB/pad X; interact E/X/F/RMB/pad A; hotbar 1-9 and LB/RB; toggle_inventory Tab/I/pad Y;
-## build_toggle B; build_cycle Q; ui_cancel is Godot's built-in Esc.
-const CONTROLS_REFERENCE := [
-	{"keys": "W/A/S/D, Arrows, L-stick", "does": "Move",
-		"actions": ["move_up", "move_down", "move_left", "move_right"]},
-	{"keys": "Space, C, Left click, X", "does": "Use the held item; swing or fire a weapon",
-		"actions": ["use_tool"]},
-	{"keys": "E, F, Right click, A", "does": "Interact, harvest, talk (hold a gift to give it)",
-		"actions": ["interact"]},
-	{"keys": "1-9, LB/RB", "does": "Select hotbar slot",
-		"actions": ["hotbar_slot_1", "hotbar_slot_9", "hotbar_prev", "hotbar_next"]},
-	{"keys": "B", "does": "Enter/leave build mode",
-		"actions": ["build_toggle"]},
-	{"keys": "Q", "does": "Cycle blueprint / menu tab",
-		"actions": ["build_cycle"]},
-	{"keys": "Tab, I, Y", "does": "Open/close this menu",
-		"actions": ["toggle_inventory"]},
-	{"keys": "Esc", "does": "Close menu / back out",
-		"actions": ["ui_cancel"]},
-]
-
 @onready var box: Control = %Box
 @onready var tab_row: HBoxContainer = %TabRow
 @onready var inventory_tab: Control = %InventoryTab
 @onready var build_tab: Control = %BuildTab
 @onready var assignments_tab: Control = %AssignmentsTab
-@onready var controls_tab: Control = %ControlsTab
+@onready var options_tab: Control = %ControlsTab
 @onready var build_rows: VBoxContainer = %BuildRows
 @onready var assignments_rows: VBoxContainer = %AssignmentsRows
-@onready var controls_rows: VBoxContainer = %ControlsRows
 @onready var quit_label: Label = %QuitLabel
 
 ## True while the menu is open — the modal gate and player.gd's _in_menu() both read this
@@ -162,6 +139,11 @@ var caravan: Node = null
 var festivals: Node = null
 var story: Node = null
 var _people_index := 0
+## OPTIONS tab: the shared options screen (scripts/options_menu.gd).
+var options: Control = null
+var _hint_label: Label = null
+## SETTLERS tab: the highlighted settler (Up/Down), whose job Space/A cycles.
+var _assign_index := 0
 const CRAFT_ROWS_VISIBLE := 7
 const DIM_COLOR := Color("#8a7a63")
 const LOCKED_COLOR := Color("#a8988a")
@@ -184,15 +166,19 @@ func _ready() -> void:
 	_journal_tab = _new_tab_root("JournalTab")
 	_people_tab = _new_tab_root("PeopleTab")
 	_build_gear_row()
-	var hint := get_node_or_null("Root/Box/HintLabel") as Label
-	if hint != null:
-		hint.text = "Q / Left / Right: tabs    Tab / Esc: close"
-	# Controls rows are static text — built once here, never refreshed.
-	for line in controls_lines():
-		var label := Label.new()
-		label.text = line
-		label.add_theme_color_override("font_color", ROW_COLOR)
-		controls_rows.add_child(label)
+	_hint_label = get_node_or_null("Root/Box/HintLabel") as Label
+	_refresh_hint()
+	# The OPTIONS tab hosts the shared options screen, filling the tab's own area.
+	options = OptionsMenu.new()
+	options.name = "Options"
+	options.set_anchors_preset(Control.PRESET_FULL_RECT)
+	options_tab.add_child(options)
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null:
+		settings.input_device_changed.connect(func(_pad: bool) -> void:
+			_refresh_hint()
+			if active:
+				_refresh())
 
 
 ## Wired by main.gd once the player and HUD exist. Adopts the HUD's backpack GridContainer as
@@ -210,15 +196,44 @@ func bind(player: Node, inventory_grid: Control) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# A pending rebind on the OPTIONS tab gets every press (Tab and Esc included).
+	if active and tab_index == TAB_OPTIONS and options != null and options.capturing:
+		options.handle_input(event)
+		return
 	if event.is_action_pressed("toggle_inventory"):
 		if active:
 			close()
 		else:
 			open_menu()
+	elif event.is_action_pressed("journal"):
+		# The journal key (pad Back) opens straight onto the JOURNAL tab, and closes it again.
+		if active and tab_index == TAB_JOURNAL:
+			close()
+		elif active:
+			tab_index = TAB_JOURNAL
+			_quit_armed = false
+			_refresh()
+		else:
+			open_menu(TAB_JOURNAL)
 	elif not active:
 		return
 	elif event.is_action_pressed("ui_cancel"):
 		close()
+	elif tab_index == TAB_OPTIONS and (event.is_action_pressed("build_cycle") \
+			or event.is_action_pressed("hotbar_next") or event.is_action_pressed("hotbar_prev")):
+		tab_index = next_tab(tab_index) if not event.is_action_pressed("hotbar_prev") \
+			else prev_tab(tab_index)
+		_refresh()
+	elif tab_index == TAB_OPTIONS and options != null and options.handle_input(event):
+		return
+	elif tab_index == TAB_ASSIGNMENTS and (event.is_action_pressed("move_down") \
+			or event.is_action_pressed("move_up")):
+		_assign_index += 1 if event.is_action_pressed("move_down") else -1
+		Audio.play_sfx("ui_hover", -10.0)
+		_refresh_assignments()
+	elif tab_index == TAB_ASSIGNMENTS and (event.is_action_pressed("use_tool") \
+			or event.is_action_pressed("interact")):
+		_cycle_assignment()
 	elif tab_index == TAB_JOURNAL and event.is_action_pressed("interact") \
 			and journal_page == JOURNAL_NOTES:
 		_note_index += 1
@@ -250,24 +265,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		Audio.play_sfx("ui_hover", -10.0)
 		_refresh_people()
 	elif event.is_action_pressed("use_tool"):
-		if tab_index == TAB_ASSIGNMENTS:
-			_refresh_assignments()
-		else:
-			_quit_pressed()
+		_quit_pressed()
 
 
 ## Opening is refused while any other modal surface is open (modal_gate.gd's standard recipe);
 ## closing below is never gated. Always lands on the Inventory tab, Stardew-style — the menu
 ## key means "check my stuff", not "wherever I left off".
-func open_menu() -> void:
+func open_menu(start_tab: int = TAB_INVENTORY) -> void:
 	if active or _player == null:
 		return
 	if modal_gate != null and modal_gate.is_any_open_except(self):
 		return
 	active = true
-	tab_index = TAB_INVENTORY
+	tab_index = start_tab
 	_quit_armed = false
 	box.visible = true
+	if options != null:
+		options.reset_view()
 	_refresh()
 
 
@@ -275,6 +289,8 @@ func close() -> void:
 	active = false
 	_quit_armed = false
 	box.visible = false
+	if options != null and options.capturing:
+		options.cancel_capture()
 
 
 ## First press arms; second press saves and leaves. Any tab cycle, close, or re-open disarms.
@@ -317,7 +333,9 @@ func _refresh() -> void:
 	_people_tab.visible = tab_index == TAB_PEOPLE
 	build_tab.visible = tab_index == TAB_BUILD
 	assignments_tab.visible = tab_index == TAB_ASSIGNMENTS
-	controls_tab.visible = tab_index == TAB_CONTROLS
+	options_tab.visible = tab_index == TAB_OPTIONS
+	if tab_index == TAB_OPTIONS and options != null:
+		options.refresh()
 	if tab_index == TAB_BUILD:
 		_refresh_build_rows()
 	elif tab_index == TAB_ASSIGNMENTS:
@@ -330,7 +348,12 @@ func _refresh() -> void:
 		_refresh_journal()
 	elif tab_index == TAB_PEOPLE:
 		_refresh_people()
-	quit_label.text = "Space / E — Craft" if tab_index == TAB_CRAFT else quit_hint(_quit_armed)
+	var go := _prompt("use_tool")
+	quit_label.text = "%s / %s — Craft" % [go, _prompt("interact")] if tab_index == TAB_CRAFT \
+		else ("" if tab_index == TAB_OPTIONS else quit_hint(_quit_armed, go))
+	if tab_index == TAB_ASSIGNMENTS:
+		quit_label.text = "%s — Change job   %s — Pick settler" % [go, _nav_prompt()]
+	_refresh_hint()
 	quit_label.add_theme_color_override("font_color",
 		QUIT_ARMED_COLOR if _quit_armed else QUIT_IDLE_COLOR)
 
@@ -361,21 +384,26 @@ func _refresh_assignments() -> void:
 		empty_label.text = "No settlers yet — build Shelter Cabins and welcome a visitor."
 		assignments_rows.add_child(empty_label)
 		return
+	_assign_index = posmod(_assign_index, roster.size())
 	for roster_index in roster.size():
 		var entry: Dictionary = roster[roster_index]
 		var row := HBoxContainer.new()
 		var name_label := Label.new()
-		name_label.text = String(entry.get("name", entry.get("id", "Settler")))
+		name_label.text = ("> " if roster_index == _assign_index else "  ") \
+			+ String(entry.get("name", entry.get("id", "Settler")))
 		name_label.custom_minimum_size.x = 74.0
+		if roster_index == _assign_index:
+			name_label.add_theme_color_override("font_color", ACCENT_COLOR)
 		row.add_child(name_label)
 		var picker := OptionButton.new()
 		picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		picker.focus_mode = Control.FOCUS_NONE
 		picker.add_item("Unassigned")
 		picker.set_item_metadata(0, {})
-		var options: Array[Dictionary] = _player.settlers.assignment_options_for_settler(
+		var job_options: Array[Dictionary] = _player.settlers.assignment_options_for_settler(
 			String(entry.get("id", "")))
 		var selected := 0
-		for option in options:
+		for option in job_options:
 			picker.add_item(String(option.get("display_name", option.get("building_id", ""))))
 			var item_index := picker.item_count - 1
 			picker.set_item_metadata(item_index, option)
@@ -386,6 +414,27 @@ func _refresh_assignments() -> void:
 			String(entry.get("id", "")), picker))
 		row.add_child(picker)
 		assignments_rows.add_child(row)
+
+
+## Space/A on the SETTLERS tab: the highlighted settler's next job (Unassigned, then each
+## completed staffable building, wrapping) — the pad and keyboard route to the same choice the
+## mouse makes in the row's dropdown.
+func _cycle_assignment() -> void:
+	if _player == null or _player.settlers == null or _player.settlers.roster.is_empty():
+		return
+	var rows := assignments_rows.get_children().filter(func(c: Node) -> bool:
+		return c is HBoxContainer and not c.is_queued_for_deletion())
+	var roster: Array = _player.settlers.roster
+	var index := posmod(_assign_index, roster.size())
+	if index >= rows.size():
+		return
+	var picker := (rows[index] as HBoxContainer).get_child(1) as OptionButton
+	if picker == null or picker.item_count <= 1:
+		Audio.play_sfx("ui_error", -8.0)
+		return
+	Audio.play_sfx("ui_tab", -8.0)
+	_on_assignment_selected((picker.selected + 1) % picker.item_count,
+		String(roster[index].get("id", "")), picker)
 
 
 func _on_assignment_selected(option_index: int, settler_id: String, picker: OptionButton) -> void:
@@ -454,15 +503,37 @@ static func build_row_text(row: Dictionary) -> String:
 	return "%s — %s%s" % [String(row["name"]), String(row["cost_text"]), suffix]
 
 
-static func controls_lines() -> Array[String]:
-	var lines: Array[String] = []
-	for entry in CONTROLS_REFERENCE:
-		lines.append("%s — %s" % [String(entry["keys"]), String(entry["does"])])
-	return lines
+## The footer's Save & Return line; `go` names the use button on the device in use.
+static func quit_hint(armed: bool, go: String = "Space") -> String:
+	return (QUIT_HINT_ARMED if armed else QUIT_HINT).replace("Space", go)
 
 
-static func quit_hint(armed: bool) -> String:
-	return QUIT_HINT_ARMED if armed else QUIT_HINT
+## The bottom hint: how to change tab and close, in the current device's names.
+static func hint_text(pad: bool) -> String:
+	if pad:
+		return "LB / RB: tabs    Y / B: close"
+	return "Q / Left / Right: tabs    Tab / Esc: close"
+
+
+func _refresh_hint() -> void:
+	if _hint_label == null:
+		return
+	var settings := get_node_or_null("/root/Settings")
+	var pad := settings != null and bool(settings.using_pad)
+	var text := hint_text(pad)
+	if tab_index == TAB_OPTIONS and active:
+		text = "LB / RB: tabs    B: close" if pad else "Q: tabs    Tab / Esc: close"
+	_hint_label.text = text
+
+
+func _prompt(action: String) -> String:
+	var settings := get_node_or_null("/root/Settings")
+	return String(settings.prompt(action)) if settings != null else "Space"
+
+
+func _nav_prompt() -> String:
+	var settings := get_node_or_null("/root/Settings")
+	return String(settings.nav_prompt()) if settings != null else "Up/Down"
 
 
 

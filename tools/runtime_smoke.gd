@@ -255,6 +255,9 @@ func _initialize() -> void:
 	day_manager = root.get_node("DayManager")
 	game_state = root.get_node("GameState")
 	game_state.world_spawning_enabled = false
+	# Milestone E: this smoke drives the WORLD; the opening (intro / character creation) has its
+	# own driver, tools/opening_smoke.gd — skip straight from the picker to main.tscn here.
+	game_state.opening_enabled = false
 	root.get_node("DayManager").forced_weather = "clear"
 	# Stage 3 test hygiene (hard requirement, see class doc): point the whole save system —
 	# slot directory, legacy-migration source, and the pre-allocation save_path — at test-only
@@ -314,7 +317,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 5:
 				return false
 			_check(title.mode == title.Mode.MENU, "title screen boots on its main menu")
-			_check(title._menu_entries == ["New Game", "Exit"],
+			_check(title._menu_entries == ["New Game", "Options", "Exit"],
 				"with no slots, the menu hides Load Game entirely (got %s)" \
 					% str(title._menu_entries))
 			_check(title._menu_index == 0, "New Game is pre-highlighted")
@@ -1577,7 +1580,7 @@ func _physics_process(_delta: float) -> bool:
 			if ticks < 10:
 				return false
 			_check(title.mode == title.Mode.MENU, "fresh boot shows the title menu")
-			_check(title._menu_entries == ["New Game", "Load Game", "Exit"],
+			_check(title._menu_entries == ["New Game", "Load Game", "Options", "Exit"],
 				"the bed save's slot makes Load Game appear on the menu (got %s)" \
 					% str(title._menu_entries))
 			_drive_title_action("move_down")  # New Game -> Load Game

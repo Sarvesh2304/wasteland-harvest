@@ -108,6 +108,11 @@ func float_text(world_pos: Vector2, text: String, color: Color = Color("#ffedb1"
 	tw.chain().tween_callback(label.queue_free)
 
 
+func reduce_flashes() -> bool:
+	var settings := get_node_or_null("/root/Settings")
+	return settings != null and bool(settings.reduce_flashes())
+
+
 func register_camera(camera: Node) -> void:
 	_camera = camera
 
@@ -117,11 +122,12 @@ func shake(intensity: float, duration: float) -> void:
 		_camera.shake(intensity, duration)
 
 
-## Brief white flash on a CanvasItem (hit feedback).
+## Brief white flash on a CanvasItem (hit feedback). With "Reduce flashes" on (scripts/
+## settings.gd) it's a gentle brighten instead of a white-out.
 func flash(item: CanvasItem, seconds: float = 0.12) -> void:
 	if item == null or not is_instance_valid(item):
 		return
-	item.modulate = Color(3.0, 3.0, 3.0, 1.0)
+	item.modulate = Color(1.5, 1.5, 1.5, 1.0) if reduce_flashes() else Color(3.0, 3.0, 3.0, 1.0)
 	var tw := item.create_tween()
 	tw.tween_property(item, "modulate", Color.WHITE, seconds)
 

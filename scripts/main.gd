@@ -304,6 +304,9 @@ func _ready() -> void:
 		festivals.base_seed = randi()
 	else:
 		_apply_save(save_data)
+	# Milestone E: the look chosen at character creation (or restored from the save's "profile"
+	# section by GameState.load_save_from_disk) — same call for both paths.
+	player.apply_appearance(GameState.player_appearance)
 	caravan.on_day_started(DayManager.day, DayManager.season(), affinity.value_for(CaravanScript.NPC_ID))
 	festivals.on_day_started(DayManager.day, false)
 	town_works.apply()

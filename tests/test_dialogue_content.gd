@@ -49,7 +49,7 @@ func _check_text(where: String, text: String) -> void:
 	assert_true(text.strip_edges() != "", "%s has text" % where)
 	assert_true(text.length() <= MAX_LINE, "%s fits the box (%d chars)" % [where, text.length()])
 	assert_eq(_bad_chars(text), "", "%s uses only the font's glyphs" % where)
-	for token in ["{item}", "{season}"]:
+	for token in ["{item}", "{season}", "{name}"]:
 		text = text.replace(token, "")
 	assert_false(text.contains("{") or text.contains("}"), "%s has no unknown {tokens}" % where)
 

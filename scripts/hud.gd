@@ -743,8 +743,12 @@ func _refresh_prompt() -> void:
 		_prompt.add_theme_color_override("font_color", WARN_COLOR if warn else TEXT_COLOR)
 
 
-## The first keyboard key bound to an action, as text ("Space", "E").
+## What to press for an action on the device in use ("Space", "E" / "A", "X"): the Settings
+## autoload's prompt() follows rebinds and the last input device.
 func _key_name(action: String) -> String:
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null:
+		return String(settings.prompt(action))
 	for event in InputMap.action_get_events(action):
 		if event is InputEventKey:
 			var code: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
@@ -1000,9 +1004,12 @@ func _tick_combat_hud(delta: float) -> void:
 	_health_bar.visible = String(_player.current_zone_id) == "ruins" or hp < max_hp - 0.5
 	_hurt_flash = maxf(_hurt_flash - delta * 2.5, 0.0)
 	var low := 0.0
+	# "Reduce flashes" (scripts/settings.gd): a steady low-HP edge instead of a pulse, and a
+	# much softer flash on a hit.
+	var calm := Fx.reduce_flashes()
 	if hp < max_hp * 0.3 and not bool(_player.dead):
-		low = 0.35 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
-	_vignette.modulate.a = clampf(maxf(low, _hurt_flash * 0.8), 0.0, 1.0)
+		low = 0.35 if calm else 0.35 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
+	_vignette.modulate.a = clampf(maxf(low, _hurt_flash * (0.3 if calm else 0.8)), 0.0, 1.0)
 	_tick_expedition_widgets()
 
 

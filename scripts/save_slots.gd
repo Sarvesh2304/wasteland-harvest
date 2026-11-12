@@ -92,6 +92,10 @@ static func summarize(slot_id: int, data: Dictionary) -> Dictionary:
 		"settlement_name": String(settlement.get("name", settlement_id)),
 		"day": int(data.get("day", 1)),
 		"saved_unix": int(data.get("saved_unix", 0)),
+		# Milestone E: the player's name from the additive "profile" section ("" for a save
+		# from before character creation existed — the row then reads as it always did).
+		"player_name": String((data.get("profile", {}) as Dictionary).get("name", ""))
+			if data.get("profile", {}) is Dictionary else "",
 	}
 
 

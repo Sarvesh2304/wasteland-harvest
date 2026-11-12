@@ -435,7 +435,8 @@ func _goto_node(node_id: String) -> void:
 	_node_id = node_id
 	_elapsed = 0.0
 	_choice_index = 0
-	_full_text = String(_current_node().get("text", ""))
+	# Every node's text goes through fill() so authored lines can use {name} (Milestone E).
+	_full_text = DialogueDB.fill(String(_current_node().get("text", "")), {})
 	_refresh_body()
 	_refresh_choices()
 	_layout_box()
@@ -529,12 +530,22 @@ func _filtered_node() -> Dictionary:
 
 
 func _is_fully_revealed() -> bool:
-	return DialogueDB.visible_chars(_full_text.length(), _elapsed, CHARS_PER_SECOND) \
+	return DialogueDB.visible_chars(_full_text.length(), maxf(_elapsed, 0.001), chars_per_second()) \
 		>= _full_text.length()
 
 
+## The reveal speed: the "Text speed" setting (scripts/settings.gd), CHARS_PER_SECOND without it.
+## Instant reads as a speed no line can outrun.
+func chars_per_second() -> float:
+	var settings := get_node_or_null("/root/Settings")
+	if settings == null:
+		return CHARS_PER_SECOND
+	var cps := float(settings.text_chars_per_second())
+	return cps if cps > 0.0 else 1.0e9
+
+
 func _refresh_body() -> void:
-	var count := DialogueDB.visible_chars(_full_text.length(), _elapsed, CHARS_PER_SECOND)
+	var count := DialogueDB.visible_chars(_full_text.length(), maxf(_elapsed, 0.001), chars_per_second())
 	body_label.text = _full_text.substr(0, count)
 	var revealed := _is_fully_revealed()
 	hint_label.text = "" if not revealed else _hint_text()
@@ -545,9 +556,12 @@ func _refresh_body() -> void:
 
 
 func _hint_text() -> String:
+	var settings := get_node_or_null("/root/Settings")
+	var go := String(settings.prompt("use_tool")) if settings != null else "Space"
+	var nav := String(settings.nav_prompt()) if settings != null else "Up/Down"
 	if not _available_choices().is_empty():
-		return "Up/Down to choose, Space to confirm"
-	return "Space to continue"
+		return "%s to choose, %s to confirm" % [nav, go]
+	return "%s to continue" % go
 
 
 func _refresh_choices() -> void:
@@ -556,7 +570,7 @@ func _refresh_choices() -> void:
 		var label := _choice_labels[i]
 		if i < choices.size():
 			label.visible = true
-			label.text = String(choices[i].get("text", ""))
+			label.text = DialogueDB.fill(String(choices[i].get("text", "")), {})
 			label.add_theme_color_override("font_color",
 				CHOICE_SELECTED_COLOR if i == _choice_index else CHOICE_COLOR)
 		else:

@@ -13,7 +13,7 @@ const BuildingDB := preload("res://scripts/building_db.gd")
 func test_next_tab_cycles_forward_and_wraps() -> void:
 	var ring := [MenuScreen.TAB_INVENTORY, MenuScreen.TAB_CRAFT, MenuScreen.TAB_SKILLS,
 		MenuScreen.TAB_JOURNAL, MenuScreen.TAB_PEOPLE, MenuScreen.TAB_BUILD,
-		MenuScreen.TAB_ASSIGNMENTS, MenuScreen.TAB_CONTROLS]
+		MenuScreen.TAB_ASSIGNMENTS, MenuScreen.TAB_OPTIONS]
 	for i in ring.size():
 		assert_eq(MenuScreen.next_tab(ring[i]), ring[(i + 1) % ring.size()],
 			"%s -> %s" % [MenuScreen.TAB_NAMES[ring[i]], MenuScreen.TAB_NAMES[ring[(i + 1) % ring.size()]]])
@@ -22,7 +22,7 @@ func test_next_tab_cycles_forward_and_wraps() -> void:
 func test_tab_names_cover_exactly_the_real_tabs() -> void:
 	# Every tab is a working system (Milestone B added CRAFT, SKILLS, JOURNAL and PEOPLE); no
 	# placeholder stubs. INVENTORY became ITEMS so eight names fit the tab bar.
-	assert_eq(MenuScreen.TAB_NAMES, ["ITEMS", "CRAFT", "SKILLS", "JOURNAL", "PEOPLE", "BUILD", "SETTLERS", "CONTROLS"])
+	assert_eq(MenuScreen.TAB_NAMES, ["ITEMS", "CRAFT", "SKILLS", "JOURNAL", "PEOPLE", "BUILD", "SETTLERS", "OPTIONS"])
 	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_CRAFT], "CRAFT")
 	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_JOURNAL], "JOURNAL")
 	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_PEOPLE], "PEOPLE")
@@ -38,8 +38,8 @@ func test_tab_names_fit_the_tab_bar() -> void:
 
 
 func test_tabs_cycle_both_ways() -> void:
-	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_CONTROLS), MenuScreen.TAB_INVENTORY, "wraps forward")
-	assert_eq(MenuScreen.prev_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_CONTROLS, "wraps back")
+	assert_eq(MenuScreen.next_tab(MenuScreen.TAB_OPTIONS), MenuScreen.TAB_INVENTORY, "wraps forward")
+	assert_eq(MenuScreen.prev_tab(MenuScreen.TAB_INVENTORY), MenuScreen.TAB_OPTIONS, "wraps back")
 	assert_eq(MenuScreen.prev_tab(MenuScreen.TAB_SKILLS), MenuScreen.TAB_CRAFT)
 
 
@@ -94,32 +94,17 @@ func test_build_row_text_flags_missing_materials_in_text_not_just_color() -> voi
 		"Shelter Tent — 6 Wood  — missing materials")
 
 
-## -- Controls tab (hand-maintained list; see CONTROLS_REFERENCE's sync warning) --
+## -- OPTIONS tab (Milestone E part 2: the shared options screen replaced the hand-kept list) --
 
-func test_controls_reference_actions_all_exist_in_the_input_map() -> void:
-	# The strong half (key names matching project.godot) has NO automated sync by design; this
-	# guards the weak half — every action the list documents still exists, so a renamed/removed
-	# action can't leave a controls line describing nothing.
-	for entry in MenuScreen.CONTROLS_REFERENCE:
-		for action in entry["actions"]:
-			assert_true(InputMap.has_action(String(action)),
-				"controls line '%s' references live action '%s'" % [entry["does"], action])
+func test_options_tab_names_the_options_screen() -> void:
+	assert_eq(MenuScreen.TAB_NAMES[MenuScreen.TAB_OPTIONS], "OPTIONS")
 
 
-func test_controls_lines_render_one_line_per_entry() -> void:
-	var lines := MenuScreen.controls_lines()
-	assert_eq(lines.size(), MenuScreen.CONTROLS_REFERENCE.size())
-	assert_eq(lines[0], "W/A/S/D, Arrows, L-stick — Move")
-	for line in lines:
-		assert_true(line.find(" — ") != -1, "every line pairs keys with a description: %s" % line)
-
-
-func test_controls_list_documents_the_menus_own_keys() -> void:
-	# The menu must explain itself: its open/close key, tab cycling, and Esc all appear.
-	var joined := " | ".join(MenuScreen.controls_lines())
-	assert_true(joined.find("Tab, I, Y — Open/close this menu") != -1, "menu key documented")
-	assert_true(joined.find("menu tab") != -1, "Q's tab-cycling role documented")
-	assert_true(joined.find("Esc — Close menu") != -1, "Esc close documented")
+func test_hint_text_names_the_device_in_use() -> void:
+	var keys := MenuScreen.hint_text(false)
+	var pad := MenuScreen.hint_text(true)
+	assert_true(keys.contains("Tab") and keys.contains("Esc"), keys)
+	assert_true(pad.contains("LB") and pad.contains("B: close"), pad)
 
 
 ## -- Save & Return footer (press-again-to-confirm guard) --
@@ -131,3 +116,4 @@ func test_quit_hint_armed_and_idle_are_distinct_and_both_name_the_action() -> vo
 	assert_true(idle.find("Save & Return to Title") != -1)
 	assert_true(armed.find("Save & Return to Title") != -1)
 	assert_true(armed.find("AGAIN") != -1, "the armed state reads as a confirm prompt")
+	assert_true(MenuScreen.quit_hint(false, "A").begins_with("A — "), "the pad's button is named")

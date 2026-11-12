@@ -44,7 +44,7 @@
 			{"text": "New neighbours! I gave them the welcome speech. The short version. Forty minutes.", "when": {"flag": "has_settlers"}},
 			{"text": "My, you're doing well. Have you considered a voluntary civic contribution? Strictly voluntary. Strongly voluntary.", "when": {"flag": "rich"}},
 			{"text": "Kael brought you home over his shoulder, I hear. I've drafted a policy about that. The policy is: please don't.", "when": {"flag": "died_recently"}},
-			{"id": "harlan_first_week", "text": "How are you holding up? Your folks would want you to take it slow. Well, your mother would. Your father would want the fence painted.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"id": "harlan_first_week", "text": "How are you holding up, {name}? Your folks would want you to take it slow. Well, your mother would. Your father would want the fence painted.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
 			{"text": "About that notice-board request: no pressure. A little pressure. Civic pressure. The good kind.", "when": {"flag": "has_request_mayor_harlan"}, "priority": 1},
 			{"text": "Planting Day! Twelve packets hidden, two hours on the clock, and my speech. I've cut it to twenty minutes. Nineteen, if nobody claps.", "when": {"flag": "festival_planting_day"}, "priority": 8},
 			{"text": "Scorch Fair! I've fifty Credits on Pickles. Civic duty, farmer: somebody has to believe in the underdog. The undergoat.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
@@ -76,7 +76,7 @@
 			"already_today": ["One gift a day, farmer. There are rules. I wrote most of them."]
 		},
 		"nodes": {
-			"greet": {"text": "There you are, farmer! I've filed the deed to the farm in your name. In ink, in triplicate. It's official, and I have the stamp to prove it.", "next": "founding"},
+			"greet": {"text": "There you are, {name}! I've filed the deed to the farm in your name. In ink, in triplicate. It's official, and I have the stamp to prove it.", "next": "founding"},
 			"founding": {"text": "Twenty-odd years ago your parents and I stood on this spot with one fence post and an argument. Now look at it. A whole town's worth of arguments.", "next": "offer"},
 			"offer": {"text": "The town keeps a list of what needs doing, and I keep the list. It's a very good list. Care to be on it?", "choices": [
 				{"text": "Happy to help.", "next": "offer_yes"},
@@ -147,7 +147,7 @@
 			{"text": "Eggs, milk, the odd fizzy goat product. If your animals are working, you've got something to sell me.", "when": {"flag": "has_animals"}},
 			{"text": "Harlan told you about the reserve bins? I sell food for a living, and even I think he's right. Ship what you can spare.", "when": {"flag": "after_day_28"}},
 			{"text": "Back from the ruins? Anything shiny? I don't buy junk. I buy junk with potential.", "when": {"flag": "expedition_today"}},
-			{"id": "marta_first_week", "text": "I've written off your folks' tab. Eleven years of it. Don't argue. I've already torn out the page.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"id": "marta_first_week", "text": "I've written off your folks' tab, {name}. Eleven years of it. Don't argue. I've already torn out the page.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
 			{"text": "My shelf still has that gap you promised to fill. I've been staring at it. It's been staring back.", "when": {"flag": "has_request_marta"}, "priority": 1},
 			{"text": "Planting Day. Every packet in that hunt came off my shelf, and Harlan paid full price. I nearly hid one in the till.", "when": {"flag": "festival_planting_day"}, "priority": 8},
 			{"text": "Scorch Fair. I don't gamble. I've put twenty on Old Tin, which isn't gambling. Old Tin always finishes. That's an investment.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
@@ -179,7 +179,7 @@
 			"already_today": ["One gift a day, farmer. Any more and I'd have to declare it as income."]
 		},
 		"nodes": {
-			"greet": {"text": "Well, look at you. All grown up and owning land. I've been stocking seeds against the day you'd walk in. Don't make me regret the inventory.", "next": "stocktake"},
+			"greet": {"text": "Well, look at you, {name}. All grown up and owning land. I've been stocking seeds against the day you'd walk in. Don't make me regret the inventory.", "next": "stocktake"},
 			"stocktake": {"text": "Count's done: seeds, fertilizer, tinned rations, all present and only mildly suspicious. Credits only, mind. Whatever the bottle-cap man says, caps are not money.", "choices": [
 				{"text": "Let's see what you've got.", "next": "OPEN_STORE"},
 				{"text": "Mildly suspicious?", "next": "chicken"}
@@ -269,7 +269,7 @@
 			"already_today": ["One's plenty, kid. The truck only has so much room."]
 		},
 		"nodes": {
-			"greet": {"text": "Hold up. Oh. It's you. Last time you rushed this gate you were six and armed with a stick. I scout the road so the road doesn't scout us.", "next": "city"},
+			"greet": {"text": "Hold up. Oh. It's you, {name}. Last time you rushed this gate you were six and armed with a stick. I scout the road so the road doesn't scout us.", "next": "city"},
 			"city": {"text": "Past the gate, half a day's drive, there's the old city. Towers taller than anything alive, streets that still remember cars. Your folks kept you kids well clear of it.", "next": "ask"},
 			"ask": {"text": "Everything the fence keeps out lives there. So of course every kid in town grows up asking me what's inside.", "choices": [
 				{"text": "So what IS inside?", "next": "inside"},
@@ -348,7 +348,7 @@
 			"already_today": ["Now then, one's plenty. Save the rest for the goats. They'll pretend they earned it."]
 		},
 		"nodes": {
-			"greet": {"text": "Well, look who's come down to the Sanctuary. You used to sneak in here to feed the kids. The goat kind. Mind the grey one. She bites what she can reach.", "next": "stock"},
+			"greet": {"text": "Well, look who's come down to the Sanctuary. Young {name}! You used to sneak in here to feed the kids. The goat kind. Mind the grey one. She bites what she can reach.", "next": "stock"},
 			"stock": {"text": "Every beast here comes down from one stubborn line I kept breathing through the bad years. Clean stock's soft and precious, mutant stock's ugly and near unkillable. Keep both.", "next": "offer"},
 			"offer": {"text": "You'll want animals of your own one day. Something with a pulse to put in a barn. That what walks you down here?", "choices": [
 				{"text": "Can I buy some stock?", "next": "OPEN_RANCH_STORE"},
@@ -439,7 +439,7 @@
 			"already_today": ["One's enough. Go."]
 		},
 		"nodes": {
-			"greet": {"text": "Hm. You. Your father's kid.", "next": "fence"},
+			"greet": {"text": "Hm. {name}. Your father's kid.", "next": "fence"},
 			"fence": {"text": "Built this fence with him. First post's by the gate. Still standing. So am I.", "next": "ask"},
 			"ask": {"text": "Wall's my job. Anything comes over it, I hear first. You need something?", "choices": [
 				{"text": "Just saying hello.", "next": "hello"},
@@ -522,7 +522,7 @@
 			"already_today": ["One's plenty. Any more and I'll start wondering what you want."]
 		},
 		"nodes": {
-			"greet": {"text": "Well, well. Look who finally came out to the fire pit. I was starting to think the farm had eaten you, Mudfoot.", "next": "fence"},
+			"greet": {"text": "Well, well, {name}. Look who finally came out to the fire pit. I was starting to think the farm had eaten you, Mudfoot.", "next": "fence"},
 			"fence": {"text": "Remember sneaking out to the fence to listen to the city? You swore you heard music. It was a loose sheet of tin. Probably.", "next": "ask"},
 			"ask": {"text": "I go out there now. Into the ruins. Alone. Don't tell Kael I said 'into'.", "choices": [
 				{"text": "Take me with you.", "next": "with_you"},
@@ -576,7 +576,7 @@
 			{"text": "Kael carried you in and I patched you up. You were very brave and very unconscious. Let's not do that again.", "when": {"flag": "died_recently"}, "priority": 4},
 			{"text": "Back from the ruins. Show me your hands. Now your arms. Now your eyes. Fine. Go and eat something.", "when": {"flag": "expedition_today"}},
 			{"text": "You keep going into the ruins, and I keep seeing you after. Let's keep it in that order.", "when": {"flag": "veteran"}},
-			{"id": "doc_first_week", "text": "How are you sleeping? Grief makes everything heavier, even the hoe. Come and see me if it gets too heavy. That's an order.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
+			{"id": "doc_first_week", "text": "How are you sleeping, {name}? Grief makes everything heavier, even the hoe. Come and see me if it gets too heavy. That's an order.", "when": {"flag": "first_week"}, "priority": 2, "once": true},
 			{"text": "My request still stands. It's medical. Well, it's vegetables. Vegetables are medical.", "when": {"flag": "has_request_doc_ama"}, "priority": 1},
 			{"text": "Planting Day. Wear gloves for the hunt. Half those packets are hidden in places I'd rather not think about.", "when": {"flag": "festival_planting_day"}, "priority": 8},
 			{"text": "Scorch Fair. Hat, water, and stand well back from the goats. I've stitched three ankles at this fair. All Dorothy.", "when": {"flag": "festival_scorch_fair"}, "priority": 8},
@@ -607,7 +607,7 @@
 			"already_today": ["One gift a day is the dose. Don't overdo it."]
 		},
 		"nodes": {
-			"greet": {"text": "There you are. Hold still, let me look at you. Taller. Tired. You came out yelling in my clinic, you know, and you haven't stopped since.", "next": "tent"},
+			"greet": {"text": "There you are, {name}. Hold still, let me look at you. Taller. Tired. You came out yelling in my clinic, you know, and you haven't stopped since.", "next": "tent"},
 			"tent": {"text": "The clinic roof caved in two winters back, so I work out of a tent beside it until somebody fixes it. That's a hint.", "next": "ask"},
 			"ask": {"text": "So. Are you sleeping? Eating vegetables? Glowing at all?", "choices": [
 				{"text": "I'm fine, Doc.", "next": "fine"},
@@ -695,7 +695,7 @@
 			"already_today": ["One gift a day, friend. Any more and I'd have to start declaring them at checkpoints."]
 		},
 		"nodes": {
-			"greet": {"text": "Well, if it isn't the little cap collector, all grown up and owning land! It's Tully, friend, same as ever. Hat, beard, goat. Mostly goat.", "next": "road"},
+			"greet": {"text": "Well, if it isn't {name}, the little cap collector, all grown up and owning land! It's Tully, friend, same as ever. Hat, beard, goat. Mostly goat.", "next": "road"},
 			"road": {"text": "I've worked this road since before your folks' first fence post. I'm sorry they're not here to haggle with me. They were terrible at it. I adored them.", "next": "ask"},
 			"ask": {"text": "Wednesdays and Saturdays I'm at the stall in the south-west corner, with whatever the road coughs up. This is Interest. She bites, but only the merchandise.", "choices": [
 				{"text": "What have you got?", "next": "OPEN_CARAVAN"},

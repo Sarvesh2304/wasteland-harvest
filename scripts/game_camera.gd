@@ -62,10 +62,19 @@ func set_map_bounds(bounds: Rect2) -> void:
 ## Screen-shake hook for future combat (ROADMAP Phase 2): kick the camera with `intensity`
 ## (max pixel displacement) decaying linearly to zero over `duration` seconds. Nothing calls
 ## this yet — it exists so Phase 9 combat can, without touching the camera again.
+## Milestone E: the "Screen shake" accessibility setting (scripts/settings.gd) turns it off here,
+## at the one place every shake ends up.
 func shake(intensity: float, duration: float) -> void:
+	if not shake_enabled():
+		return
 	_shake_intensity = intensity
 	_shake_duration = maxf(duration, 0.001)
 	_shake_time_left = _shake_duration
+
+
+func shake_enabled() -> bool:
+	var settings := get_node_or_null("/root/Settings")
+	return settings == null or bool(settings.screen_shake())
 
 
 ## Pure clamp math: keep a camera center inside `bounds` given the visible view size.

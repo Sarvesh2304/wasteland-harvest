@@ -10,6 +10,12 @@ extends Control
 ## transitions to scenes/main.tscn, which reads the choice back via scripts/test_map.gd's
 ## layout selection.
 ##
+## Milestone E (GDD.md §3): the choice is framed as WHERE THE PLAYER'S PARENTS STAKED THEIR
+## CLAIM, a quarter-century ago — the player is the town's own child, not a newcomer. Its
+## behaviour is unchanged; only the destination of confirm moved: the New Game flow now plays
+## the opening (scenes/opening.tscn: intro -> character creation at the birth -> montage) before
+## main.tscn, unless GameState.opening_enabled is off (a test seam for world-only smoke tools).
+##
 ## Keyboard-only, reusing existing input actions rather than adding new ones to project.godot's
 ## [input] section (this screen is a separate scene from gameplay, so reusing action names here
 ## has no conflict): move_up/move_down (already W/S + arrows) cycle the highlighted settlement,
@@ -17,6 +23,9 @@ extends Control
 ## directly — a quicker path for players who already know which start they want.
 
 const SettlementDB := preload("res://scripts/settlement_db.gd")
+
+const OPENING_SCENE := "res://scenes/opening.tscn"
+const MAIN_SCENE := "res://scenes/main.tscn"
 
 const NAME_COLOR := Color("#ffc948")     # lamplight gold
 const LEAN_COLOR := Color("#95ac49")     # faded field green
@@ -75,7 +84,8 @@ func _confirm(index: int) -> void:
 	# game_state.gd's start_new_slot doc), so the first bed sleep's auto-save already knows
 	# exactly which slot file it owns and can never write over another playthrough's.
 	GameState.start_new_slot()
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	set_process_unhandled_input(false)
+	get_tree().change_scene_to_file(OPENING_SCENE if GameState.opening_enabled else MAIN_SCENE)
 
 
 func _refresh_display() -> void:

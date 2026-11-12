@@ -35,6 +35,10 @@ const SaveSlots := preload("res://scripts/save_slots.gd")
 const MENU_NEW_GAME := "New Game"
 const MENU_LOAD_GAME := "Load Game"
 const MENU_EXIT := "Exit"
+## Milestone E part 2: the options screen (scripts/options_menu.gd, the same one the in-game
+## menu's OPTIONS tab shows), opened over the title in its own panel; Esc / B comes back.
+const MENU_OPTIONS := "Options"
+const OptionsMenu := preload("res://scripts/options_menu.gd")
 
 ## Same row palette as store_ui.gd/dialogue_ui.gd's cycle-then-confirm lists.
 const ROW_COLOR := Color("#7b5025")            # worn wood (dark) — unselected row
@@ -46,7 +50,7 @@ const DELETE_COLOR := Color("#d13b27")         # warning red for the pending-del
 const MAX_VISIBLE_SLOTS := 6
 const DELETE_CONFIRM_SUFFIX := " — Q AGAIN TO DELETE"
 
-enum Mode { MENU, LOAD }
+enum Mode { MENU, LOAD, OPTIONS }
 
 @onready var menu_panel: Control = %MenuPanel
 @onready var load_panel: Control = %LoadPanel
@@ -78,6 +82,8 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if mode == Mode.MENU:
 		_menu_input(event)
+	elif mode == Mode.OPTIONS:
+		_options_input(event)
 	else:
 		_load_input(event)
 
@@ -90,6 +96,8 @@ func _show_menu() -> void:
 	_menu_entries = menu_entries(not _slots.is_empty())
 	_menu_index = 0
 	load_panel.visible = false
+	if options_panel != null:
+		options_panel.visible = false
 	menu_panel.visible = true
 	_refresh_menu()
 
@@ -115,6 +123,8 @@ func _confirm_menu() -> void:
 			get_tree().change_scene_to_file("res://scenes/settlement_select.tscn")
 		MENU_LOAD_GAME:
 			_show_load()
+		MENU_OPTIONS:
+			_show_options()
 		MENU_EXIT:
 			get_tree().quit()
 
@@ -213,6 +223,86 @@ func _refresh_load() -> void:
 		else format_saved_date(int(_slots[_slot_index].get("saved_unix", 0)))
 
 
+## -- Options panel --
+
+## Built on first use: a wood-framed cream panel like the in-game menu's, hosting the options
+## screen.
+var options_panel: Control = null
+var options_menu: Control = null
+
+
+func _show_options() -> void:
+	if options_panel == null:
+		_build_options_panel()
+	mode = Mode.OPTIONS
+	menu_panel.visible = false
+	load_panel.visible = false
+	options_panel.visible = true
+	options_menu.reset_view()
+
+
+func _options_input(event: InputEvent) -> void:
+	if options_menu.handle_input(event):
+		return
+	if event.is_action_pressed("ui_cancel"):
+		_show_menu()
+		_menu_index = maxi(_menu_entries.find(MENU_OPTIONS), 0)
+		_refresh_menu()
+
+
+func _build_options_panel() -> void:
+	options_panel = Control.new()
+	options_panel.name = "OptionsPanel"
+	options_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	options_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(options_panel)
+	var heading := Label.new()
+	heading.text = "OPTIONS"
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_color_override("font_color", Color("#ffc948"))
+	heading.add_theme_color_override("font_outline_color", Color("#281a0b"))
+	heading.add_theme_constant_override("outline_size", 2)
+	heading.add_theme_font_size_override("font_size", 16)
+	heading.position = Vector2(0, 4)
+	heading.size = Vector2(320, 18)
+	options_panel.add_child(heading)
+	var frame := ColorRect.new()
+	frame.color = Color("#7b5025")
+	frame.position = Vector2(6, 24)
+	frame.size = Vector2(308, 154)
+	options_panel.add_child(frame)
+	var inner := ColorRect.new()
+	inner.color = Color("#ffedb1")
+	inner.position = Vector2(8, 26)
+	inner.size = Vector2(304, 150)
+	options_panel.add_child(inner)
+	options_menu = OptionsMenu.new()
+	options_menu.name = "Options"
+	options_menu.position = Vector2(14, 29)
+	options_menu.size = Vector2(292, 145)
+	options_panel.add_child(options_menu)
+	var back := Label.new()
+	back.name = "OptionsHint"
+	back.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	back.add_theme_color_override("font_color", HINT_COLOR)
+	back.position = Vector2(0, 181)
+	back.size = Vector2(320, 10)
+	options_panel.add_child(back)
+	_refresh_options_hint()
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null:
+		settings.input_device_changed.connect(func(_pad: bool) -> void: _refresh_options_hint())
+
+
+func _refresh_options_hint() -> void:
+	var back := options_panel.get_node_or_null("OptionsHint") as Label if options_panel != null else null
+	if back == null:
+		return
+	var settings := get_node_or_null("/root/Settings")
+	var pad := settings != null and bool(settings.using_pad)
+	back.text = "D-PAD choose   A select   B back" if pad else "UP/DOWN choose   SPACE select   ESC back"
+
+
 ## -- Shared row-label pool --
 
 ## Grows/shrinks a VBox's Label children to exactly `count` (menu and slot lists both build
@@ -233,13 +323,19 @@ func _sync_row_labels(box: VBoxContainer, labels: Array[Label], count: int) -> v
 ## The menu's rows: Load Game only exists while there's something to load.
 static func menu_entries(has_slots: bool) -> Array[String]:
 	if has_slots:
-		return [MENU_NEW_GAME, MENU_LOAD_GAME, MENU_EXIT]
-	return [MENU_NEW_GAME, MENU_EXIT]
+		return [MENU_NEW_GAME, MENU_LOAD_GAME, MENU_OPTIONS, MENU_EXIT]
+	return [MENU_NEW_GAME, MENU_OPTIONS, MENU_EXIT]
 
 
-## One Load-screen row: "<slot id>. <Settlement Name> — Day <n>" (the documented auto-naming
-## scheme — see save_slots.gd's class doc for why slots aren't free-text named).
+## One Load-screen row: "<slot id>. <Name> — <Settlement Name> — Day <n>" (the documented
+## auto-naming scheme — see save_slots.gd's class doc for why slots aren't free-text named).
+## Since Milestone E the player's name leads the row; a save from before character creation
+## has none and keeps the old "<slot id>. <Settlement Name> — Day <n>" shape.
 static func format_slot_row(summary: Dictionary) -> String:
+	var player_name := String(summary.get("player_name", ""))
+	if player_name != "":
+		return "%d. %s — %s — Day %d" % [int(summary.get("slot_id", 0)), player_name,
+			String(summary.get("settlement_name", "")), int(summary.get("day", 1))]
 	return "%d. %s — Day %d" % [int(summary.get("slot_id", 0)),
 		String(summary.get("settlement_name", "")), int(summary.get("day", 1))]
 

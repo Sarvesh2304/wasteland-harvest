@@ -480,7 +480,7 @@ func _physics_process(_delta: float) -> bool:
 		8:
 			# -- Restored mid-soak: drive the title Load flow, verify, then sleep into day 4 --
 			if ticks == 10:  # title _ready has run; drive menu -> Load -> confirm the slot
-				_check(_title._menu_entries == ["New Game", "Load Game", "Exit"],
+				_check(_title._menu_entries == ["New Game", "Load Game", "Options", "Exit"],
 					"the mid-soak save's slot puts Load Game on the title menu")
 				_drive(_title, "move_down")  # New Game -> Load Game
 				_drive(_title, "use_tool")

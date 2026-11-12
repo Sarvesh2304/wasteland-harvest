@@ -8,8 +8,8 @@ const TitleScreen := preload("res://scripts/title_screen.gd")
 
 
 func test_menu_entries_with_and_without_slots() -> void:
-	assert_eq(TitleScreen.menu_entries(true), ["New Game", "Load Game", "Exit"])
-	assert_eq(TitleScreen.menu_entries(false), ["New Game", "Exit"],
+	assert_eq(TitleScreen.menu_entries(true), ["New Game", "Load Game", "Options", "Exit"])
+	assert_eq(TitleScreen.menu_entries(false), ["New Game", "Options", "Exit"],
 		"Load Game is hidden entirely on a first launch with nothing to load")
 
 

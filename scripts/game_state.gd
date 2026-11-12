@@ -38,6 +38,8 @@ extends Node
 const SettlementDB := preload("res://scripts/settlement_db.gd")
 const SaveData := preload("res://scripts/save_data.gd")
 const SaveSlots := preload("res://scripts/save_slots.gd")
+const PlayerProfile := preload("res://scripts/player_profile.gd")
+const DialogueDB := preload("res://scripts/dialogue_db.gd")
 
 ## Emitted after a successful save_game() write — the HUD's transient "WORLD SAVED" notice
 ## (scripts/hud.gd) listens to this rather than being called directly, so the save system
@@ -45,6 +47,25 @@ const SaveSlots := preload("res://scripts/save_slots.gd")
 signal game_saved
 
 var chosen_settlement_id: String = SettlementDB.DEFAULT_ID
+
+## -- Who the player is (Milestone E, GDD.md §3; rules in scripts/player_profile.gd) --
+## Set by the opening's character creation (scripts/opening.gd) before main.tscn boots, restored
+## from a save's additive "profile" section by load_save_from_disk(), and read by main.gd (to
+## dress the player), the dialogue box ({name}), the menu and the Load screen. Like
+## chosen_settlement_id they live here because they must survive the scene change into
+## main.tscn. Change them through set_profile() so DialogueDB's {name} token stays in step.
+var player_name := ""
+var player_pronouns: String = PlayerProfile.DEFAULT_PRONOUNS
+var player_appearance: Dictionary = PlayerProfile.default_appearance()
+
+## Test seam: the New Game flow plays the opening (intro -> character creation -> montage)
+## between the settlement picker and main.tscn. Smoke drivers that only care about the world
+## (tools/runtime_smoke.gd) set this false to go straight from the picker to main.tscn, exactly
+## as before Milestone E. Gameplay never touches it.
+var opening_enabled := true
+## Remembers, across launches, that this player has watched the intro once, so later new games
+## offer to skip straight to character creation. A var so test tooling can redirect it.
+var opening_meta_path := "user://opening.cfg"
 
 ## One-time scripted story state. Unlike the dialogue tree itself, this belongs in the save so a
 ## Day-28 trigger cannot replay after a normal end-of-day save and reload.
@@ -94,6 +115,8 @@ func start_new_slot() -> void:
 	save_path = SaveSlots.slot_path(saves_dir, SaveSlots.next_slot_id(existing_ids))
 	_pending_save_data = {}
 	day_28_food_shortage_seen = false
+	# A new playthrough is a new person: character creation (the opening) fills these in.
+	set_profile("", PlayerProfile.DEFAULT_PRONOUNS, PlayerProfile.default_appearance())
 	DayManager.day = 1
 	DayManager.minutes_into_day = float(DayManager.DAY_START_MINUTES)
 
@@ -164,6 +187,8 @@ func save_game(player: Node, zones: Dictionary, settlers: Node = null, animals: 
 		# section decode_affinity already treats as "no relationships yet".
 		"affinity": affinity.save_state() if affinity != null else {},
 		"story_flags": SaveData.encode_story_flags(day_28_food_shortage_seen),
+		# Milestone E: additive "profile" section (name, pronouns, look — player_profile.gd).
+		"profile": PlayerProfile.encode_profile(player_name, player_pronouns, player_appearance),
 	})
 	for section in _section_providers:
 		var provider: Callable = _section_providers[section]
@@ -214,6 +239,10 @@ func load_save_from_disk() -> bool:
 	if not SettlementDB.has_settlement(settlement_id):
 		return false
 	chosen_settlement_id = settlement_id
+	# Milestone E: who the player is. A pre-profile save decodes to the defaults (no name ->
+	# NPCs say "farmer", they/them, the sprite as drawn) — never a load failure.
+	var profile := PlayerProfile.decode_profile(data.get("profile", {}))
+	set_profile(String(profile["name"]), String(profile["pronouns"]), profile["appearance"])
 	_pending_save_data = data
 	return true
 
@@ -233,3 +262,32 @@ func take_pending_save() -> Dictionary:
 func delete_save() -> void:
 	if has_save():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+
+
+## -- Player profile (Milestone E) --
+
+## The one door for changing who the player is: normalises every field and keeps DialogueDB's
+## {name} token in step (dialogue text is filled from a static there, so lines read the name
+## without every caller having to pass it).
+func set_profile(new_name: String, pronouns: String, appearance: Dictionary) -> void:
+	player_name = PlayerProfile.finalize_name(new_name)
+	player_pronouns = PlayerProfile.normalize_pronouns(pronouns)
+	player_appearance = PlayerProfile.normalize_appearance(appearance)
+	DialogueDB.player_name = player_name
+
+
+## Whether this player has already watched the intro (any launch), so the opening can offer to
+## skip it. Existing save slots count too: anyone with a playthrough has been through a start.
+func has_seen_opening() -> bool:
+	var cfg := ConfigFile.new()
+	if cfg.load(opening_meta_path) == OK and bool(cfg.get_value("opening", "seen", false)):
+		return true
+	return not list_slots().is_empty()
+
+
+func mark_opening_seen() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(opening_meta_path)  # keep anything else that might be in it
+	cfg.set_value("opening", "seen", true)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(opening_meta_path.get_base_dir()))
+	cfg.save(opening_meta_path)
