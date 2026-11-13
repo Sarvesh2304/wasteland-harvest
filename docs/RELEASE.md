@@ -29,7 +29,7 @@ when it's on Linux.
 |---|---|---|
 | Linux | `build/linux/WastelandHarvest.x86_64` + `.pck` | x86_64 |
 | Windows Desktop | `build/windows/WastelandHarvest.exe` + `.pck` | x86_64, icon `art/ui/app_icon/icon.ico`, version 0.9.0.0 |
-| macOS | `build/macos/WastelandHarvest.zip` | Universal (Intel + Apple Silicon). **Unsigned and un-notarised**, so Gatekeeper will warn until it's signed with an Apple Developer ID. |
+| macOS | `build/macos/WastelandHarvest.zip` | Universal (Intel + Apple Silicon). **Ad-hoc signed** (Godot's built-in signer, `codesign/codesign=1`), not notarised. Fully unsigned, Apple Silicon Macs call the app "damaged" and offer to bin it; ad-hoc signed, they only need the one-time Open Anyway below. |
 
 All three leave out `tools/`, `tests/`, `graphify-out/` and the art preview sheets; the game
 never loads anything from them. Apple Silicon builds need ETC2/ASTC texture import, which is
@@ -45,8 +45,10 @@ skyline at dusk. It writes 32/256/512 px PNGs, a multi-size `.ico` and the proje
   then `"$GODOT_BIN" --path .` from the repo root runs the game. Without `-e` it opens the game,
   not the editor. The first run imports the assets for about a minute.
 - **As an app:** `GODOT=... tools/export_all.sh macos`, unzip `build/macos/WastelandHarvest.zip`,
-  and move `Wasteland Harvest.app` to Applications. It's unsigned, so the first launch needs
-  right-click > Open, or `xattr -dr com.apple.quarantine "/Applications/Wasteland Harvest.app"`.
+  and move `Wasteland Harvest.app` to Applications. It isn't notarised, so the first launch is
+  blocked once: System Settings > Privacy & Security > Open Anyway (or right-click > Open on
+  older macOS), or clear the download flag with
+  `xattr -dr com.apple.quarantine "/Applications/Wasteland Harvest.app"`.
 - **Saves, settings and logs** live in `~/Library/Application Support/Godot/app_userdata/Wasteland Harvest/`
   (`slot_*.json`, `settings.cfg`, `logs/godot.log`), shared by both ways of running. Older
   saves load into newer builds.
