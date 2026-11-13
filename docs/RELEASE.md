@@ -8,7 +8,7 @@ tools/export_all.sh linux      # just one
 ```
 
 The script reimports, exports each preset in `export_presets.cfg`, fails on any export error,
-and then runs the Linux build headlessly for ten seconds, failing if it logs an error.
+and on Linux then runs the Linux build headlessly for ten seconds, failing if it logs an error.
 
 ## What's needed
 
