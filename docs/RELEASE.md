@@ -29,7 +29,7 @@ when it's on Linux.
 |---|---|---|
 | Linux | `build/linux/WastelandHarvest.x86_64` + `.pck` | x86_64 |
 | Windows Desktop | `build/windows/WastelandHarvest.exe` + `.pck` | x86_64, icon `art/ui/app_icon/icon.ico`, version 0.9.0.0 |
-| macOS | `build/macos/WastelandHarvest.zip` | Universal (Intel + Apple Silicon). **Ad-hoc signed** (Godot's built-in signer, `codesign/codesign=1`), not notarised. Fully unsigned, Apple Silicon Macs call the app "damaged" and offer to bin it; ad-hoc signed, they only need the one-time Open Anyway below. |
+| macOS | `build/macos/WastelandHarvest.zip` | Universal (Intel + Apple Silicon). **Ad-hoc signed** by `tools/export_all.sh` after export (Apple's `codesign` on a Mac, `rcodesign` elsewhere), not notarised. See "Mac signing" below. |
 
 All three leave out `tools/`, `tests/`, `graphify-out/` and the art preview sheets; the game
 never loads anything from them. Apple Silicon builds need ETC2/ASTC texture import, which is
@@ -45,13 +45,27 @@ skyline at dusk. It writes 32/256/512 px PNGs, a multi-size `.ico` and the proje
   then `"$GODOT_BIN" --path .` from the repo root runs the game. Without `-e` it opens the game,
   not the editor. The first run imports the assets for about a minute.
 - **As an app:** `GODOT=... tools/export_all.sh macos`, unzip `build/macos/WastelandHarvest.zip`,
-  and move `Wasteland Harvest.app` to Applications. It isn't notarised, so the first launch is
-  blocked once: System Settings > Privacy & Security > Open Anyway (or right-click > Open on
-  older macOS), or clear the download flag with
-  `xattr -dr com.apple.quarantine "/Applications/Wasteland Harvest.app"`.
+  and move `Wasteland Harvest.app` to Applications. It isn't notarised, so a copy that was
+  downloaded is stopped once ("Apple could not verify…", with only Done or Move to Trash). Clear
+  the download flag and re-sign it locally with Apple's own tool, both built into macOS:
+  `xattr -dr com.apple.quarantine "/Applications/Wasteland Harvest.app"` then
+  `codesign --force --deep --sign - "/Applications/Wasteland Harvest.app"`. (Or System Settings >
+  Privacy & Security > Open Anyway after the first attempt. Right-click > Open no longer
+  bypasses this on macOS 15.)
 - **Saves, settings and logs** live in `~/Library/Application Support/Godot/app_userdata/Wasteland Harvest/`
   (`slot_*.json`, `settings.cfg`, `logs/godot.log`), shared by both ways of running. Older
   saves load into newer builds.
+
+## Mac signing
+
+The macOS preset exports **unsigned** (`codesign/codesign=0`), and `tools/export_all.sh` signs
+the app afterwards. Godot 4.7's built-in ad-hoc signer (`codesign/codesign=1`) writes a DER
+entitlements blob that doesn't parse (`rcodesign print-signature-info` fails on it), and macOS
+checks that blob at launch, so its builds wouldn't open. The script signs with Apple's
+`codesign --force --deep --sign -` on a Mac, or with `rcodesign sign` (ad-hoc when given no
+certificate) on Linux. Install rcodesign with `cargo install apple-codesign` and point
+`RCODESIGN=` at it. Without either, the macOS export stops with an error. A store release still
+needs a real Developer ID signature and notarisation (below).
 
 ## Before a store upload (Steam / itch.io)
 

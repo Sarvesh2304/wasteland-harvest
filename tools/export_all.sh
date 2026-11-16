@@ -10,6 +10,12 @@
 #     its templates/ folder at ~/.local/share/godot/export_templates/4.7.stable/ (Linux) or
 #     ~/Library/Application Support/Godot/export_templates/4.7.stable/ (macOS).
 #
+# macOS signing: Godot's own ad-hoc signer writes a malformed entitlements blob (found
+# 2026-11-16 with rcodesign), and macOS won't launch such an app. So the macOS preset exports
+# UNSIGNED and this script signs the app afterwards, ad-hoc, with Apple's `codesign` when run on
+# a Mac, or `rcodesign` (RCODESIGN=/path, or on PATH; `cargo install apple-codesign`) elsewhere.
+# With neither, the macOS export stops with an error rather than ship an app that won't open.
+#
 # Usage: tools/export_all.sh [linux|windows|macos ...]   (default: all three)
 # Portable to macOS's bash 3.2: no associative arrays, no GNU-only tools.
 set -euo pipefail
@@ -38,6 +44,36 @@ output_for() {
 	esac
 }
 
+## Unzips the macOS export, signs the .app ad-hoc with a proper signer, and zips it back up.
+sign_macos_zip() {
+	zip_path="$1"
+	work=$(mktemp -d)
+	(cd "$work" && unzip -q "$OLDPWD/$zip_path")
+	app=$(find "$work" -maxdepth 1 -name "*.app" | head -n 1)
+	[ -n "$app" ] || { echo "[export] no .app inside $zip_path" >&2; rm -rf "$work"; exit 1; }
+	rcodesign="${RCODESIGN:-$(command -v rcodesign || true)}"
+	if [ "$(uname -s)" = "Darwin" ] && command -v codesign >/dev/null 2>&1; then
+		echo "[export] signing $(basename "$app") ad-hoc with codesign"
+		codesign --force --deep --sign - "$app"
+		codesign --verify --deep --strict "$app"
+	elif [ -n "$rcodesign" ] && [ -x "$rcodesign" ]; then
+		echo "[export] signing $(basename "$app") ad-hoc with rcodesign"
+		"$rcodesign" sign "$app" >/dev/null
+	else
+		echo "[export] can't sign the macOS app: run this on a Mac, or install rcodesign" \
+			"(cargo install apple-codesign) and set RCODESIGN=/path/to/rcodesign." >&2
+		rm -rf "$work"
+		exit 1
+	fi
+	rm -f "$zip_path"
+	if command -v ditto >/dev/null 2>&1; then
+		ditto -c -k --keepParent "$app" "$zip_path"
+	else
+		(cd "$work" && zip -qry "$OLDPWD/$zip_path" "$(basename "$app")")
+	fi
+	rm -rf "$work"
+}
+
 targets="$*"
 [ -z "$targets" ] && targets="linux windows macos"
 
@@ -57,6 +93,9 @@ for t in $targets; do
 		exit 1
 	fi
 	[ -s "$out" ] || { echo "[export] $out missing" >&2; exit 1; }
+	if [ "$t" = "macos" ]; then
+		sign_macos_zip "$out"
+	fi
 done
 
 case " $targets " in
