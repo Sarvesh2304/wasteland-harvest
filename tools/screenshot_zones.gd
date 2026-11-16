@@ -36,7 +36,7 @@ const SHOTS_OPEN_PLAINS := [
 	# arrival is reframed from the old north gate to the new south one.
 	["town", Vector2i(17, 14), "south", "shot_zone_town_south_wall_resealed_4x.png"],
 	["farm", Vector2i(35, 29), "south", "shot_zone_farm_south_gate_4x.png"],
-	["ranch", Vector2i(17, 16), "north", "shot_zone_ranch_south_arrival_4x.png"],
+	["ranch", Vector2i(17, 1), "south", "shot_zone_ranch_north_arrival_4x.png"],
 ]
 ## Riverside pass: the Path's plank bridge and the town-bank landing (gap-in-the-river gate).
 const SHOTS_RIVERSIDE := [

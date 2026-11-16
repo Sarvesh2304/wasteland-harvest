@@ -113,8 +113,8 @@ const BUILDINGS: Array[Dictionary] = [
 
 ## Zone transitions (see test_map.gd's zone_exit_at / main.gd's _on_zone_exit_requested): the
 ## east-wall gate-break to the Path corridor, landing just inside Path's own west gate, and the
-## south-wall gate-break to the Ranch/Sanctuary, landing at (17,16) — the perimeter yard cell
-## directly north of the Ranch's own south gate at (17,17)/(18,17). Both entry cells are
+## south-wall gate-break to the Ranch/Sanctuary, landing at (17,1), the cell just inside the
+## Ranch's own north gate at (17,0)/(18,0) (2026-11-16: south off the farm, in at the ranch's top). Both entry cells are
 ## target-zone-local and hand-maintained (nothing derives them from the neighbour's geometry);
 ## tests/test_map_layouts.gd's bidirectional-consistency check is what keeps the two sides honest.
 static func zone_exits() -> Array[Dictionary]:
@@ -122,7 +122,7 @@ static func zone_exits() -> Array[Dictionary]:
 		{"gate_cells": [Vector2i(71, 15), Vector2i(71, 16)], "target_zone": "path",
 			"entry_cell": Vector2i(1, 4)},
 		{"gate_cells": [Vector2i(35, 31), Vector2i(36, 31)], "target_zone": "ranch",
-			"entry_cell": Vector2i(17, 16)},
+			"entry_cell": Vector2i(17, 1)},
 	]
 
 

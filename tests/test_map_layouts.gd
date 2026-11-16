@@ -236,6 +236,47 @@ func test_zone_exits_graph_is_bidirectionally_consistent() -> void:
 						% [zone_id, variant_name, target_id, entry, str(reverse["gate_cells"])])
 
 
+## Which edge of its zone a gate sits on: "north", "south", "west", "east" ("" if inland).
+static func _edge_of(layout, cells: Array) -> String:
+	var size: Vector2i = layout.size()
+	var c: Vector2i = cells[0]
+	if c.y == 0:
+		return "north"
+	if c.y == size.y - 1:
+		return "south"
+	if c.x == 0:
+		return "west"
+	if c.x == size.x - 1:
+		return "east"
+	return ""
+
+
+const OPPOSITE_EDGE := {"north": "south", "south": "north", "west": "east", "east": "west"}
+
+
+func test_zone_exits_keep_their_direction() -> void:
+	# 2026-11-16 playtest: walking off the farm's SOUTH edge put the player at the BOTTOM of the
+	# ranch, which reads as being thrown out the far side. The world has to stay spatially
+	# continuous: leaving a zone through its south edge arrives at the next zone's NORTH edge
+	# (and east -> west, and so on), so the seam you walked through is behind you.
+	for variant_name in VARIANT_ZONE_MAPS:
+		var zone_map: Dictionary = VARIANT_ZONE_MAPS[variant_name]
+		for zone_id in zone_map:
+			var layout = zone_map[zone_id]
+			for exit in layout.zone_exits():
+				var target_id := String(exit["target_zone"])
+				var leaving := _edge_of(layout, exit["gate_cells"])
+				assert_ne(leaving, "", "%s(%s)→%s: the gate %s is on the zone's edge" \
+					% [zone_id, variant_name, target_id, str(exit["gate_cells"])])
+				for back in zone_map[target_id].zone_exits():
+					if String(back["target_zone"]) != zone_id:
+						continue
+					var arriving := _edge_of(zone_map[target_id], back["gate_cells"])
+					assert_eq(arriving, String(OPPOSITE_EDGE.get(leaving, "?")),
+						"%s(%s): leaving %s by its %s edge arrives at %s's %s edge" \
+							% [zone_id, variant_name, zone_id, leaving, target_id, arriving])
+
+
 ## -- Farm-zone checks (the 3 starting layouts, farm-only since the split) --
 
 func test_farm_layouts_exactly_one_spawn() -> void:
@@ -495,23 +536,22 @@ func test_ranch_layouts_have_ranch_buildings() -> void:
 			kinds[String(b["kind"])] = kinds.get(String(b["kind"]), 0) + 1
 		for kind in ["ranch_house", "ranch_barn", "ranch_coop"]:
 			assert_eq(kinds.get(kind, 0), 1, "%s has exactly one %s" % [RANCH_NAMES[i], kind])
-		# The south zone gate (2 cells) + TWO cosmetic inner compound gates (2 cells each: the
-		# pre-existing row-4 break, plus a row-15 break added the same day as the relocation to
-		# remove the detour it otherwise left between the south arrival and the compound
-		# interior) = 6. Still only 1 real zone_exits() entry — asserted below — so a silent
-		# reversal (an extra exit, or the wrong wall growing a gate) can't hide behind the count.
+		# The zone gate (2 cells, in the NORTH wall since 2026-11-16: the ranch lies south of the
+		# farm, so you come in at its top) + TWO cosmetic inner compound gates (rows 4 and 15,
+		# 2 cells each) = 6. Still only 1 real zone_exits() entry, asserted below, so an extra
+		# exit or the wrong wall growing a gate can't hide behind the count.
 		assert_eq(layout.gate_cells().size(), 6,
-			"%s has the south farm gate + 2 cosmetic inner gates = 6 'G' cells" % RANCH_NAMES[i])
+			"%s has the north farm gate + 2 cosmetic inner gates = 6 'G' cells" % RANCH_NAMES[i])
 		var south_y: int = layout.size().y - 1
-		var south_gates: Array[Vector2i] = []
+		var north_gates: Array[Vector2i] = []
 		for cell in layout.gate_cells():
-			assert_true(cell.y != 0, "%s north wall is resealed (no 'G' in row 0)" % RANCH_NAMES[i])
-			if cell.y == south_y:
-				south_gates.append(cell)
-		assert_eq(south_gates.size(), 2, "%s south zone gate is 2 cells" % RANCH_NAMES[i])
-		for cell in south_gates:
-			assert_false(layout.is_solid(cell.x, cell.y - 1),
-				"%s south gate cell %s has open ground just inside it" % [RANCH_NAMES[i], cell])
+			assert_true(cell.y != south_y, "%s south wall is sealed (no 'G' in row %d)" % [RANCH_NAMES[i], south_y])
+			if cell.y == 0:
+				north_gates.append(cell)
+		assert_eq(north_gates.size(), 2, "%s north zone gate is 2 cells" % RANCH_NAMES[i])
+		for cell in north_gates:
+			assert_false(layout.is_solid(cell.x, cell.y + 1),
+				"%s north gate cell %s has open ground just inside it" % [RANCH_NAMES[i], cell])
 		# The new row-15 inner gate: confirm it's genuinely open on both sides (the approach
 		# yard below and the compound interior above), not just present in the wall string.
 		for gx in [17, 18]:

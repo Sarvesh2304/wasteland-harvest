@@ -43,6 +43,18 @@ extends RefCounted
 ##     COSMETIC walkable breaks — NOT zone exits. Row 4 predates the split; row 15 was added
 ##     alongside the relocation specifically to remove the detour above.
 ##
+## ## The gate moves to the NORTH wall (2026-11-16 playtest)
+##
+## The ranch lies SOUTH of the farm, but its gate was in its own south wall, so walking off the
+## farm's south edge put the player at the BOTTOM of the ranch, as if thrown out the far side.
+## Sarvesh flagged it in play. The zone gate is now at x17-18 in row 0 (the north wall) and row 17
+## is plain fence again: you walk south off the farm and come in at the top, just inside the gate
+## at (17,1), straight down through the compound's row-4 gate. Leaving north puts you back at the
+## farm's south gate. tests/test_map_layouts.gd test_zone_exits_keep_their_direction now checks
+## that every zone link keeps its direction (south edge -> north edge, east -> west). The row-15
+## break and the row-16 yard stay, as the compound's back gate and back yard. Where the notes
+## above say "SOUTH wall (x17-18, row 17)" for the zone exit, read north wall, row 0.
+##
 ## The riverside variant (ranch_layout_riverside.gd) differs only in its west column (river 'W'
 ## instead of fence 'F') — literal duplication with this cross-reference comment, matching the
 ## farm layout files' own convention.
@@ -52,7 +64,7 @@ const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all zones)
 
 const ROWS: Array[String] = [
-	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
 	"F..................................F",
 	"F..................................F",
 	"F..................................F",
@@ -69,7 +81,7 @@ const ROWS: Array[String] = [
 	"F....FFFFFFF.........FFFFFFFF.F....F",
 	"F....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
 	"F..................................F",
-	"FFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 ## Old combined-map coordinates minus (0, 31) — see the class doc's frame note. Markers N/Y/P
@@ -81,13 +93,13 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## One exit: the SOUTH gate out to the Farm (relocated 2026-08-09 — see the class doc). The
-## entry cell (35,30) is the open working ground directly north of the Farm's own south gate at
+## One exit: the NORTH gate out to the Farm (moved to the north wall 2026-11-16 — see the class
+## doc). The entry cell (35,30) is the open working ground directly north of the Farm's own south gate at
 ## (35,31)/(36,31), identical in all three farm variants. The compound's inner gate (row 4) is
 ## deliberately absent here — cosmetic/walkable only, see the class doc.
 static func zone_exits() -> Array[Dictionary]:
 	return [
-		{"gate_cells": [Vector2i(17, 17), Vector2i(18, 17)], "target_zone": "farm",
+		{"gate_cells": [Vector2i(17, 0), Vector2i(18, 0)], "target_zone": "farm",
 			"entry_cell": Vector2i(35, 30)},
 	]
 

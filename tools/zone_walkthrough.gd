@@ -33,31 +33,28 @@ const WAYPOINTS := [
 	# -- Spur 1: out the farm's south gate to the Ranch and back --
 	["farm", Vector2i(35, 5)],   # east along the homestead row to the south gate's column
 	["farm", Vector2i(35, 30)],  # straight down column 35, through the field, to the wall
-	["farm", Vector2i(35, 31)],  # south gate -> ranch, arriving at (17,16)
-	# The compound's own south wall (row 15) is solid, so the way in from the new gate is round
-	# the perimeter yard: west along row 16, north up the x1-4 corridor, east across the north
-	# yard, then south through the cosmetic inner gate at (17,4). Flagged as a UX wart in
-	# ranch_layout_standard.gd's class doc; walked here exactly as a player would have to.
-	["ranch", Vector2i(3, 16)],
-	["ranch", Vector2i(3, 2)],
+	["farm", Vector2i(35, 31)],  # south gate -> ranch, arriving at (17,1) under its north gate
+	# Since 2026-11-16 the ranch's gate is in its north wall, so the compound is straight ahead:
+	# down column 17 through the cosmetic inner gate at (17,4), and back up the same way.
 	["ranch", Vector2i(17, 2)],
 	["ranch", Vector2i(17, 7)],  # through the cosmetic inner compound gate into the yard
 	["ranch", Vector2i(17, 2)],  # and back out the same way (Silas's wander zone never entered)
-	["ranch", Vector2i(3, 2)],
-	["ranch", Vector2i(3, 16)],
-	["ranch", Vector2i(17, 16)],
-	["ranch", Vector2i(17, 17)],  # south gate -> farm, arriving at (35,30)
+	["ranch", Vector2i(17, 1)],
+	["ranch", Vector2i(17, 0)],  # north gate -> farm, arriving at (35,30)
 	# -- Spur 2: out the farm's east gate to the Path and the Town, and back --
 	["farm", Vector2i(70, 30)],  # east along the open row 30, south of the field
 	["farm", Vector2i(70, 15)],  # north up the clear column 70 to the east gate's row
 	["farm", Vector2i(71, 15)],  # east gate -> path
 	["path", Vector2i(22, 4)],
 	["path", Vector2i(23, 4)],   # east gate -> town
-	["town", Vector2i(2, 6)],
-	["town", Vector2i(15, 6)],
-	["town", Vector2i(15, 14)],  # down the plaza's clear column, west of the pond
-	["town", Vector2i(2, 14)],   # along the resealed south wall — no gate there any more
-	["town", Vector2i(2, 4)],
+	# Town decor (2026-11-16): the welcome signpost at (2,6) and a bench at (3,8) stand inside
+	# the west gate, and Harlan wanders the road around (10,4). So the leg goes down column 1 to
+	# row 7, which is clear of decor and of every NPC's wander zone, and east along it.
+	["town", Vector2i(1, 7)],
+	["town", Vector2i(15, 7)],
+	["town", Vector2i(15, 15)],  # down the plaza's clear column, west of the pond
+	["town", Vector2i(1, 15)],   # along the resealed south wall (row 14 has decor at x7-8)
+	["town", Vector2i(1, 4)],    # up column 1, west of the signpost
 	["town", Vector2i(0, 4)],    # west gate -> path
 	["path", Vector2i(1, 4)],
 	["path", Vector2i(0, 4)],    # west gate -> farm

@@ -35,8 +35,8 @@ const SAVE_PATH := "user://zone_smoke_save.json"
 ## the player at (70,15) — one cell west of the farm's east gate — because stage 2's held-key
 ## regression walks right from wherever stage 1 stops.
 const CROSSINGS := [
-	["farm", Vector2i(35, 31), "ranch", Vector2i(17, 16)],
-	["ranch", Vector2i(17, 17), "farm", Vector2i(35, 30)],
+	["farm", Vector2i(35, 31), "ranch", Vector2i(17, 1)],
+	["ranch", Vector2i(17, 0), "farm", Vector2i(35, 30)],
 	["farm", Vector2i(71, 15), "path", Vector2i(1, 4)],
 	["path", Vector2i(23, 4), "town", Vector2i(1, 4)],
 	["town", Vector2i(0, 4), "path", Vector2i(22, 4)],

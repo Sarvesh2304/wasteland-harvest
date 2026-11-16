@@ -7,7 +7,8 @@ extends RefCounted
 ## documents the 2026-08-09 relocation this variant mirrors cell-for-cell: the north gate at
 ## x17-18 row 0 resealed to solid fence, a new zone gate at x17-18 row 17, the single exit
 ## re-pointed from Town to the Farm, and the same-day second cosmetic break at x17-18 row 15
-## that connects the new arrival straight into the compound instead of around it.
+## that connects the new arrival straight into the compound instead of around it. The zone gate
+## then moved back to the north wall on 2026-11-16 (see ranch_layout_standard.gd), mirrored here.
 ##
 ## Riverside difference (MAPS.md §1 "the river IS the western wall"): the west column is river
 ## 'W' the whole way down, including both perimeter wall rows — otherwise identical to standard.
@@ -17,7 +18,7 @@ const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all zones)
 
 const ROWS: Array[String] = [
-	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
 	"W..................................F",
 	"W..................................F",
 	"W..................................F",
@@ -34,7 +35,7 @@ const ROWS: Array[String] = [
 	"W....FFFFFFF.........FFFFFFFF.F....F",
 	"W....FFFFFFFFFFFFGGFFFFFFFFFFFF....F",
 	"W..................................F",
-	"WFFFFFFFFFFFFFFFFGGFFFFFFFFFFFFFFFFF",
+	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
 ## Identical to the standard variant's list (the compound template is shared; only the west
@@ -46,12 +47,12 @@ const BUILDINGS: Array[Dictionary] = [
 ]
 
 
-## Same single exit as the standard variant (see ranch_layout_standard.gd's doc): the south gate
+## Same single exit as the standard variant (see ranch_layout_standard.gd's doc): the NORTH gate
 ## out to the Farm. riverside_layout.gd places its own south gate at the same (35,31)/(36,31)
 ## cells the other two farms use, so the entry cell is identical here too.
 static func zone_exits() -> Array[Dictionary]:
 	return [
-		{"gate_cells": [Vector2i(17, 17), Vector2i(18, 17)], "target_zone": "farm",
+		{"gate_cells": [Vector2i(17, 0), Vector2i(18, 0)], "target_zone": "farm",
 			"entry_cell": Vector2i(35, 30)},
 	]
 

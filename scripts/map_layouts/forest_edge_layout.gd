@@ -106,14 +106,14 @@ const BUILDINGS: Array[Dictionary] = [
 ## east-wall gate-break to the Path corridor, landing just inside Path's own west gate, and the
 ## south gate ((35,31)/(36,31) — the same two columns open_plains_layout.gd uses, since both pair
 ## with the shared ranch_layout_standard.gd), wired to the Ranch/Sanctuary by the 2026-08-09
-## relocation. Its entry cell (17,16) is ranch-local and MUST match open_plains_layout.gd's, since
+## relocation. Its entry cell (17,1), just inside the ranch's north gate since 2026-11-16, is ranch-local and MUST match open_plains_layout.gd's, since
 ## the one shared Ranch layout can carry only one return exit.
 static func zone_exits() -> Array[Dictionary]:
 	return [
 		{"gate_cells": [Vector2i(71, 15), Vector2i(71, 16)], "target_zone": "path",
 			"entry_cell": Vector2i(1, 4)},
 		{"gate_cells": [Vector2i(35, 31), Vector2i(36, 31)], "target_zone": "ranch",
-			"entry_cell": Vector2i(17, 16)},
+			"entry_cell": Vector2i(17, 1)},
 	]
 
 
