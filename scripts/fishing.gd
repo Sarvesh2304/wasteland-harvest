@@ -111,7 +111,9 @@ func setup(main_node: Node) -> void:
 	_alert = Sprite2D.new()
 	_alert.name = "BiteAlert"
 	_alert.texture = load(ALERT_ART) if ResourceLoader.exists(ALERT_ART) else null
-	_alert.position = Vector2(0, -27)
+	# Drawn at 2x (a whole-number scale keeps the pixel art crisp) and lifted clear of the head:
+	# at 1x the 7x11 mark was easy to miss in the 0.75 s hook window.
+	_alert.position = Vector2(0, -36)
 	_alert.z_index = 8
 	_alert.visible = false
 	player.add_child(_alert)
@@ -361,9 +363,10 @@ func _bite() -> void:
 	Audio.play_sfx("fish_bite", -2.0, 0.05)
 	_ripple(1.0)
 	_alert.visible = _alert.texture != null
-	_alert.scale = Vector2(0.4, 0.4)
+	_alert.scale = Vector2(0.8, 0.8)
 	var tw := _alert.create_tween()
-	tw.tween_property(_alert, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_alert, "scale", Vector2(3, 3), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_alert, "scale", Vector2(2, 2), 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	if _alert.texture == null:
 		Fx.float_text(player.global_position + Vector2(0, -24), "!", Color("#ffc948"), 6.0, 0.6)
 	changed.emit()

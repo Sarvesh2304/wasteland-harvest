@@ -26,8 +26,10 @@ const NEW_PROJECT_DAYS := 3
 const POOLS := {
 	"material": ["wood", "stone", "fiber", "hardwood"],
 	"salvage": ["copper_wire", "plastic", "rubber", "cloth_scrap", "glass", "battery", "scrap_metal"],
-	"cooked": ["cooked_meal", "potato_hash", "pepper_chili", "pumpkin_soup", "corn_bread"],
-	"artisan": ["berry_jam", "pickled_veg", "cheese", "honey", "glow_wine", "charcoal", "metal_bar"],
+	"cooked": ["cooked_meal", "potato_hash", "pepper_chili", "pumpkin_soup", "corn_bread",
+		"grilled_fish", "fish_stew"],
+	"artisan": ["berry_jam", "pickled_veg", "cheese", "honey", "glow_wine", "charcoal", "metal_bar",
+		"smoked_eel"],
 }
 const HUNT_ENEMIES: Array[String] = ["shambler", "runner", "bloater", "rad_hound"]
 const WEEKDAY_NAMES := {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday",
