@@ -45,3 +45,31 @@ both ids are in `data/items.json`.
 - `vault_seeds.png` — a sealed steel seed canister from the Northgate vault: clamped lid, cream
   label with a stencilled green sprout.
 - `festival_ribbon.png` — a prize rosette: pleated red ring, gold heart, two notched tails.
+
+## Fishing — code-generated (13 fish + 3 dishes)
+
+Drawn with the items pipeline's own kit (`tools/art/items/ia_lib.py`, 16x16, 1 px clear margin,
+top-left light, selective outline) by `tools/art/fishing/fi_fish.py` and `fi_dishes.py`, colours
+from the "Fishing" block of `tools/art/palette.py`. Written by the fishing pipeline
+(`python3 tools/art/build_all.py fishing`) and also registered in `tools/art/items/build.py`'s
+icon registry, so the items pipeline writes the same bytes (not placeholders) now that the ids
+are in `data/items.json`. Ids and stats: `docs/FISHING.md` §5-6.
+- `mud_minnow.png` — small, stubby, silt-brown with a dark side stripe and a tan belly.
+- `shellback_crawdad.png` — brick-red crawdad seen from above, claws up, round crimped shell.
+- `rustgill_carp.png` — deep, humped bronze carp; rust-orange gill plates; a barbel.
+- `sun_perch.png` — round gold sunfish disc, orange breast, teal bars, spiny crest.
+- `silver_dace.png` — slim blue-steel/silver dart with a huge chevron tail.
+- `ash_trout.png` — ash-grey trout leaping up-right, dark speckles, faded pink band.
+- `bog_eel.png` — peat-dark eel in an S-coil, yellow belly, fin ridge along its back.
+- `sludge_catfish.png` — flat-headed swamp-green catfish, whiskers, oily sludge dripping off it.
+- `frostfin.png` — ice-blue fish with pale, shard-like frosted fins.
+- `iron_pike.png` — gunmetal pike corner to corner, rivet spots, a toothed bear-trap jaw.
+- `glowfin.png` — deep-blue fish whose sail fins and flank spots glow rad green (it is
+  irradiated, so the hazard accent is earned); the glow tints the outline round its fins.
+- `two_headed_perch.png` — barred yellow-green perch with red-orange fins and two heads.
+- `old_mayor.png` — the legendary catfish, filling the icon: dark slate-bronze, old-gold eye,
+  cream barbels, a scar across its back, moss, a rusted hook still in its mouth.
+- `grilled_fish.png` — a golden grill-striped fish on the enamel plate, a sprig of greens.
+- `fish_stew.png` — the enamel stew bowl (as pumpkin_soup / cooked_meal), creamy chowder with
+  potato, greens and fish, a fish tail poking out, steam.
+- `smoked_eel.png` — the Bog Eel's own coil, lacquered mahogany with glints, smoke curling off.

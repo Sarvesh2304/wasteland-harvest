@@ -2,7 +2,11 @@
 (tools/art/items/ia_lib.py) so they match the other item icons: 1 px clear margin, light from
 the top-left, selective outline (dark local colour above / left, warm #281a0b below / right).
 
-Every fish faces left. They are told apart by silhouette first and colour second:
+Two ways of drawing, both through the kit's layers and outline pass: `draw` (ASCII masks shaded
+by the kit: inflate / flat) and `painted` (every pixel names its ramp index by hand) for the fish
+whose small details need exact shading. Colours: the "Fishing" block of tools/art/palette.py.
+
+Every fish but the crawdad faces left. They are told apart by silhouette first, colour second:
 
   mud_minnow         a stubby little silt-brown fish, the smallest of them
   shellback_crawdad  a brick-red crawdad seen from above, two big claws up
@@ -27,7 +31,6 @@ from ia_lib import Ramp
 import palette as P
 
 EYE = "#1c140c"            # fish eyes (warm near-black, never pure black)
-EYE_GLINT = "#f4ecd8"
 
 
 def _ramp(cols, outline=None):
@@ -86,9 +89,6 @@ def painted(rows, ramps: dict, legend: dict, sep: dict | None = None):
                 lays[val[0]].set([(i, j)], val[1])
     return s.render()
 
-
-def _pts(rows, ch):
-    return [(i, j) for j, row in enumerate(L.grid(rows)) for i, c in enumerate(row) if c == ch]
 
 
 # ----------------------------------------------------------------------------------------------

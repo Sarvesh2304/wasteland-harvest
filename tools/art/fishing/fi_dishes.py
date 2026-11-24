@@ -3,8 +3,9 @@ its shared containers so they sit with the other cooked food (potato_hash, pumpk
 cooked_meal):
 
   grilled_fish  a whole fish, golden and grill-striped, on the enamel plate (the bowls' enamel)
-  fish_stew     the enamel stew bowl (ia_food's bowl), creamy chowder with potato, greens and
-                fish chunks, a fish tail poking out of it
+  fish_stew     the enamel stew bowl (same shape and enamel as ia_food.bowl, which pumpkin_soup and
+                cooked_meal use), creamy chowder with potato, greens and fish chunks, a fish tail
+                poking out of it
   smoked_eel    the Bog Eel's own S-coil, lacquered mahogany with gold glints, smoke curling off
                 it (the way smoked goods are the raw item, darkened, with smoke)
 """

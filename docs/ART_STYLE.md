@@ -183,3 +183,29 @@ opening`; an output allowlist stops it from writing anything but its own files).
 - The farm page leaves a spot clear (`PLAYER_SPOTS`) where `scripts/opening.gd` draws the LIVE
   player sprite in the look just chosen.
 - Review image: `art/opening/_preview/opening.png`.
+
+## 11. Fishing (`tools/art/fishing/`, docs/FISHING.md section 9)
+`python3 tools/art/fishing/build.py [fish dishes fx preview]` (or `python3 tools/art/build_all.py
+fishing`; an output allowlist and per-file size / margin checks in `build.py`). Colours: the
+"Fishing" block at the end of `tools/art/palette.py`.
+- **Fish and dish icons** (`art/items/<id>.png`, 16x16) use the items kit (`ia_lib`) and are
+  registered in the items pipeline's icon registry too, so either pipeline writes the same bytes.
+  Fish face left (the crawdad is seen from above) and are told apart by silhouette before colour:
+  stubby minnow, clawed crawdad, humped carp, round perch disc, slim forked dace, leaping trout,
+  S-coiled eel, whiskered catfish, shard-finned frostfin, corner-to-corner pike, sail-finned
+  glowfin, two-headed perch, and the Old Mayor filling the whole icon. Small details that inflate
+  shading would smear (gill plates, scars, whiskers, teeth) are hand-shaded with `fi_fish.painted`.
+- **Glowfin** is the one fish allowed rad-glow green: it is irradiated, so the hazard accent is
+  honest. Its glow also tints the outline pixels round its fins (`GLOWFIN_HALO`).
+- **Dishes** reuse the cooked-food containers: the enamel bowl for Fish Stew (as pumpkin_soup,
+  cooked_meal) and the same enamel for the Grilled Fish plate. Smoked Eel is the Bog Eel's own
+  coil recoloured to lacquered mahogany with smoke, the way smoked goods read as the raw item.
+- **Bobber** (`art/fx/bobber.png`, 16x8 = float / dip, 8x8 each): warm-outlined red-and-cream
+  float; the waterline is row 5 at the frame's centre (put the frame's (4, 5) on the water point).
+  Ripple rings are translucent foam.
+- **Splash** (`art/fx/splash.png`, 48x16 = rising / full / falling, 16x16 each): foam and pale
+  water blues (`SPLASH_RAMP`) with translucent rings, centred on column 8, water surface row 12.
+  No outline, so it sits on the water rather than on top of it.
+- Review image: `art/env/_previews/fishing.png` (icons beside existing ones on cream and dark, and
+  the bobber / splash frames on a pond with the player).
+
