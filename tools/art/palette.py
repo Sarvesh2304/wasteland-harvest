@@ -268,3 +268,53 @@ STAR = "#e8e4cf"              # stars (warm off-white, never pure white)
 MOON = ["#b9b6a4", "#dedac4", "#f4f0dc"]
 SNOW_RAMP = ["#8f9aa6", "#b6c1c8", "#d5dcdf", "#e9edee"]     # first-winter snow cover at night
 GRAVE_STONE_RAMP = ["#4a463e", "#6c665a", "#8d877a", "#aaa395"]  # the parents' markers (settlement stone)
+
+
+# -- Fishing (added by tools/art/fishing/, docs/FISHING.md section 9) ---------------------------
+# The 13 fish icons, the three fish dishes, the bobber and the splash. Ramps run darkest ->
+# lightest. Settlement side; GLOWFIN_GLOW_RAMP is the one rad-glow accent (a mutated fish).
+MINNOW_RAMP = ["#2a2416", "#443a22", "#62542e", "#80703c", "#9c8a4e", "#b8a668"]   # Mud Minnow: silt brown-olive back
+MINNOW_BELLY_RAMP = ["#6a5c40", "#94845e", "#bcac82", "#dccca2"]                   # ... dusty tan belly
+CRAWDAD_RAMP = ["#3a120c", "#5e1c12", "#86301a", "#ac4824", "#cc6634", "#e48a50"]  # Shellback Crawdad: brick-red shell
+CRAWDAD_BELLY_RAMP = ["#7a3a20", "#a85a32", "#cc7e4a", "#e8a46a"]                  # ... paler claw tips / tail fan
+CARP_RAMP = ["#262412", "#403a1a", "#5e5424", "#7c6e30", "#9a8a40", "#b8a65a"]     # Rustgill Carp: bronze-olive scales
+CARP_BELLY_RAMP = ["#7a6a3c", "#a49052", "#c8b46e", "#e2d090"]                     # ... brass belly
+RUSTGILL_RAMP = ["#4a1e0e", "#7a3016", "#a8481e", "#d06a2a", "#ec9244"]            # ... the rust-orange gill plates
+PERCH_SUN_RAMP = ["#3e3410", "#665818", "#907c22", "#b8a030", "#d8c048", "#f0dc78"]  # Sun Perch: sunny gold-olive back
+PERCH_SUN_BELLY_RAMP = ["#8a3a10", "#b85618", "#e07a26", "#f8a040"]               # ... orange breast
+PERCH_SUN_BAR = "#4e7a6e"      # Sun Perch: dusky teal bars / cheek lines
+DACE_RAMP = ["#232a34", "#38465a", "#566a80", "#7e94a6", "#aebec8", "#e2eaec"]     # Silver Dace: blue-steel back -> silver
+DACE_BELLY_RAMP = ["#8c969a", "#b8c2c4", "#dce4e2", "#f6faf6"]                     # ... bright silver belly
+ASH_TROUT_RAMP = ["#24211e", "#3a3530", "#544c44", "#706658", "#8e8472", "#aca28e"]  # Ash Trout: ash-grey back
+ASH_TROUT_BELLY_RAMP = ["#7e7468", "#a29888", "#c2b8a8", "#dcd4c4"]                # ... pale ash belly
+ASH_TROUT_BAND = ["#8a4a4c", "#b06a66", "#cc8a80"]                                 # ... faded pink side band
+EEL_RAMP = ["#161a0e", "#232a16", "#343e20", "#48542a", "#5e6c36", "#788646"]     # Bog Eel: peat-dark olive
+EEL_BELLY_RAMP = ["#5e5a24", "#827c34", "#a49c4a", "#c0b866"]                      # ... muddy yellow belly
+CATFISH_RAMP = ["#1c2016", "#2c3224", "#3e4632", "#525c42", "#6a7454", "#848c6a"]  # Sludge Catfish: murky swamp green
+CATFISH_BELLY_RAMP = ["#6a6a50", "#8e8c6a", "#aeaa86", "#c8c4a2"]                  # ... dull putty belly
+SLUDGE_RAMP = ["#2a2c10", "#454a18", "#646c22", "#848e30"]                         # ... the sludge it drips (oily green-brown, NOT rad glow)
+FROSTFIN_RAMP = ["#22405a", "#38607e", "#5684a2", "#7eaac2", "#acd0e0", "#dcf0f6"]  # Frostfin: cold ice blue
+FROSTFIN_ICE_RAMP = ["#7ea8c4", "#b0d2e4", "#dceff6", "#f6fcff"]                   # ... frosted fin shards (pale)
+PIKE_RAMP = ["#1a1e1e", "#2a3030", "#3e4644", "#56605c", "#727c76", "#929a92"]     # Iron Pike: gunmetal green-grey
+PIKE_BELLY_RAMP = ["#6e706a", "#949488", "#b6b4a6", "#d2d0c0"]                     # ... pale steel belly
+PIKE_RIVET = "#b8b4a4"         # Iron Pike: rivet-like spots along its flank
+GLOWFIN_RAMP = ["#0e161e", "#16222e", "#1e3040", "#2a4254", "#3a566a", "#4e6e82"]  # Glowfin: deep night-water blue
+GLOWFIN_GLOW_RAMP = ["#1e5a1c", RAD_GLOW_DEEP, "#5cc436", RAD_GLOW, "#c4f890"]    # ... its glowing fins and spots (rad accent: it IS irradiated)
+GLOWFIN_HALO = "#2f6a40"       # Glowfin: dim green halo pixels just outside its glowing fins
+PERCH_RAMP = ["#262e12", "#3c4a1a", "#566a24", "#728830", "#90a640", "#b0c060"]    # Two-Headed Perch: yellow-green perch
+PERCH_BELLY_RAMP = ["#8a8a4a", "#b2ae62", "#d2cc80", "#e8e2a2"]                    # ... pale yellow belly
+PERCH_FIN_RAMP = ["#6a2410", "#9a3818", "#c85422", "#e87a38"]                      # ... red-orange fins
+MAYOR_RAMP = ["#1a1712", "#2c271e", "#413a2c", "#585040", "#726852", "#8e8468", "#aaa080"]  # The Old Mayor: ancient slate-bronze catfish
+MAYOR_BELLY_RAMP = ["#5e5644", "#7e745a", "#9c9072", "#b8ac8a"]                    # ... dull old belly
+MAYOR_EYE = "#e0b040"         # The Old Mayor: a small old-gold eye (reads on the dark head)
+MAYOR_MOSS = ["#3e4a24", "#56662e"]                                               # The Old Mayor: moss growing on its back
+MAYOR_WHISKER = "#d8cca6"      # The Old Mayor: long cream whiskers
+MAYOR_SCAR = "#b88a7c"         # The Old Mayor: old pink-grey scar across the flank
+GRILL_SKIN_RAMP = ["#3e1a0a", "#682c12", "#94461c", "#bc682c", "#dc8e44", "#f2b86a"]  # Grilled Fish: charred-golden skin
+GRILL_MARK = "#3a1a0c"         # Grilled Fish: grill stripes
+CHOWDER_RAMP = ["#6a5236", "#967650", "#bc9c6c", "#dcc08c", "#f2deb0", "#fff0cc"]  # Fish Stew: creamy chowder broth
+SMOKED_EEL_RAMP = ["#220c06", "#3c1608", "#5c260e", "#803c16", "#a85a24", "#cc823c"]  # Smoked Eel: lacquered mahogany skin
+SMOKE_WISP = ["#a8a090", "#ccc4b2", "#e8e2d2"]                                     # Smoked Eel: blue-grey smoke curl
+BOBBER_RED_RAMP = ["#5a1410", "#8e2018", "#c03426", "#e45a3e"]                     # bobber: painted red top
+BOBBER_CREAM_RAMP = ["#a8987a", "#d4c4a0", "#f2e6c4", "#fff8e2"]                   # bobber: cream lower band
+SPLASH_RAMP = ["#6aa6b8", "#9cc8d2", "#d6ecee", FOAM]                              # water splash: pale blue -> foam (WATER_RAMP's top + FOAM)
