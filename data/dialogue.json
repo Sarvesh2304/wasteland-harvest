@@ -57,7 +57,11 @@
 			{"id": "harlan_story_broadcast", "text": "It wasn't June. I knew it wouldn't be. But somebody built that message to last, hoping someone would hear it. I know the feeling.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "harlan_story_vault", "text": "The Northgate vault, opened by a farmer from our own valley. It's in the town register now, in my very best handwriting.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "harlan_story_home", "text": "Every field in town is sown from the vault. I walked the rows at dawn and wept a little. Officially, it was the dew.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "harlan_story_shared", "text": "Tully's cart went out at dawn, heavy with seed. I watched it all the way to the ridge. This valley is sharing again. I like the sound of that.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "harlan_story_shared", "text": "Tully's cart went out at dawn, heavy with seed. I watched it all the way to the ridge. This valley is sharing again. I like the sound of that.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"text": "My grandfather swore a catfish the size of a cellar door lived in our pond. The Old Mayor, he called it. Nobody's seen it in sixty years. I still look, every autumn.", "when": {"season": "autumn", "not_flag": "caught_old_mayor"}},
+			{"id": "harlan_has_fished", "text": "Your first fish! I've entered it in the town register under Food, Wet. It's a brand new category. I've never been so happy to start a new page.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "harlan_angler", "text": "Six kinds of fish out of our waters! The pond has more registered residents than the town now. I'm considering giving it a vote.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "harlan_caught_old_mayor", "text": "The Old Mayor! Sixty years nobody believed my grandfather. I didn't. Tonight I amend the town register: Grandpa Harlan, right all along. In ink. My very best handwriting.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back again? Persistence is the main qualification for mayor. Careful, or I'll nominate you.",
@@ -160,7 +164,10 @@
 			{"id": "marta_story_broadcast", "text": "A vault full of pre-war seed. I've done the sums three times and keep getting 'priceless', which isn't a number. I hate it.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "marta_story_vault", "text": "You carried real seed out of the Core. If anyone asks what it's worth, send them to me. I won't know either, but I'll say it confidently.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "marta_story_home", "text": "Vault seed in every field. My seed sales will drop and everyone's dinner will improve. I'm calling it a fair trade. Barely.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "marta_story_shared", "text": "You gave it to Tully. Of course he wept. Trade's waking up already: my demand list's twice as long. I'm thrilled. Tell no one.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "marta_story_shared", "text": "You gave it to Tully. Of course he wept. Trade's waking up already: my demand list's twice as long. I'm thrilled. Tell no one.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"id": "marta_has_fished", "text": "First fish, I hear. Ship them and I'll move them fast. Not on my shelf, mind. A fish on a shelf just lies there losing value and staring at me.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "marta_angler", "text": "Six kinds of fish! Profit tried to eat one off your boot. Loss tried to eat Profit. Fish are banned from the counter. I'll still buy every one you ship.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "marta_caught_old_mayor", "text": "The Old Mayor. Fifteen hundred credits of catfish and sixty years of Harlan's grandfather being right. I can price the fish. Nobody could price Harlan's face today.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back so soon? I haven't even recounted.",
@@ -251,7 +258,12 @@
 			{"id": "kael_story_broadcast", "text": "Northgate Seed Reserve. Same name Rook's lot paint on the walls. Could mean nothing. I don't trust nothing.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "kael_story_vault", "text": "You went down under the Core and came back up carrying the future. I've driven worse cargo. Never better.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "kael_story_home", "text": "Seed's in the ground here. Good. Every meal we grow is a run nobody has to make into the ruins.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "kael_story_shared", "text": "Tully's carrying it down the road? Then the road just got safer and more dangerous at once. I'll be watching it. More than usual.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "kael_story_shared", "text": "Tully's carrying it down the road? Then the road just got safer and more dangerous at once. I'll be watching it. More than usual.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"text": "Rain on the pond brings the fish up near the top. Your dad taught me that. Only fishing tip I kept. Every other tip he gave me was about fences.", "when": {"weather": "rain"}},
+			{"id": "kael_old_mayor_hint", "text": "That catfish of Harlan's grandfather's, the Old Mayor? I've seen something big roll in the pond. Autumn, at dusk, in the rain. Only then. Don't tell Harlan. He'll call a meeting.", "when": {"tier": "friend", "not_flag": "caught_old_mayor"}, "priority": 2, "once": true},
+			{"id": "kael_has_fished", "text": "Saw you at the water with a line in. Good. A fish is a meal nobody had to drive into the ruins for. Watch the bank anyway. Banks crumble.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "kael_angler", "text": "Six kinds now? I lived off creeks in the bad years. Couldn't have told you half their names. Didn't matter. What mattered was they bit.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "kael_caught_old_mayor", "text": "So the Old Mayor's real. I saw it roll once, years back, and told nobody. Who believes a man who parks facing out? Nice work, kid. Really.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Still here? Truck's not going anywhere without you. Unless something chases it.",
@@ -330,7 +342,11 @@
 			{"id": "silas_story_broadcast", "text": "Seed, under the Core. If there's clean seed down there, maybe there's... no. One miracle at a time. Go careful, seedling.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "silas_story_vault", "text": "Pre-war seed, clean and never touched. The cows would weep if they understood. Dorothy would eat it. Keep it from Dorothy.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "silas_story_home", "text": "The fields are sown from the vault. Proper hay for the stock next winter. The cows thank you. I asked them.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "silas_story_shared", "text": "Down the road, to every town that's still trying. That's a kind thing, seedling. Kind things travel well.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "silas_story_shared", "text": "Down the road, to every town that's still trying. That's a kind thing, seedling. Kind things travel well.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"text": "Fish rise at dusk, same as the cows come in. Everything wants its supper at the same hour, seedling. Me included.", "when": {"time": "evening"}},
+			{"id": "silas_has_fished", "text": "Fishing, seedling? Good for the soul, sitting still by water. Dorothy tried it once. She ate the line, then the rod, then sulked about the hook.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "silas_angler", "text": "Six kinds of fish! Just keep the eels away from me. A raw eel looks at you like it knows something. Dorothy agrees, and Dorothy agrees with nobody.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "silas_caught_old_mayor", "text": "The Old Mayor, out of the pond at last. I almost feel for it. Sixty years ruling a pond, and along comes a seedling with a rod. Go easy on Harlan. He'll weep.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Still here? Dorothy's been watching you. That's either a compliment or a warning.",
@@ -421,7 +437,10 @@
 			{"id": "brask_story_broadcast", "text": "Vault. Under the Core. Long way down. Take Kael. Come back.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "brask_story_vault", "text": "You opened it. You came back. Good. Both good.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "brask_story_home", "text": "Seed in the fields. More to guard. Good.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "brask_story_shared", "text": "Seed's gone down the road. With Tully. ...Tully. Hm. Wall'll be here when he's back.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "brask_story_shared", "text": "Seed's gone down the road. With Tully. ...Tully. Hm. Wall'll be here when he's back.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"id": "brask_has_fished", "text": "Saw you at the water. Line in. Sat still. Patient. Good.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "brask_angler", "text": "Six kinds. Hm. Grill them. Wood fire. Bit of salt. That's the recipe. All of it.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "brask_caught_old_mayor", "text": "Old Mayor. Harlan's grandfather's fish. Thought it was a story. ...True story. Better.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Still here. So am I.",
@@ -504,7 +523,11 @@
 			{"id": "wren_story_broadcast", "text": "A seed vault under the Core. Told you there was something down there that could green the valley. Early, not crazy.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "wren_story_vault", "text": "You opened it. You actually opened it. I've sat by that hatch with my ear to the steel for two years. Was it cold? It sounded cold.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "wren_story_home", "text": "Every field in town, sown from the vault. I walked past the beds this morning just to look. Don't tell anyone I was out in daylight.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "wren_story_shared", "text": "Down the road, all of it, to towns we'll never see. That's the best secret ever told. Everyone gets to know it.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "wren_story_shared", "text": "Down the road, all of it, to towns we'll never see. That's the best secret ever told. Everyone gets to know it.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"text": "Summer nights, glowfins come up in the water like little lanterns. I sit on the bank and pretend they're signalling. Maybe they are.", "when": {"season": "summer", "time": "night"}},
+			{"id": "wren_has_fished", "text": "You're fishing now? Good. Water's the best place to keep a secret. Everything you tell it sinks.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "wren_angler", "text": "Six kinds! Did you know the river has ruins under it? Carts, a car, half a bridge. The fish live in them. Lucky fish. Nobody makes them leave.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "wren_caught_old_mayor", "text": "You caught the Old Mayor! I've been feeding it crusts for years, by the way. Don't tell Harlan. Let him have this one. He's waited longer than me.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Again? You missed me. It's fine. I'm very missable.",
@@ -589,7 +612,11 @@
 			{"id": "doc_story_broadcast", "text": "Clean seed, sealed before the sickness reached it. Do you know what clean seed in clean soil could do for this town? I do. Go carefully.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "doc_story_vault", "text": "Seed that's never touched a rad. I'd like a few for study. For science. And for soup.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "doc_story_home", "text": "Clean crops in every field. I expect fewer stomach aches by summer. I'll miss the stomach aches. No, I won't.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "doc_story_shared", "text": "Every settlement on the road, eating cleaner. That's the most medicine anyone has ever handed out at once. Well done.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "doc_story_shared", "text": "Every settlement on the road, eating cleaner. That's the most medicine anyone has ever handed out at once. Well done.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"text": "Frostfin season. Cold hands, warm stew, good protein. I'll allow fishing in this weather if you wear gloves. Both gloves.", "when": {"season": "winter"}},
+			{"id": "doc_has_fished", "text": "Fishing? Good. Fish is protein, and sitting still is rest. That's two prescriptions at once. Cook it through, please.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "doc_angler", "text": "Six kinds of fish. Bring me any with extra fins and I'll take notes, then cook it. Thoroughly. Notes first.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "doc_caught_old_mayor", "text": "The Old Mayor. A catfish that old has no business being alive, medically speaking. I'd love to examine it. Harlan would rather frame it. Harlan wins.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back again? Either you missed me or something hurts. Which?",
@@ -676,7 +703,11 @@
 			{"id": "tully_story_broadcast", "text": "A seed vault, eh? Every town on the road has a legend about one. This is the first time a legend's got on the radio.", "when": {"flag": "story_broadcast", "not_flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "tully_story_vault", "text": "Real seed, pre-war, never touched. Friend, do you know what that's worth on the road? Neither do I. Nobody's ever had any to sell.", "when": {"flag": "story_vault_open"}, "priority": 3, "once": true},
 			{"id": "tully_story_home", "text": "Planted here, then. Fair choice. Good soil deserves good seed. I'll tell the road what this valley's growing, and charge them to hear it.", "when": {"flag": "story_home"}, "priority": 3, "once": true},
-			{"id": "tully_story_shared", "text": "Every settlement on the road, a share of the vault, carried by me and one opinionated goat. I've never carried anything that mattered more. Don't tell the caps.", "when": {"flag": "story_shared"}, "priority": 3, "once": true}
+			{"id": "tully_story_shared", "text": "Every settlement on the road, a share of the vault, carried by me and one opinionated goat. I've never carried anything that mattered more. Don't tell the caps.", "when": {"flag": "story_shared"}, "priority": 3, "once": true},
+			{"text": "Rain on the stall, friend? Get a line in the water. Fish bite in the rain, and nobody's out haggling over the good spots.", "when": {"weather": "rain"}},
+			{"id": "tully_has_fished", "text": "Fishing, friend? Smart. Fish are the one thing on the road nobody's settled a price for yet. Give me a week. I'll settle it.", "when": {"flag": "has_fished", "not_flag": "angler"}, "priority": 3, "once": true},
+			{"id": "tully_angler", "text": "Six kinds of fish! Two towns down, they'd trade a cap for a carp. Two caps for a smoked eel. Don't laugh. Caps are coming back.", "when": {"flag": "angler", "not_flag": "caught_old_mayor"}, "priority": 3, "once": true},
+			{"id": "tully_caught_old_mayor", "text": "The Old Mayor! Friend, I've told that story in twenty towns and sold it as a legend. Now it's true. Legends sell. True ones sell for twice as much.", "when": {"flag": "caught_old_mayor"}, "priority": 3, "once": true}
 		],
 		"repeat": [
 			"Back again? The stall hasn't changed. Well. Interest ate a corner.",

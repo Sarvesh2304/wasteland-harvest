@@ -1,5 +1,5 @@
 {
-  "_comment": "Notice-board request templates (Milestone B, 2026-10-08). The contract is docs/SOCIAL_AND_QUESTS.md section 5; loaded by scripts/quest_db.gd. kind deliver takes a pool (crop, forage, material, salvage, cooked, artisan) or items (a list of candidate ids; one is picked per posting); kind hunt takes an enemy (shambler, runner, bloater, rad_hound or any, never raiders). count is [min, max]. Optional gates: min_day (absolute day), min_runs (expeditions so far), season. Tokens in text: {count}, {item} (the pluralised item name, or for a hunt the enemy's name), {due} (the weekday it's due) and {npc} (the requester's name); thanks lines use none. Rewards are computed by the engine, never authored. Routing: salvage goes to Kael, Wren and Brask and hunts to Brask and Kael, all gated on min_runs; food (crop, cooked, artisan) to Marta, Harlan and Doc; material to Harlan and Brask; Silas asks for feed, goat treats and bandages. Hunts for bloaters (Downtown and deeper) and rad-hounds (Industrial Quarter and deeper) wait for more runs, since templates can't gate on depth. Titles are at most 24 characters, text and thanks at most 180; tools/validate_social_data.py checks this file.",
+  "_comment": "Notice-board request templates (Milestone B, 2026-10-08). The contract is docs/SOCIAL_AND_QUESTS.md section 5; loaded by scripts/quest_db.gd. kind deliver takes a pool (crop, forage, material, salvage, cooked, artisan) or items (a list of candidate ids; one is picked per posting); kind hunt takes an enemy (shambler, runner, bloater, rad_hound or any, never raiders). count is [min, max]. Optional gates: min_day (absolute day), min_runs (expeditions so far), season. Tokens in text: {count}, {item} (the pluralised item name, or for a hunt the enemy's name), {due} (the weekday it's due) and {npc} (the requester's name); thanks lines use none. Rewards are computed by the engine, never authored. Routing: salvage goes to Kael, Wren and Brask and hunts to Brask and Kael, all gated on min_runs; food (crop, cooked, artisan) to Marta, Harlan and Doc; material to Harlan and Brask; Silas asks for feed, goat treats and bandages. Fishing (2026-11-24, docs/FISHING.md section 6): the fish pool goes to Kael and Marta. Hunts for bloaters (Downtown and deeper) and rad-hounds (Industrial Quarter and deeper) wait for more runs, since templates can't gate on depth. Titles are at most 24 characters, text and thanks at most 180; tools/validate_social_data.py checks this file.",
   "templates": [
     {"id": "harlan_reserve_bins", "npc": "mayor_harlan", "kind": "deliver", "pool": "crop", "count": [4, 8],
      "min_day": 29, "title": "Reserve Bins",
@@ -26,6 +26,10 @@
      "min_day": 2, "title": "Wild Goods",
      "text": "Marta can sell wild goods at a markup. She needs {count} {item} by {due}, and won't say how big a markup.",
      "thanks": "Picked fresh, sold fresher. Here's your cut. It's fair. I checked twice."},
+    {"id": "marta_fresh_fish", "npc": "marta", "kind": "deliver", "pool": "fish", "count": [2, 3],
+     "min_day": 3, "title": "Fresh Fish Order",
+     "text": "Marta has a buyer for fresh fish, and fresh is the word. Bring her {count} {item} by {due}, before they start losing value.",
+     "thanks": "Sold before they stopped wriggling. Nearly. Here's your share, and thank you. Quickly now, before Profit gets a sniff."},
 
     {"id": "kael_truck_parts", "npc": "scout_kael", "kind": "deliver", "pool": "salvage", "count": [2, 4],
      "min_runs": 1, "title": "Truck Parts",
@@ -39,6 +43,10 @@
      "min_runs": 5, "min_depth": 3, "title": "Hound Trouble",
      "text": "A rad-hound pack is working the deep districts. Kael wants {count} {item} put down before they learn his route. By {due}.",
      "thanks": "Pack's thinner, truck's safer, and you're scarier. All good news. Take this."},
+    {"id": "kael_fish_supper", "npc": "scout_kael", "kind": "deliver", "pool": "fish", "count": [2, 4],
+     "min_day": 3, "title": "Fish Supper",
+     "text": "Kael wants {count} {item} by {due}. He says a fish supper beats anything in a tin, and he's eaten everything in a tin.",
+     "thanks": "Proper food, and nobody had to drive into the ruins for it. Good haul, kid. Here."},
 
     {"id": "silas_winter_feed", "npc": "rancher_silas", "kind": "deliver", "items": ["dustwheat_grain"], "count": [5, 10],
      "season": "autumn", "title": "Winter Feed",

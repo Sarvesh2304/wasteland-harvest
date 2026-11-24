@@ -20,7 +20,9 @@ const FLAGS: Array[String] = ["first_week", "after_day_28", "expedition_today", 
 	# Milestone D (docs/LIVING_SETTLEMENT.md §6)
 	"caravan_day", "festival_tomorrow", "festival_planting_day", "festival_scorch_fair",
 	"festival_harvest_day", "festival_winter_gathering", "story_signal", "story_broadcast",
-	"story_vault_open", "story_home", "story_shared"]
+	"story_vault_open", "story_home", "story_shared",
+	# Fishing (docs/FISHING.md §7)
+	"has_fished", "angler", "caught_old_mayor"]
 const GIFT_KINDS: Array[String] = ["loved", "liked", "neutral", "disliked", "hated", "birthday", "birthday_loved"]
 const MAX_LINE := 200
 

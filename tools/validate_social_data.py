@@ -87,6 +87,8 @@ BASE_FLAGS = [
     "caravan_day", "festival_tomorrow", "festival_planting_day", "festival_scorch_fair",
     "festival_harvest_day", "festival_winter_gathering", "story_signal", "story_broadcast",
     "story_vault_open", "story_home", "story_shared",
+    # Fishing (docs/FISHING.md section 7)
+    "has_fished", "angler", "caught_old_mayor",
 ]
 FLAGS = set(BASE_FLAGS)
 FLAGS |= {"project_" + p for p in PROJECTS} | {"project_%s_new" % p for p in PROJECTS}
