@@ -1160,15 +1160,26 @@ back supplies that improve the town. Raider faction reacts believably to the pla
 reputation.
 
 ### Phase 10 — Business System, Crafting & Advanced Economy
-- [ ] Crafting system — Workshop crafts Scrap Tools, Preserved Food, Medicine, Ammunition,
+- [x] Crafting system — Workshop crafts Scrap Tools, Preserved Food, Medicine, Ammunition,
       Building Materials; recipes unlocked via Blueprint Scrolls
-- [ ] Player-run businesses — Trading Post lets the player set sell prices and stock from
+      *(Delivered across Phases 4-10 and Milestone C: `data/recipes.json` has 52 recipes in Gear,
+      Supplies (bandages, medkits, ammo), Cooking, Machines, Upgrades and more; 9 are taught by
+      Blueprints found in the ruins.)*
+- [x] Player-run businesses — Trading Post lets the player set sell prices and stock from
       inventory
-- [ ] Settler economy — settlers assigned to businesses generate passive income/goods daily
-- [ ] Caravan traders — weekly visiting NPCs with rotating rare-goods stock; prices/stock react
+      *(Milestone D: the Trading Post's shelf sells overnight at a Fair, Bold or Steep markup the
+      player sets; `docs/LIVING_SETTLEMENT.md` §3.)*
+- [x] Settler economy — settlers assigned to businesses generate passive income/goods daily
+      *(Phase 8 settler assignments produce goods daily; Milestone D's trading-post clerk sells
+      x1.5 faster.)*
+- [x] Caravan traders — weekly visiting NPCs with rotating rare-goods stock; prices/stock react
       to town affinity
-- [ ] Supply & demand — store prices fluctuate based on recent sales (e.g. overselling Dustwheat
+      *(Milestone D: Tully's caravan comes Wednesday and Saturday with 6 offers from a 30-item pool
+      and 2% off per heart; `scripts/caravan.gd`.)*
+- [x] Supply & demand — store prices fluctuate based on recent sales (e.g. overselling Dustwheat
       devalues it)
+      *(Milestone D: shipping floods an item's price down to -40%, it recovers nightly, and there's
+      a weekly demand list at +40%; `scripts/market.gd`.)*
 - [ ] **Faction barter trading (added per `GDD.md` §6/§7/§11)** — raider faction and other
       barter-only partners (remote traders, independent scavengers) don't accept Credits; goods-
       for-goods trading with idiosyncratic valuations (e.g. the faction overvalues ammo
@@ -1178,16 +1189,26 @@ reputation.
 businesses, and dynamic pricing all function.
 
 ### Phase 11 — Seasons, Weather & World Events
-- [ ] 4-season cycle (28 in-game days each): Spring Rains, Scorched Summer, Amber Autumn, Grey
+- [x] 4-season cycle (28 in-game days each): Spring Rains, Scorched Summer, Amber Autumn, Grey
       Winter — each changes growable crops, store stock, and lighting palette
-- [ ] Seasonal crops — 4–6 unique crops per season; Winter requires the Greenhouse for outdoor-
+      *(`scripts/calendar.gd`; crops, Marta's shelf (`scripts/shop_db.gd`) and the palette follow
+      the season.)*
+- [x] Seasonal crops — 4–6 unique crops per season; Winter requires the Greenhouse for outdoor-
       equivalent farming
-- [ ] Weather system — daily rolls: clear, cloudy, rain (auto-waters crops), heavy storm (stay
+      *(`data/crops.json`: spring 5, summer 6, autumn 5, winter 1 (Frostroot) plus the Greenhouse
+      Town Works project.)*
+- [x] Weather system — daily rolls: clear, cloudy, rain (auto-waters crops), heavy storm (stay
       indoors), rare radstorm (don't go outside); forecast icon in HUD
+      *(`scripts/weather.gd`: clear, rain, storm, snow and radstorm; rain waters crops; the HUD
+      shows a forecast icon and Kael calls tomorrow's weather.)*
 - [ ] World events — scripted triggers: Bandit Scout near perimeter, Trader Caravan arrival,
       Survivor seeking shelter, disease outbreak (Clinic needed), Mysterious Signal (story hook)
-- [ ] Town festivals — seasonal community events (Harvest Day, Winter Gathering) boosting NPC
+      *(Partly: the trader caravan, survivors seeking shelter (settler visitors) and the
+      Mysterious Signal exist; the bandit scout and disease outbreak don't yet.)*
+- [x] Town festivals — seasonal community events (Harvest Day, Winter Gathering) boosting NPC
       affinity, with mini-game activities
+      *(Milestone D: four festivals with a seed hunt, goat races, the harvest show and a gift
+      circle; `scripts/festivals.gd`.)*
 
 **Milestone:** The world feels alive over time — seasons, weather, and scripted events all
 change what's happening without the player doing anything.
@@ -1200,8 +1221,10 @@ change what's happening without the player doing anything.
 - [ ] Full town map — mayor's house, Marta's store, Clinic, Watchtower, Community Board,
       6–10 settler homes, dock, market stalls
 - [ ] Closed beta released to 10–20 testers; feedback collected on balance/clarity/fun
-- [ ] Performance audit — stable 60fps on modest hardware; tile rendering, NPC pathfinding, and
+- [x] Performance audit — stable 60fps on modest hardware; tile rendering, NPC pathfinding, and
       save/load times optimised
+      *(Milestone E: `tools/perf_probe.gd`; frame work is 1-2 ms in the heaviest scenes;
+      `docs/BALANCE.md` §4.)*
 
 **Milestone (end of Year 2): All core systems built.** Full game loop from farming →
 expeditions → building → economy → seasons. Beta tested.
@@ -1211,8 +1234,10 @@ expeditions → building → economy → seasons. Beta tested.
 Goal: full story, expanded world, co-op expeditions, full audio/visual polish, and public launch.
 
 ### Phase 13 — Story, Narrative & Quest System
-- [ ] Main story arc written — why the player arrived, what caused the apocalypse, a rebuild-
+- [x] Main story arc written — why the player arrived, what caused the apocalypse, a rebuild-
       vs-push-further decision with no single ending
+      *(Milestone D: "The Signal", ending in a choice to plant the vault seed at home or send it
+      down the road; the opening covers the player's birth here (GDD §3).)*
 - [ ] NPC personal questlines — 8–10 main NPCs each get a 3–5 quest chain revealing backstory
       and resolving a personal struggle
 - [ ] Quest journal UI — active/completed quests, objectives, NPC portrait, lore snippet;
@@ -1268,6 +1293,8 @@ distribution.
       feedback
 - [ ] Accessibility options — text size, colourblind mode, reduced motion, dialogue subtitles,
       remappable controls
+      *(Partly, Milestone E: remappable controls, screen shake off, reduce flashes, text speed.
+      No text size (the bitmap font) or colourblind mode yet.)*
 
 **Milestone:** The game looks, sounds, and feels like a finished product, and is usable by
 players who need accessibility accommodations.
