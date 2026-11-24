@@ -18,7 +18,7 @@ const NAMES := {
 ## What each skill's levels buy, shown on the Skills tab.
 const PERK_TEXT := {
 	"farming": "Cheaper hoe and can",
-	"foraging": "Cheaper axe and scythe",
+	"foraging": "Cheaper axe, scythe and rod",
 	"scavenging": "Cheaper pickaxe",
 	"combat": "Hit harder, hurt less",
 	"crafting": "Learn more recipes",
@@ -33,6 +33,8 @@ const TOOL_SKILL := {
 	"watering_can": "farming",
 	"axe": "foraging",
 	"scythe": "foraging",
+	# Fishing is part of Foraging (GDD §8, docs/FISHING.md): a cast costs less as it levels.
+	"fishing_rod": "foraging",
 	"pickaxe": "scavenging",
 }
 

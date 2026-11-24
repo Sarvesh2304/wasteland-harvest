@@ -44,6 +44,9 @@ const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all 3 starts)
 
+## Fishing (docs/FISHING.md §2): what kind of water this zone's 'W' cells are (the creek the founders followed up out of the wastes).
+const WATER_KIND := "creek"
+
 const ROWS: Array[String] = [
 	"FFFFFFFFFFFFFFFFFgFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 	# The treeline: three thinning rows along the whole north edge (and cols 64-70 down the

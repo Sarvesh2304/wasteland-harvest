@@ -12,6 +12,7 @@ const WorldObjectDB := preload("res://scripts/world_object_db.gd")
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 const Calendar := preload("res://scripts/calendar.gd")
 const EnemyDB := preload("res://scripts/enemy_db.gd")
+const FishDB := preload("res://scripts/fish_db.gd")
 
 ## A request is due this many days after it's accepted (Stardew's two).
 const DUE_DAYS := 2
@@ -39,6 +40,9 @@ const MASS_NOUNS: Array[String] = [
 	"quality_fertilizer", "dustwheat_grain", "dust_corn", "cleanleaf_kale", "honey", "cheese", "milk",
 	"mutant_goat_milk", "rotgut", "glow_wine", "berry_jam", "potato_hash", "pepper_chili", "pumpkin_soup",
 	"corn_bread", "crystal_moss", "frost_lichen", "mystery_jerky", "coffee", "purified_water",
+	# Fishing (2026-11-24): "3 Rustgill Carp", "2 Ash Trout", never "Perches" or "Catfishes".
+	"rustgill_carp", "sun_perch", "silver_dace", "ash_trout", "sludge_catfish", "frostfin", "iron_pike",
+	"glowfin", "two_headed_perch", "grilled_fish",
 ]
 
 static var _templates: Array = []
@@ -95,6 +99,11 @@ static func pool_items(pool: String, season: String) -> Array[String]:
 			for crop_id in CropDB.crops_for_season(season):
 				var item := String(CropDB.get_crop(crop_id).get("yield_item", crop_id))
 				if ItemDB.has_item(item) and not out.has(item):
+					out.append(item)
+		"fish":
+			# Fishing (2026-11-24): common fish that bite somewhere this season (never the Old Mayor).
+			for item in FishDB.request_pool(season):
+				if ItemDB.has_item(item):
 					out.append(item)
 		"forage":
 			for kind in WorldObjectDB.kinds_spawning_on("forage_" + season):

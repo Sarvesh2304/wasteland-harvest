@@ -57,6 +57,7 @@ const MarketRules := preload("res://scripts/market_rules.gd")
 const Builder := preload("res://scripts/builder.gd")
 const PlayerProfile := preload("res://scripts/player_profile.gd")
 const SettlementDB := preload("res://scripts/settlement_db.gd")
+const FishDB := preload("res://scripts/fish_db.gd")
 
 ## 2026-10-07 Milestone B: CRAFT (the recipe book, scripts/crafting.gd) and SKILLS tabs join the
 ## ring, right after the inventory. Tabs cycle forward with Q, and either way with Left/Right
@@ -129,12 +130,18 @@ var _journal_tab: Control = null
 var _people_tab: Control = null
 var _note_index := 0
 ## The JOURNAL's pages (Milestone D): up/down picks one; on Notes, E turns to the next note.
-const JOURNAL_PAGES: Array[String] = ["Today", "Town", "Story", "Notes"]
+## Fishing (2026-11-24) adds Fish: every species, "?" until caught; on Fish, E turns to the next.
+const JOURNAL_PAGES: Array[String] = ["Today", "Town", "Story", "Notes", "Fish"]
 const JOURNAL_TODAY := 0
 const JOURNAL_TOWN := 1
 const JOURNAL_STORY := 2
 const JOURNAL_NOTES := 3
+const JOURNAL_FISH := 4
 var journal_page := 0
+## Assigned by main.gd: the catch log (scripts/fishing.gd) for the Fish page.
+var fishing: Node = null
+## The species the Fish page is showing (an index into FishDB.ids()).
+var fish_index := 0
 ## Assigned by main.gd: the market and caravan (Today), festivals and the story (later pages).
 var market: Node = null
 var caravan: Node = null
@@ -240,6 +247,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif tab_index == TAB_JOURNAL and event.is_action_pressed("interact") \
 			and journal_page == JOURNAL_NOTES:
 		_note_index += 1
+		Audio.play_sfx("ui_hover", -10.0)
+		_refresh_journal()
+	elif tab_index == TAB_JOURNAL and event.is_action_pressed("interact") \
+			and journal_page == JOURNAL_FISH:
+		fish_index += 1
 		Audio.play_sfx("ui_hover", -10.0)
 		_refresh_journal()
 	elif event.is_action_pressed("build_cycle") or event.is_action_pressed("move_right") \
@@ -728,6 +740,10 @@ func _recipe_name(id: String) -> String:
 		return "%s Tier %d" % [ItemDB.display_name(String(recipe["upgrade"])), int(recipe["to_tier"])]
 	var count := RecipeDB.result_count(id)
 	var name_text := ItemDB.display_name(RecipeDB.result_item(id))
+	# Fishing: one dish, several fish (data/recipes.json "variant") — "Grilled Fish: Carp".
+	var variant := String(RecipeDB.get_recipe(id).get("variant", ""))
+	if variant != "":
+		name_text = "%s: %s" % [name_text, variant]
 	return name_text if count == 1 else "%s x%d" % [name_text, count]
 
 
@@ -933,6 +949,8 @@ func _refresh_journal() -> void:
 			_journal_story(pane)
 		JOURNAL_NOTES:
 			_journal_notes(pane)
+		JOURNAL_FISH:
+			_journal_fish(pane)
 
 
 const JOURNAL_PANE_X := 64.0
@@ -1046,6 +1064,63 @@ func _journal_notes(pane: Control) -> void:
 	_wrap_put(pane, String(note.get("text", "")), Vector2(0, 26), w, DIM_COLOR)
 	if read.size() > 1:
 		_put(pane, "E: next note", Vector2(0, 110), w, DIM_COLOR)
+
+
+## Fishing: every species as a strip of icons ("?" until caught), and the picked one's count and
+## where and when it bites. Completionist bait (docs/FISHING.md §7).
+func _journal_fish(pane: Control) -> void:
+	var w := JOURNAL_PANE_W
+	var ids := FishDB.ids()
+	var caught: Dictionary = fishing.caught if fishing != null else {}
+	_put(pane, "FISH  (%d of %d caught)" % [FishDB.species_caught(caught), ids.size()], Vector2(0, 0), w, ACCENT_COLOR)
+	if ids.is_empty():
+		return
+	fish_index = posmod(fish_index, ids.size())
+	for i in ids.size():
+		var id: String = ids[i]
+		var at := Vector2(float(i) * 17.0, 13.0)
+		var frame := ColorRect.new()
+		frame.position = at - Vector2(1, 1)
+		frame.size = Vector2(18, 18)
+		frame.color = ACCENT_COLOR if i == fish_index else Color("#e8d29a")
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pane.add_child(frame)
+		var cell := ColorRect.new()
+		cell.position = at
+		cell.size = Vector2(16, 16)
+		cell.color = Color("#fff6d6") if i == fish_index else Color("#f5e2ad")
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pane.add_child(cell)
+		var got := int(caught.get(id, 0)) > 0
+		var path := ItemDB.icon_path(id)
+		if got and path != "" and ResourceLoader.exists(path):
+			var icon := TextureRect.new()
+			icon.texture = load(path)
+			icon.position = at
+			icon.size = Vector2(16, 16)
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			pane.add_child(icon)
+		else:
+			var mark := _put(pane, "?" if not got else ItemDB.display_name(id).substr(0, 1), at + Vector2(0, 3), 16,
+				DIM_COLOR if not got else ROW_COLOR)
+			mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var picked: String = ids[fish_index]
+	var count := int(caught.get(picked, 0))
+	var y := 36.0
+	if count > 0:
+		_put(pane, FishDB.display_name(picked), Vector2(0, y), w - 70, ROW_COLOR)
+		_put(pane, "Caught %d" % count, Vector2(w - 70, y), 70, GOOD_COLOR).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		y += 12
+		y += _wrap_put(pane, FishDB.where_when(picked), Vector2(0, y), w, DIM_COLOR) + 2
+		_wrap_put(pane, "Sells for %d Cr. %s" % [ItemDB.sell_value(picked), ItemDB.description(picked)],
+			Vector2(0, y), w, DIM_COLOR)
+	else:
+		_put(pane, "???", Vector2(0, y), w, ROW_COLOR)
+		var hint := "Not caught yet. Fish the pond, the river and the creek, in every season, at every hour."
+		if FishDB.is_legendary(picked):
+			hint = "Not caught yet. Harlan's grandfather swore something enormous lives in the town pond. Nobody has believed him for sixty years."
+		_wrap_put(pane, hint, Vector2(0, y + 12), w, DIM_COLOR)
+	_put(pane, "%s: next fish" % _prompt("interact"), Vector2(0, 110), w, DIM_COLOR)
 
 
 func _request_progress(req: Dictionary, day: int) -> String:

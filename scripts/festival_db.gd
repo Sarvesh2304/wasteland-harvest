@@ -128,6 +128,8 @@ static func show_kind(item_id: String) -> String:
 		return ""
 	if ItemDB.item_type(item_id) == "crop":
 		return "crop"
+	if ItemDB.item_type(item_id) == "fish":
+		return "fish"
 	if ANIMAL_PRODUCTS.has(item_id):
 		return "animal"
 	if (QuestDB.POOLS["cooked"] as Array).has(item_id):

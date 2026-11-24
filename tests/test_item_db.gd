@@ -5,7 +5,7 @@ const ItemDBScript := preload("res://scripts/item_db.gd")
 const CropDBScript := preload("res://scripts/crop_db.gd")
 
 const VALID_TYPES := ["seed", "crop", "forage", "resource", "food", "tool", "weapon", "ammo",
-	"medicine", "placeable", "equipment", "quest"]
+	"medicine", "placeable", "equipment", "quest", "fish"]
 
 
 func test_catalogue_is_large_and_well_formed() -> void:

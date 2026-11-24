@@ -1,0 +1,45 @@
+{
+  "_comment": "Fishing (2026-11-24, docs/FISHING.md section 5). Loaded by scripts/fish_db.gd. Each fish: id (also its item id in data/items.json, type fish), name, value (sell price, must match items.json), difficulty (1-5: run frequency, run force, sweet-spot width), waters (pond / river / creek; a zone layout's WATER_KIND), seasons, times (morning 6-11, day 11-17, evening 17-21, night 21-2; [] = any time), weather (\"rain\" = only in rain or storm; omitted = any), weight (relative rarity among the fish that can bite), rain_weight (optional multiplier on weight in rain or storm), legendary (bites at legendary_chance of eligible bites, once per save, outside the weighted pick). junk: what about one bite in ten turns out to be, caught instantly with a wry line.",
+  "times": {
+    "morning": [360, 660],
+    "day": [660, 1020],
+    "evening": [1020, 1260],
+    "night": [1260, 1560]
+  },
+  "junk_chance": 0.1,
+  "legendary_chance": 0.05,
+  "junk": [
+    {"id": "old_boot", "item": "rubber", "count": 1, "line": "An old boot. Someone walked out of this world in it. You cut it up for rubber."},
+    {"id": "tin_can", "item": "scrap_metal", "count": 1, "line": "A rusted can. Not even beans. Scrap, then."},
+    {"id": "tangle", "item": "fiber", "count": 2, "line": "A tangle of weed and old line. At least it twists into fiber."}
+  ],
+  "fish": [
+    {"id": "mud_minnow", "name": "Mud Minnow", "value": 15, "difficulty": 1,
+      "waters": ["pond", "river", "creek"], "seasons": ["spring", "summer", "autumn", "winter"], "times": [], "weight": 30},
+    {"id": "shellback_crawdad", "name": "Shellback Crawdad", "value": 35, "difficulty": 1,
+      "waters": ["creek", "pond"], "seasons": ["spring", "summer"], "times": [], "weight": 14},
+    {"id": "rustgill_carp", "name": "Rustgill Carp", "value": 40, "difficulty": 2,
+      "waters": ["pond", "river"], "seasons": ["spring", "summer", "autumn"], "times": [], "weight": 18},
+    {"id": "sun_perch", "name": "Sun Perch", "value": 45, "difficulty": 2,
+      "waters": ["pond"], "seasons": ["summer"], "times": ["day"], "weight": 12},
+    {"id": "silver_dace", "name": "Silver Dace", "value": 55, "difficulty": 2,
+      "waters": ["river", "creek"], "seasons": ["spring", "summer"], "times": ["morning", "day"], "weight": 12},
+    {"id": "ash_trout", "name": "Ash Trout", "value": 60, "difficulty": 3,
+      "waters": ["creek", "river"], "seasons": ["spring", "autumn"], "times": ["morning", "evening"], "weight": 10},
+    {"id": "bog_eel", "name": "Bog Eel", "value": 70, "difficulty": 3,
+      "waters": ["pond", "creek"], "seasons": ["spring", "summer", "autumn", "winter"], "times": ["evening", "night"],
+      "weight": 8, "rain_weight": 2},
+    {"id": "sludge_catfish", "name": "Sludge Catfish", "value": 80, "difficulty": 3,
+      "waters": ["pond"], "seasons": ["spring", "summer", "autumn", "winter"], "times": [], "weather": "rain", "weight": 8},
+    {"id": "frostfin", "name": "Frostfin", "value": 90, "difficulty": 3,
+      "waters": ["pond", "river", "creek"], "seasons": ["winter"], "times": [], "weight": 14},
+    {"id": "iron_pike", "name": "Iron Pike", "value": 110, "difficulty": 4,
+      "waters": ["river"], "seasons": ["autumn", "winter"], "times": [], "weight": 6},
+    {"id": "glowfin", "name": "Glowfin", "value": 120, "difficulty": 4,
+      "waters": ["pond", "river", "creek"], "seasons": ["summer", "autumn"], "times": ["night"], "weight": 6},
+    {"id": "two_headed_perch", "name": "Two-Headed Perch", "value": 150, "difficulty": 4,
+      "waters": ["pond", "river", "creek"], "seasons": ["spring", "summer", "autumn", "winter"], "times": [], "weight": 2},
+    {"id": "old_mayor", "name": "The Old Mayor", "value": 1500, "difficulty": 5,
+      "waters": ["pond"], "seasons": ["autumn"], "times": ["evening"], "weather": "rain", "weight": 0, "legendary": true}
+  ]
+}

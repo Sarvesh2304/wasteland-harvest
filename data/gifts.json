@@ -21,7 +21,7 @@
     },
     "scout_kael": {
       "loved": ["battery", "purified_water", "coffee", "corn_bread"],
-      "liked": ["bandage", "purifier", "preserved_food", "mystery_jerky", "rustgill_carp", "silver_dace", "ash_trout", "iron_pike"],
+      "liked": ["bandage", "purifier", "preserved_food", "mystery_jerky", "medkit", "canned_beans", "rubber", "rustgill_carp", "silver_dace", "ash_trout", "iron_pike"],
       "disliked": ["glow_melon", "glowcap", "sunbloom"],
       "hated": ["rotgut", "glow_wine"]
     },

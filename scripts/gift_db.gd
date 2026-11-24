@@ -12,7 +12,8 @@ const REACTIONS: Array[String] = ["loved", "liked", "neutral", "disliked", "hate
 const LISTS: Array[String] = ["loved", "liked", "disliked", "hated"]
 ## Types the player can hand over. Seeds, tools, weapons, ammo, placeables, equipment and quest
 ## items are never offered (holding them while you talk just talks).
-const GIFTABLE_TYPES: Array[String] = ["crop", "food", "forage", "medicine", "resource"]
+## Fishing (2026-11-24): fish too (Kael likes them; Silas would rather you didn't).
+const GIFTABLE_TYPES: Array[String] = ["crop", "food", "forage", "medicine", "resource", "fish"]
 const NOT_GIFTABLE: Array[String] = ["fertilizer", "quality_fertilizer"]
 
 static var _data: Dictionary = {}

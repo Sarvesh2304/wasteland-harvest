@@ -25,6 +25,11 @@ Any water cell ('W'). Each zone layout that has water declares what kind it is, 
 | `creek` | The Forest Edge farm's water |
 | `river` | Riverside: the farm, path and ranch |
 
+The riverside town had no pond (its water was the river down its west edge and a bank dock), so
+it gained the standard town's south-east pond and dock, same cells: its west edge is `river`, the
+pond is `pond` (`town_layout_riverside.gd`'s `water_kind_at`). The fishing code asks the bound
+zone's map: `test_map.gd`'s `water_kind_at(cell)`.
+
 ## 3. Casting and the bite
 
 1. Hold the rod and face water. **Hold** Use to charge the cast; a small power meter fills
@@ -98,6 +103,9 @@ the journal marks it.
 
   Each recipe names specific fish (recipes take item ids): Grilled Fish has variants, or one
   recipe takes the cheapest fish and the menu shows the rest.
+  Built as variants: Grilled Fish from a Mud Minnow, Rustgill Carp, Sun Perch, Silver Dace or
+  Frostfin, Fish Stew from 2 Mud Minnows or 2 Rustgill Carp; each variant is its own recipe
+  with the same result, and `variant` names the fish on the CRAFT tab ("Grilled Fish: Carp").
 - **Gifts:**
   - Kael likes fish (he grew up living off the land).
   - Brask loves Grilled Fish.

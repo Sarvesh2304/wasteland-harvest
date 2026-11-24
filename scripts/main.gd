@@ -36,6 +36,7 @@ const Faction := preload("res://scripts/faction.gd")
 const Weather := preload("res://scripts/weather.gd")
 const DialogueDB := preload("res://scripts/dialogue_db.gd")
 const ItemDB := preload("res://scripts/item_db.gd")
+const FishingScript := preload("res://scripts/fishing.gd")
 
 ## The always-instantiated zone cluster, keyed "farm"/"path"/"town"/"ranch" — each entry
 ## {map, farm, structures, npcs} (the test_map.tscn instance and its leaf children). Built once
@@ -83,6 +84,8 @@ var market: Node = null
 var caravan: Node = null
 var festivals: Node = null
 var story: Node = null
+## Fishing (2026-11-24, docs/FISHING.md): the cast, the reel and the catch log.
+var fishing: Node2D = null
 ## Morning notices waiting for the screen to be free ([title, body]): finished Town Works.
 var _notices: Array = []
 
@@ -214,6 +217,12 @@ func _ready() -> void:
 	dialogue_ui.story_hook = Callable(story, "conversation_for")
 	dialogue_ui.story_opened.connect(story.on_opened)
 	dialogue_ui.story_choice.connect(story.on_choice)
+	fishing = FishingScript.new()
+	fishing.name = "Fishing"
+	add_child(fishing)
+	fishing.setup(self)
+	player.fishing = fishing
+	GameState.register_save_section("fishing", func() -> Dictionary: return fishing.save_state())
 	town_works = TownWorksScript.new()
 	town_works.name = "TownWorks"
 	add_child(town_works)
@@ -275,13 +284,14 @@ func _ready() -> void:
 	menu_screen.festivals = festivals
 	menu_screen.story = story
 	menu_screen.expedition = expedition
+	menu_screen.fishing = fishing
 	player.menu_screen = menu_screen
 	# Phase 6: register every modal surface with the shared mutual-exclusion gate, so no two of
 	# them can ever be open/active at once (the "B mid-conversation" input-conflict fix — see
 	# modal_gate.gd's class doc, which also documents the three-line recipe for wiring in future
 	# modal UIs like quest journals or pause menus — the recipe the menu above just followed).
 	for surface in [builder, dialogue_ui, store_ui, ranch_store_ui, shipping_ui, menu_screen,
-			storage_ui, confirm_ui, notice_ui]:
+			storage_ui, confirm_ui, notice_ui, fishing.reel_ui]:
 		modal_gate.register(surface)
 		surface.modal_gate = modal_gate
 	# Phase 4 Stage 3: resuming a save vs. starting fresh. GameState stages loaded save data
@@ -294,6 +304,7 @@ func _ready() -> void:
 		_bind_zone("farm")
 		camera.set_target(player)
 		_grant_starting_resource_bonus()
+		_stock_dads_rod()
 		# Phase 8 Stage 1: a fresh game starts with zero completed structures, but recomputing
 		# here (rather than assuming "zero bonuses") keeps this the one call site new-game boot
 		# ever needs, symmetric with _apply_save's own call below.
@@ -451,6 +462,9 @@ func _apply_save(data: Dictionary) -> void:
 	else:
 		festivals.load_state(festival_data)
 	story.load_state(data.get("story", {}))
+	# Fishing: an additive section; a save from before fishing loads with an empty log (Marta
+	# sells the rod for those).
+	fishing.load_state(data.get("fishing", {}))
 	story.apply_effects()
 	var story_flags: Dictionary = SaveData.decode_story_flags(data.get("story_flags", {}))
 	GameState.day_28_food_shortage_seen = bool(story_flags["day_28_food_shortage_seen"])
@@ -551,6 +565,15 @@ func _try_start_day_28_food_shortage() -> void:
 func _grant_starting_resource_bonus() -> void:
 	for entry in SettlementDB.starting_items(GameState.chosen_settlement_id):
 		player.inventory.add_item(String(entry.get("item_id", "")), int(entry.get("count", 0)))
+
+
+## Fishing (docs/FISHING.md §1): a new game finds Dad's old rod in the farm chest, and the
+## first morning's toast says so.
+func _stock_dads_rod() -> void:
+	var chest: Node = zones["farm"]["structures"]
+	chest.chest_inventory.add_tool("fishing_rod", 1)
+	get_tree().create_timer(1.2).timeout.connect(func() -> void:
+		Events.message.emit("Dad's old fishing rod is in the chest."))
 
 
 ## -- Milestone C: the ruins and the expedition loop --
@@ -829,6 +852,8 @@ func dialogue_context() -> Dictionary:
 		flags["caravan_day"] = true
 	flags.merge(festivals.flags(day))
 	flags.merge(story.flags())
+	# Fishing (docs/FISHING.md §7): has_fished, angler (6+ species), caught_old_mayor.
+	flags.merge(fishing.flags())
 	return {"flags": flags}
 
 

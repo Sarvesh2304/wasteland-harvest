@@ -14,7 +14,7 @@ const PATH := "res://data/items.json"
 
 ## Types the shipping box accepts (anything sellable that isn't a tool/weapon/gear/quest item).
 const SHIPPABLE_TYPES: Array[String] = ["crop", "forage", "food", "resource", "medicine", "ammo",
-	"placeable"]
+	"placeable", "fish"]
 ## Farming tool kinds the player's tool dispatch understands.
 const TOOL_KINDS: Array[String] = ["hoe", "watering_can", "axe", "pickaxe", "scythe", "fishing_rod"]
 ## Tool upgrade tiers 1..MAX_TOOL_TIER (Rusty, Patched, Reinforced, Pre-War).

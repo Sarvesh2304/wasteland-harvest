@@ -16,6 +16,8 @@ const CropDB := preload("res://scripts/crop_db.gd")
 const STAPLES: Array[String] = [
 	"fertilizer", "preserved_food", "purified_water", "bandage", "cooked_meal",
 	"slingshot", "crossbow_bolt", "pistol_ammo",
+	# Fishing (2026-11-24): for anyone who lost or sold Dad's rod, and saves from before fishing.
+	"fishing_rod",
 ]
 
 

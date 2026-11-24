@@ -597,6 +597,27 @@ func terrain_at(cell: Vector2i) -> String:
 	return layout.cell(cell.x, cell.y)
 
 
+## Fishing (docs/FISHING.md §2): what kind of water `cell` is — "pond", "river" or "creek" —
+## or "" when it isn't water or the zone's water holds no fish (the ruins). A layout declares
+## `const WATER_KIND`; one with two kinds (the riverside town's pond beside its river) also
+## answers `water_kind_at(x, y)`.
+func water_kind_at(cell: Vector2i) -> String:
+	if layout == null or String(layout.cell(cell.x, cell.y)) != "W":
+		return ""
+	if layout.has_method("water_kind_at"):
+		return String(layout.water_kind_at(cell.x, cell.y))
+	return water_kind_of(layout)
+
+
+## A layout's WATER_KIND constant, or "" if it declares none. `layout_ref` is a layout script
+## (static members) or an instance (the ruins' generated level).
+static func water_kind_of(layout_ref) -> String:
+	var script: Script = layout_ref if layout_ref is Script else (layout_ref.get_script() if layout_ref is Object else null)
+	if script == null:
+		return ""
+	return String(script.get_script_constant_map().get("WATER_KIND", ""))
+
+
 ## Map bounds in ZONE-LOCAL pixels (kept for the tests/tools that predate the zone split).
 func get_map_rect() -> Rect2:
 	return layout.map_rect()

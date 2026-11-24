@@ -1,5 +1,5 @@
 {
-  "_comment": "Crafting recipes (Milestone B, 2026-10-07). Loaded by scripts/recipe_db.gd; crafted through scripts/crafting.gd from the menu's CRAFT tab. Fields: result (item id, defaults to the recipe id), count (how many one craft makes), ingredients ({item: n}, taken from the backpack), credits (optional cost), unlock ({skill: level} - every listed skill must be at least that level; {} = known from the start), category (UI grouping, in CATEGORY_ORDER), xp (crafting XP per craft, default 4). Tool upgrades use upgrade (the tool kind) + to_tier instead of result: the tool in the backpack at to_tier - 1 is rebuilt at to_tier. Every ingredient must be gatherable or craftable in-game; recipes needing ruins loot (chemicals, gunpowder, relics) unlock with Milestone C content. Milestone C (2026-10-08): category Gear (weapons, armour); unlock {\"blueprint:<recipe id>\": 1} = learned by reading a pre-war blueprint found in the ruins.",
+  "_comment": "Crafting recipes (Milestone B, 2026-10-07). Loaded by scripts/recipe_db.gd; crafted through scripts/crafting.gd from the menu's CRAFT tab. Fields: result (item id, defaults to the recipe id), count (how many one craft makes), ingredients ({item: n}, taken from the backpack), credits (optional cost), unlock ({skill: level} - every listed skill must be at least that level; {} = known from the start), category (UI grouping, in CATEGORY_ORDER), xp (crafting XP per craft, default 4). Tool upgrades use upgrade (the tool kind) + to_tier instead of result: the tool in the backpack at to_tier - 1 is rebuilt at to_tier. Every ingredient must be gatherable or craftable in-game; recipes needing ruins loot (chemicals, gunpowder, relics) unlock with Milestone C content. Milestone C (2026-10-08): category Gear (weapons, armour); unlock {\"blueprint:<recipe id>\": 1} = learned by reading a pre-war blueprint found in the ruins. Fishing (2026-11-24, docs/FISHING.md): a dish that can be made from different fish has one recipe per fish, all with the same result; variant (optional) names the fish on the CRAFT tab (Grilled Fish: Carp).",
   "recipes": {
     "crate_chest": {"category": "Storage", "ingredients": {"wood": 30}, "unlock": {}},
     "gravel_path": {"category": "Paths", "count": 5, "ingredients": {"stone": 1}, "unlock": {}},
@@ -38,6 +38,14 @@
     "pepper_chili": {"category": "Cooking", "ingredients": {"scorch_pepper": 2, "blister_tomato": 1}, "unlock": {"farming": 2}},
     "corn_bread": {"category": "Cooking", "ingredients": {"dust_corn": 2, "dustwheat_grain": 2}, "unlock": {"farming": 3}},
     "pumpkin_soup": {"category": "Cooking", "ingredients": {"ember_pumpkin": 1, "ash_beet": 1}, "unlock": {"farming": 4}},
+    "grilled_fish": {"category": "Cooking", "variant": "Minnow", "ingredients": {"mud_minnow": 1, "wood": 1}, "unlock": {}},
+    "grilled_fish_carp": {"result": "grilled_fish", "variant": "Carp", "category": "Cooking", "ingredients": {"rustgill_carp": 1, "wood": 1}, "unlock": {}},
+    "grilled_fish_perch": {"result": "grilled_fish", "variant": "Perch", "category": "Cooking", "ingredients": {"sun_perch": 1, "wood": 1}, "unlock": {}},
+    "grilled_fish_dace": {"result": "grilled_fish", "variant": "Dace", "category": "Cooking", "ingredients": {"silver_dace": 1, "wood": 1}, "unlock": {}},
+    "grilled_fish_frostfin": {"result": "grilled_fish", "variant": "Frostfin", "category": "Cooking", "ingredients": {"frostfin": 1, "wood": 1}, "unlock": {}},
+    "fish_stew": {"category": "Cooking", "variant": "Minnow", "ingredients": {"mud_minnow": 2, "mutant_potato": 1, "wild_greens": 1}, "unlock": {}},
+    "fish_stew_carp": {"result": "fish_stew", "variant": "Carp", "category": "Cooking", "ingredients": {"rustgill_carp": 2, "mutant_potato": 1, "wild_greens": 1}, "unlock": {}},
+    "smoked_eel": {"category": "Cooking", "ingredients": {"bog_eel": 1, "charcoal": 1}, "unlock": {"foraging": 2}},
     "upgrade_hoe_2": {"category": "Upgrades", "upgrade": "hoe", "to_tier": 2, "ingredients": {"metal_bar": 5}, "credits": 250, "unlock": {}},
     "upgrade_watering_can_2": {"category": "Upgrades", "upgrade": "watering_can", "to_tier": 2, "ingredients": {"metal_bar": 5}, "credits": 250, "unlock": {}},
     "upgrade_axe_2": {"category": "Upgrades", "upgrade": "axe", "to_tier": 2, "ingredients": {"metal_bar": 5}, "credits": 250, "unlock": {}},

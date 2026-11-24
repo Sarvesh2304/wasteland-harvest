@@ -165,7 +165,7 @@ func test_authored_requests_are_valid() -> void:
 			for item in t["items"]:
 				assert_true(ItemDB.has_item(String(item)), "%s: item %s exists" % [id, item])
 		else:
-			assert_true(String(t["pool"]) in ["crop", "forage", "material", "salvage", "cooked", "artisan"],
+			assert_true(String(t["pool"]) in ["crop", "forage", "material", "salvage", "cooked", "artisan", "fish"],
 				"%s: known pool" % id)
 		assert_true(String(t.get("title", "")).length() <= 24, "%s: title fits" % id)
 		assert_true(String(t.get("text", "")) != "" and String(t.get("thanks", "")) != "", "%s: has text" % id)

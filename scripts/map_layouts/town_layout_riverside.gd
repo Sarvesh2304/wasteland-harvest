@@ -16,12 +16,17 @@ extends RefCounted
 ##     (path_layout_riverside.gd), and the two 'p' landing cells at x1 here are where that
 ##     bridge meets the town bank. A gap in a river is a known cosmetic rough edge at 16px —
 ##     flagged for the screenshot pass rather than silently ignored.
-##   - The water feature is the bank dock at row 7 ("Wppp"), not the standard variant's
-##     south-east pond.
+##   - The water feature is the bank dock at row 7 ("Wppp") as well as the standard variant's
+##     south-east pond. (Fishing, 2026-11-24: the town pond is in every start — docs/FISHING.md §2 —
+##     so the riverside town gained the same pond and dock as the standard town, same cells.)
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all zones)
+
+## Fishing (docs/FISHING.md §2): what kind of water this zone's 'W' cells are (the west column); the pond is the
+## exception, see water_kind_at().
+const WATER_KIND := "river"
 
 const ROWS: Array[String] = [
 	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
@@ -36,10 +41,10 @@ const ROWS: Array[String] = [
 	"W...............:::.....:..........F",
 	"W...............R........K.........F",
 	"W..................................F",
-	"W..................................F",
-	"W..................................F",
-	"W..................................F",
-	"W..................................F",
+	"W.......................pppWWWWW...F",
+	"W..........................WWWWW...F",
+	"W..........................WWWWW...F",
+	"W..........................WWWWW...F",
 	"WFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 ]
 
@@ -120,6 +125,17 @@ static func decor_props() -> Array[Dictionary]:
 
 static func building_at(x: int, y: int) -> Dictionary:
 	return LayoutCommon.building_at(BUILDINGS, x, y)
+
+
+## Fishing: the town pond (the standard town's same south-east cells) is a pond; every other
+## 'W' here is the river down the west edge.
+const POND_RECT := Rect2i(27, 12, 5, 4)
+
+
+static func water_kind_at(x: int, y: int) -> String:
+	if cell(x, y) != "W":
+		return ""
+	return "pond" if POND_RECT.has_point(Vector2i(x, y)) else WATER_KIND
 
 
 static func water_cells() -> Array[Vector2i]:

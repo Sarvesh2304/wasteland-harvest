@@ -1218,6 +1218,11 @@ change what's happening without the player doing anything.
       early-game advantages
 - [ ] Water body + fishing — animated water tiles, cast-and-catch minigame, fish as
       food/trade commodity, rare fish trigger NPC dialogue
+      *(2026-11-24, `docs/FISHING.md`: fishing is built — Dad's rod in the farm chest, cast and
+      bite, the line-tension reel, 13 fish in pond/river/creek (`data/fish.json`,
+      `scripts/fish_db.gd`, `scripts/fishing.gd`), junk, cooking, requests, the market, the
+      harvest show, the journal's Fish page and the Old Mayor's NPC reactions. Left open for the
+      animated water tiles.)*
 - [ ] Full town map — mayor's house, Marta's store, Clinic, Watchtower, Community Board,
       6–10 settler homes, dock, market stalls
 - [ ] Closed beta released to 10–20 testers; feedback collected on balance/clarity/fun

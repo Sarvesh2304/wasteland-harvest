@@ -28,13 +28,17 @@ extends RefCounted
 ## layout_common.gd's TOWN_NPCS doc).
 ##
 ## The riverside variant (town_layout_riverside.gd) differs only in its west column (river 'W'
-## instead of fence 'F', with a plank landing at the west gate) and its water feature (bank dock
-## instead of the south-east pond) — literal duplication with this cross-reference comment,
+## instead of fence 'F', with a plank landing at the west gate) and an extra water feature (a
+## bank dock on the river; since fishing, 2026-11-24, it has this south-east pond too) — literal
+## duplication with this cross-reference comment,
 ## matching the farm layout files' own convention.
 
 const LayoutCommon := preload("res://scripts/map_layouts/layout_common.gd")
 
 const CELL_SIZE := 16  # px, the locked Phase 1 tile size (shared across all zones)
+
+## Fishing (docs/FISHING.md §2): what kind of water this zone's 'W' cells are (the south-east pond).
+const WATER_KIND := "pond"
 
 const ROWS: Array[String] = [
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",

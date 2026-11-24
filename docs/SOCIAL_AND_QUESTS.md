@@ -180,6 +180,9 @@ World flags:
 | `project_<id>` | that Town Works project is complete (e.g. `project_clinic`) |
 | `project_<id>_new` | …and it was completed in the last 3 days |
 | `has_request_<npc_id>` | you hold an active request from that NPC |
+| `has_fished` | the player has landed at least one fish (junk doesn't count; docs/FISHING.md §7) |
+| `angler` | 6 or more fish species caught |
+| `caught_old_mayor` | the Old Mayor, the town pond's legendary catfish, has been landed |
 
 **Picking a line.**
 1. Keep the lines whose `when` all match, dropping `once` lines already seen.

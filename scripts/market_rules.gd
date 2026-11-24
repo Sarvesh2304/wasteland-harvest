@@ -19,7 +19,7 @@ const DEMAND_COUNT := 3
 ## The first demand list is posted on the second Monday; week one stays simple.
 const DEMAND_FROM_DAY := 8
 const DAYS_PER_WEEK := 7
-const DEMAND_POOLS: Array[String] = ["crop", "forage", "cooked", "artisan"]
+const DEMAND_POOLS: Array[String] = ["crop", "forage", "cooked", "artisan", "fish"]
 
 
 ## The price multiplier a saturation of `s` gives: 1.0 up to FREE_SATURATION, falling to 0.6 at 1.

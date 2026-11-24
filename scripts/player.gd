@@ -161,6 +161,9 @@ var storage_ui: Node = null
 var confirm_ui: Node = null
 ## Milestone B: the notice board (scripts/notice_ui.gd).
 var notice_ui: Node = null
+## Fishing (2026-11-24, scripts/fishing.gd): with the rod in hand, Use casts; while a line is out
+## fishing owns each physics frame (see handle_player_frame).
+var fishing: Node = null
 var inventory: Inventory = Inventory.new()
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -227,6 +230,11 @@ func _physics_process(delta: float) -> void:
 		modal_open, _modal_open_last_frame)
 	_modal_open_last_frame = modal_open
 	_update_target()
+	# Fishing: while a line is out, the rod has the player's hands (and the Use button).
+	if fishing != null and not _zone_transitioning and fishing.handle_player_frame(use_pressed,
+			Input.get_vector("move_left", "move_right", "move_up", "move_down"), modal_open):
+		velocity = Vector2.ZERO
+		return
 	if using_tool:
 		velocity = Vector2.ZERO
 		return
@@ -398,7 +406,8 @@ func _now() -> float:
 
 func _in_any_modal() -> bool:
 	return _in_dialogue() or _in_store() or _in_shipping() or _in_menu() or _in_storage() \
-		or _in_confirm() or (notice_ui != null and bool(notice_ui.active)) or watching
+		or _in_confirm() or (notice_ui != null and bool(notice_ui.active)) or watching \
+		or (fishing != null and fishing.reeling())
 
 
 func bind_world(farm_node: Node, map_node: Node, structures_node: Node = null,
@@ -481,6 +490,8 @@ func describe_action() -> Dictionary:
 	var out := {"use": "", "interact": ""}
 	if test_map == null or farm == null:
 		return out
+	if fishing != null and fishing.busy():
+		return fishing.prompt_actions()
 	var cell := _target_cell()
 	var instant := _instant_target(cell)
 	var instant_interact := _instant_target(cell, false)
@@ -499,6 +510,9 @@ func describe_action() -> Dictionary:
 	var slot := inventory.get_selected_slot()
 	var item_id := String(slot.get("item_id", ""))
 	var kind := ItemDB.tool_kind(item_id)
+	if kind == "fishing_rod":
+		out["use"] = "Cast" if _water_ahead() else ""
+		return out
 	if ItemDB.item_type(item_id) == "equipment":
 		out["use"] = "Equip"
 		out["interact"] = "Equip"
@@ -608,7 +622,22 @@ func use_tool(instant_allowed: bool = true) -> void:
 		return
 	if energy <= 0.0:
 		return
+	if ItemDB.tool_kind(String(inventory.get_selected_slot().get("item_id", ""))) == "fishing_rod":
+		# Hold to charge a cast, release to throw (scripts/fishing.gd takes it from here).
+		if fishing != null:
+			fishing.try_start()
+		return
 	_resolve_use(cell)
+
+
+## Fishing: whether any of the cells a cast can reach (1-4 ahead) is water, for the prompt.
+func _water_ahead() -> bool:
+	var my_cell: Vector2i = test_map.world_to_cell(global_position)
+	var dir := Vector2i(FACING_VECTORS.get(facing, Vector2(0, 1)))
+	for n in range(1, 5):
+		if _is_water(my_cell + dir * n):
+			return true
+	return false
 
 
 ## INTERACT button: instant interactions, harvesting, forage, and using the selected item.

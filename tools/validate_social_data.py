@@ -118,10 +118,10 @@ GIFT_KINDS = {  # kind: (min, max) authored lines — spec section 3's gift targ
 }
 OPTIONAL_GIFT_KINDS = {"already_today"}
 
-GIFTABLE_TYPES = {"crop", "food", "forage", "medicine", "resource"}
+GIFTABLE_TYPES = {"crop", "food", "forage", "medicine", "resource", "fish"}
 NOT_GIFTABLE = {"fertilizer", "quality_fertilizer"}
 GIFT_LISTS = ["loved", "liked", "disliked", "hated"]
-GIFT_LIST_COUNTS = {"loved": (3, 5), "liked": (5, 8), "disliked": (2, 4), "hated": (1, 3)}
+GIFT_LIST_COUNTS = {"loved": (3, 5), "liked": (5, 12), "disliked": (2, 4), "hated": (1, 3)}
 REQUIRED_TASTES = [  # spec section 4, "make it characterful"
     ("doc_ama", "loved", "cleanleaf_kale"), ("doc_ama", "hated", "rotgut"),
     ("brask", "loved", "mystery_jerky"), ("wren", "loved", "circuit_board"),
@@ -129,7 +129,7 @@ REQUIRED_TASTES = [  # spec section 4, "make it characterful"
     ("marta", "loved", "bottle_caps"),
 ]
 
-POOLS = ["crop", "forage", "material", "salvage", "cooked", "artisan"]
+POOLS = ["crop", "forage", "material", "salvage", "cooked", "artisan", "fish"]
 FOOD_POOLS = {"crop", "cooked", "artisan"}
 HUNT_ENEMIES = ["shambler", "runner", "bloater", "rad_hound", "any"]
 REQUEST_KEYS = {"id", "npc", "kind", "pool", "items", "enemy", "count", "min_day", "min_runs",
@@ -141,6 +141,7 @@ POOL_ROUTING = {  # pool/kind: NPCs allowed to post it — spec section 5's cont
     "artisan": {"marta", "mayor_harlan", "doc_ama"},
     "material": {"mayor_harlan", "brask"},
     "hunt": {"brask", "scout_kael"},
+    "fish": {"scout_kael", "marta"},  # docs/FISHING.md section 6
 }
 
 LIMIT_DIALOGUE = 200
